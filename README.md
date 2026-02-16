@@ -1,30 +1,44 @@
 # ttyd-mux
 
-ttyd session multiplexer - 複数の ttyd+tmux セッションを管理するCLIツール
+A CLI tool for managing multiple ttyd+tmux web terminal sessions.
 
-## 概要
+複数の ttyd+tmux Web ターミナルセッションを管理する CLI ツール。
 
+---
+
+## Overview / 概要
+
+**English:**
+ttyd-mux makes it easy to manage multiple web terminal (ttyd) sessions.
+
+- Run `ttyd-mux up` in any directory to start a browser-accessible terminal
+- Provides a portal page to manage all sessions
+- Integrates with reverse proxies like Caddy for external access
+
+**日本語:**
 ttyd-mux は、複数の Web ターミナル（ttyd）セッションを簡単に管理するためのツールです。
 
 - カレントディレクトリで `ttyd-mux up` するだけでブラウザアクセス可能なターミナルを起動
 - 複数セッションを一元管理するポータルページを提供
 - Caddy などのリバースプロキシと連携して外部公開
 
-## インストール
+## Installation / インストール
 
 ```bash
+# Install globally with npm
 # npm でグローバルインストール
 npm install -g ttyd-mux
 
+# Or run directly with npx
 # または npx で直接実行
 npx ttyd-mux up
 ```
 
-### 必要な依存関係
+### Prerequisites / 必要な依存関係
 
-- **Node.js** 18 以上（または Bun）
+- **Node.js** 18+ (or Bun)
 - **ttyd**: https://github.com/tsl0922/ttyd
-- **tmux**: ターミナルマルチプレクサ
+- **tmux**: Terminal multiplexer
 
 ```bash
 # Ubuntu/Debian
@@ -34,65 +48,61 @@ sudo apt install ttyd tmux
 brew install ttyd tmux
 ```
 
-## クイックスタート
+## Quick Start / クイックスタート
 
 ```bash
+# Start in your project directory
 # プロジェクトディレクトリで起動
 cd ~/my-project
 ttyd-mux up
 
-# ブラウザでアクセス
+# Access in browser / ブラウザでアクセス
 # http://localhost:7680/ttyd-mux/my-project/
 
-# 状態確認
+# Check status / 状態確認
 ttyd-mux status
 
-# 停止
+# Stop / 停止
 ttyd-mux down
 ```
 
-## コマンド
+## Commands / コマンド
 
-### メインコマンド
-
-```bash
-ttyd-mux up [--name <name>]     # セッション起動 → 自動アタッチ
-ttyd-mux up --detach            # セッション起動のみ（アタッチしない）
-ttyd-mux down                   # カレントディレクトリのセッション停止
-```
-
-### セッション管理
+### Main Commands / メインコマンド
 
 ```bash
-ttyd-mux start <name>           # 事前定義セッションを起動
-ttyd-mux start --all            # 全ての事前定義セッションを起動
-ttyd-mux stop <name>            # セッション停止
-ttyd-mux stop --all             # 全セッション停止
-ttyd-mux status                 # 状態表示
+ttyd-mux up [--name <name>]     # Start session and attach / セッション起動 → 自動アタッチ
+ttyd-mux up --detach            # Start without attaching / セッション起動のみ（アタッチしない）
+ttyd-mux down                   # Stop current directory session / カレントディレクトリのセッション停止
 ```
 
-### 直接アクセス
+### Session Management / セッション管理
 
 ```bash
-ttyd-mux attach [name]          # tmuxセッションに直接アタッチ
+ttyd-mux start <name>           # Start predefined session / 事前定義セッションを起動
+ttyd-mux start --all            # Start all predefined sessions / 全ての事前定義セッションを起動
+ttyd-mux stop <name>            # Stop session / セッション停止
+ttyd-mux stop --all             # Stop all sessions / 全セッション停止
+ttyd-mux status                 # Show status / 状態表示
 ```
 
-### デーモン制御
+### Direct Access / 直接アクセス
 
 ```bash
-ttyd-mux daemon                 # デーモン起動
-ttyd-mux daemon -f              # フォアグラウンドで起動（デバッグ用）
-ttyd-mux shutdown               # デーモン終了
+ttyd-mux attach [name]          # Attach directly to tmux session / tmuxセッションに直接アタッチ
 ```
 
-### 設定生成
+### Daemon Control / デーモン制御
 
 ```bash
-ttyd-mux generate caddy         # Caddyfile生成
-ttyd-mux generate caddy -o Caddyfile --hostname example.com
+ttyd-mux daemon                 # Start daemon / デーモン起動
+ttyd-mux daemon -f              # Start in foreground (debug) / フォアグラウンドで起動（デバッグ用）
+ttyd-mux shutdown               # Stop daemon / デーモン終了
 ```
 
-## 設定
+## Configuration / 設定
+
+Configuration files are searched in the following order:
 
 設定ファイルは以下の順序で検索されます：
 
@@ -100,30 +110,32 @@ ttyd-mux generate caddy -o Caddyfile --hostname example.com
 2. `./.ttyd-mux.yaml`
 3. `~/.config/ttyd-mux/config.yaml`
 
-### 設定例
+### Example / 設定例
 
 ```yaml
 # ~/.config/ttyd-mux/config.yaml
 
-# URLパスのプレフィックス
+# URL path prefix / URLパスのプレフィックス
 base_path: /ttyd-mux
 
-# ttydセッションのベースポート
+# Base port for ttyd sessions / ttydセッションのベースポート
 base_port: 7600
 
-# デーモンのHTTPポート
+# Daemon HTTP port / デーモンのHTTPポート
 daemon_port: 7680
 
+# Listen addresses (default: IPv4 + IPv6 localhost)
 # リッスンアドレス（デフォルト: IPv4 + IPv6 localhost）
 listen_addresses:
   - "127.0.0.1"
   - "::1"
-  # - "0.0.0.0"  # 外部からのアクセスを許可する場合
+  # - "0.0.0.0"  # Allow external access / 外部からのアクセスを許可する場合
 
+# Auto-attach to tmux on session start (default: true)
 # セッション起動時に自動でtmuxにアタッチ（デフォルト: true）
 auto_attach: true
 
-# 事前定義セッション（オプション）
+# Predefined sessions (optional) / 事前定義セッション（オプション）
 sessions:
   - name: project-a
     dir: /home/user/project-a
@@ -136,7 +148,7 @@ sessions:
     port_offset: 2
 ```
 
-## アーキテクチャ
+## Architecture / アーキテクチャ
 
 ```
                                     ┌─────────────────┐
@@ -153,29 +165,29 @@ sessions:
                  └──────────────┘
 ```
 
-- **Caddy**: 外部からのリクエストを ttyd-mux に転送
-- **ttyd-mux daemon**: ポータル表示 + ttyd へのリバースプロキシ
-- **ttyd**: 各セッションの Web ターミナル（tmux を起動）
+- **Caddy**: Forwards external requests to ttyd-mux / 外部からのリクエストを ttyd-mux に転送
+- **ttyd-mux daemon**: Portal + reverse proxy to ttyd / ポータル表示 + ttyd へのリバースプロキシ
+- **ttyd**: Web terminal for each session (runs tmux) / 各セッションの Web ターミナル（tmux を起動）
 
-## Caddy との連携
+## Caddy Integration / Caddy との連携
 
-### Admin API で設定（推奨）
+### Using Admin API (Recommended) / Admin API で設定（推奨）
 
 ```bash
-# ルートを追加
+# Add route / ルートを追加
 ttyd-mux caddy setup --hostname example.com
 
-# 設定を確認
+# Check configuration / 設定を確認
 ttyd-mux caddy status
 
-# ルートを削除
+# Remove route / ルートを削除
 ttyd-mux caddy remove --hostname example.com
 ```
 
-### Caddyfile 手動編集
+### Manual Caddyfile / Caddyfile 手動編集
 
 ```bash
-# コピペ用スニペットを表示
+# Show snippet for copy-paste / コピペ用スニペットを表示
 ttyd-mux caddy snippet
 ```
 
@@ -185,38 +197,38 @@ handle /ttyd-mux/* {
 }
 ```
 
-詳細は [docs/caddy-setup.md](docs/caddy-setup.md) を参照。
+See [docs/caddy-setup.md](docs/caddy-setup.md) for details.
 
-## ファイル構成
+## File Structure / ファイル構成
 
 ```
 ~/.config/ttyd-mux/
-  config.yaml           # 設定ファイル
+  config.yaml           # Configuration file / 設定ファイル
 
 ~/.local/state/ttyd-mux/
-  state.json            # 実行中セッションの状態
-  ttyd-mux.sock         # デーモン通信用ソケット
+  state.json            # Running session state / 実行中セッションの状態
+  ttyd-mux.sock         # Daemon communication socket / デーモン通信用ソケット
 ```
 
-## 開発
+## Development / 開発
 
 ```bash
-# 開発実行
+# Run in development / 開発実行
 bun run src/index.ts <command>
 
-# テスト
+# Test / テスト
 bun test
 
-# 型チェック
+# Type check / 型チェック
 bun run typecheck
 
-# リント
+# Lint / リント
 bun run check
 
-# ビルド（単一実行ファイル）
+# Build single executable / ビルド（単一実行ファイル）
 bun build src/index.ts --compile --outfile ttyd-mux
 ```
 
-## ライセンス
+## License / ライセンス
 
 MIT
