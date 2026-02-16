@@ -205,6 +205,31 @@ function handleUpgrade(config: Config, req: IncomingMessage, socket: Socket, hea
   backendWs.on('open', () => {
     // Upgrade client connection once backend is ready
     wss.handleUpgrade(req, socket, head, (clientWs) => {
+      let closed = false;
+
+      const cleanup = (initiator: 'client' | 'backend', code?: number, reason?: Buffer) => {
+        if (closed) return;
+        closed = true;
+
+        // Close the other side with proper code
+        const closeCode = code ?? 1000;
+        const closeReason = reason?.toString() ?? '';
+
+        if (initiator === 'client') {
+          if (backendWs.readyState === WebSocket.OPEN) {
+            backendWs.close(closeCode, closeReason);
+          } else {
+            backendWs.terminate();
+          }
+        } else {
+          if (clientWs.readyState === WebSocket.OPEN) {
+            clientWs.close(closeCode, closeReason);
+          } else {
+            clientWs.terminate();
+          }
+        }
+      };
+
       // Forward messages bidirectionally
       clientWs.on('message', (data, isBinary) => {
         if (backendWs.readyState === WebSocket.OPEN) {
@@ -219,22 +244,24 @@ function handleUpgrade(config: Config, req: IncomingMessage, socket: Socket, hea
       });
 
       // Handle close events
-      clientWs.on('close', (code, reason) => {
-        backendWs.close(code, reason);
-      });
+      clientWs.on('close', (code, reason) => cleanup('client', code, reason));
+      backendWs.on('close', (code, reason) => cleanup('backend', code, reason));
 
-      backendWs.on('close', (code, reason) => {
-        clientWs.close(code, reason);
+      // Handle errors - terminate to ensure cleanup
+      clientWs.on('error', () => {
+        clientWs.terminate();
+        cleanup('client', 1006);
       });
-
-      // Handle errors
-      clientWs.on('error', () => backendWs.close());
-      backendWs.on('error', () => clientWs.close());
+      backendWs.on('error', () => {
+        backendWs.terminate();
+        cleanup('backend', 1006);
+      });
     });
   });
 
   backendWs.on('error', (err) => {
     console.error(`[WebSocket] Connection error: ${err.message}`);
+    backendWs.terminate();
     socket.destroy();
   });
 }
