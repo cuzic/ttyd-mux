@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { program } from 'commander';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')) as { version: string };
 import { attachCommand } from './commands/attach.js';
 import {
   caddyRemoveCommand,
@@ -19,7 +25,7 @@ import { upCommand } from './commands/up.js';
 program
   .name('ttyd-mux')
   .description('ttyd session multiplexer - manage multiple ttyd+tmux sessions')
-  .version('0.2.0');
+  .version(pkg.version);
 
 // === Main commands ===
 
