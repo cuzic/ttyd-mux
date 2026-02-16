@@ -1,0 +1,69 @@
+{
+  "name": "ttyd-mux",
+  "version": "0.2.0",
+  "description": "ttyd session multiplexer - manage multiple ttyd+tmux sessions",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "ttyd-mux": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "check": "biome check ./src",
+    "check:fix": "biome check ./src --write",
+    "format": "biome format ./src --write",
+    "test": "bun test src/",
+    "test:watch": "bun test src/ --watch",
+    "test:e2e": "bunx playwright test",
+    "test:e2e:headed": "bunx playwright test --headed",
+    "test:e2e:debug": "bunx playwright test --debug",
+    "validate": "bun run typecheck && bun run check && bun run test",
+    "build": "tsc",
+    "build:binary": "bun build src/index.ts --compile --outfile ttyd-mux",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "@playwright/test": "^1.58.2",
+    "@types/bun": "latest",
+    "@types/http-proxy": "^1.17.14",
+    "@types/node": "^22.0.0",
+    "@types/proper-lockfile": "^4.1.4",
+    "playwright": "^1.58.2",
+    "typescript": "^5.6.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "ttyd",
+    "tmux",
+    "terminal",
+    "multiplexer",
+    "cli",
+    "web-terminal",
+    "session-manager"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cuzic/ttyd-mux.git"
+  },
+  "homepage": "https://github.com/cuzic/ttyd-mux#readme",
+  "bugs": {
+    "url": "https://github.com/cuzic/ttyd-mux/issues"
+  },
+  "author": "cuzic",
+  "dependencies": {
+    "commander": "^14.0.2",
+    "http-proxy": "^1.18.1",
+    "proper-lockfile": "^4.1.2",
+    "yaml": "^2.6.0",
+    "zod": "^4.3.6"
+  }
+}

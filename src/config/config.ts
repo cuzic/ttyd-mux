@@ -1,0 +1,60 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { parse as parseYaml } from 'yaml';
+import { type Config, ConfigSchema } from './types.js';
+
+function getConfigPaths(): string[] {
+  return [
+    join(process.cwd(), 'ttyd-mux.yaml'),
+    join(process.cwd(), '.ttyd-mux.yaml'),
+    join(homedir(), '.config', 'ttyd-mux', 'config.yaml')
+  ];
+}
+
+export function findConfigPath(): string | null {
+  for (const path of getConfigPaths()) {
+    if (existsSync(path)) {
+      return path;
+    }
+  }
+  return null;
+}
+
+export function loadConfig(configPath?: string): Config {
+  const path = configPath ?? findConfigPath();
+
+  if (!path) {
+    // Return default config using zod defaults
+    return ConfigSchema.parse({});
+  }
+
+  try {
+    const content = readFileSync(path, 'utf-8');
+    const parsed = parseYaml(content);
+    return ConfigSchema.parse(parsed);
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to load config from ${path}: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+export function getSessionPort(config: Config, portOffset: number): number {
+  return config.base_port + portOffset;
+}
+
+export function normalizeBasePath(basePath: string): string {
+  return basePath.replace(/\/$/, '');
+}
+
+export function getFullPath(config: Config, sessionPath: string): string {
+  const basePath = normalizeBasePath(config.base_path);
+  const path = sessionPath.startsWith('/') ? sessionPath : `/${sessionPath}`;
+  return `${basePath}${path}`;
+}
+
+export function findSessionDefinition(config: Config, name: string) {
+  return config.sessions?.find((s) => s.name === name);
+}

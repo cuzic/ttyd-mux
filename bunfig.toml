@@ -1,0 +1,3 @@
+# Bun configuration
+# Run 'bun test src/' for unit tests
+# Run 'bun run test:e2e' for Playwright tests
