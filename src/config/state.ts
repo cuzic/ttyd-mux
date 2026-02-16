@@ -59,7 +59,7 @@ export function saveState(state: State): void {
  */
 export function withStateLock<T>(fn: () => T): T {
   ensureStateFile();
-  lockSync(STATE_FILE, { retries: 5 });
+  lockSync(STATE_FILE);
   try {
     return fn();
   } finally {

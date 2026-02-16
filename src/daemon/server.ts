@@ -1,6 +1,7 @@
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from 'node:http';
 import type { Socket } from 'node:net';
 import httpProxy from 'http-proxy';
+import WebSocket, { WebSocketServer } from 'ws';
 import { getFullPath, normalizeBasePath } from '../config/config.js';
 import { getDaemonState } from '../config/state.js';
 import type { Config, SessionState } from '../config/types.js';
@@ -15,10 +16,10 @@ import {
   stopSession
 } from './session-manager.js';
 
-// Create proxy server with WebSocket support
+// Create proxy server for HTTP only
 const proxy = httpProxy.createProxyServer({
-  ws: true,
-  changeOrigin: true
+  changeOrigin: true,
+  xfwd: true
 });
 
 // Handle proxy errors
@@ -172,6 +173,7 @@ function handleRequest(config: Config, req: IncomingMessage, res: ServerResponse
   // Try to proxy to a session
   const session = findSessionForPath(config, url);
   if (session) {
+    console.log(`[Proxy] ${url} -> http://localhost:${session.port}`);
     proxy.web(req, res, { target: `http://localhost:${session.port}` });
     return;
   }
@@ -181,15 +183,60 @@ function handleRequest(config: Config, req: IncomingMessage, res: ServerResponse
   res.end('Not Found');
 }
 
+// Create WebSocket server (noServer mode for manual upgrade handling)
+const wss = new WebSocketServer({ noServer: true });
+
 function handleUpgrade(config: Config, req: IncomingMessage, socket: Socket, head: Buffer): void {
   const url = req.url ?? '/';
-
   const session = findSessionForPath(config, url);
-  if (session) {
-    proxy.ws(req, socket, head, { target: `http://localhost:${session.port}` });
-  } else {
+  if (!session) {
     socket.destroy();
+    return;
   }
+
+  // Connect to backend WebSocket
+  const backendUrl = `ws://127.0.0.1:${session.port}${url}`;
+  const protocol = req.headers['sec-websocket-protocol'];
+  const backendWs = new WebSocket(
+    backendUrl,
+    protocol ? protocol.split(',').map((p) => p.trim()) : []
+  );
+
+  backendWs.on('open', () => {
+    // Upgrade client connection once backend is ready
+    wss.handleUpgrade(req, socket, head, (clientWs) => {
+      // Forward messages bidirectionally
+      clientWs.on('message', (data, isBinary) => {
+        if (backendWs.readyState === WebSocket.OPEN) {
+          backendWs.send(data, { binary: isBinary });
+        }
+      });
+
+      backendWs.on('message', (data, isBinary) => {
+        if (clientWs.readyState === WebSocket.OPEN) {
+          clientWs.send(data, { binary: isBinary });
+        }
+      });
+
+      // Handle close events
+      clientWs.on('close', (code, reason) => {
+        backendWs.close(code, reason);
+      });
+
+      backendWs.on('close', (code, reason) => {
+        clientWs.close(code, reason);
+      });
+
+      // Handle errors
+      clientWs.on('error', () => backendWs.close());
+      backendWs.on('error', () => clientWs.close());
+    });
+  });
+
+  backendWs.on('error', (err) => {
+    console.error(`[WebSocket] Connection error: ${err.message}`);
+    socket.destroy();
+  });
 }
 
 export function createDaemonServer(config: Config): Server {
