@@ -6,6 +6,16 @@ A CLI tool for managing multiple ttyd+tmux web terminal sessions.
 
 ---
 
+## Motivation / 開発動機
+
+**English:**
+This tool was developed to easily access terminal sessions running AI coding assistants like [Claude Code](https://docs.anthropic.com/en/docs/claude-code) from a web browser. When running long coding sessions with AI assistants on a remote server, you can monitor and interact with them from anywhere through your browser.
+
+**日本語:**
+このツールは、[Claude Code](https://docs.anthropic.com/ja/docs/claude-code) などの AI コーディングアシスタントを実行しているターミナルセッションに、ブラウザから簡単にアクセスできるようにする目的で開発されました。リモートサーバーで AI アシスタントと長時間のコーディングセッションを実行する際、ブラウザからどこからでも監視・操作できます。
+
+---
+
 ## Overview / 概要
 
 **English:**
@@ -14,6 +24,7 @@ ttyd-mux makes it easy to manage multiple web terminal (ttyd) sessions.
 - Run `ttyd-mux up` in any directory to start a browser-accessible terminal
 - Provides a portal page to manage all sessions
 - Integrates with reverse proxies like Caddy for external access
+- Perfect for monitoring AI coding assistants like Claude Code remotely
 
 **日本語:**
 ttyd-mux は、複数の Web ターミナル（ttyd）セッションを簡単に管理するためのツールです。
@@ -21,6 +32,7 @@ ttyd-mux は、複数の Web ターミナル（ttyd）セッションを簡単�
 - カレントディレクトリで `ttyd-mux up` するだけでブラウザアクセス可能なターミナルを起動
 - 複数セッションを一元管理するポータルページを提供
 - Caddy などのリバースプロキシと連携して外部公開
+- Claude Code などの AI コーディングアシスタントをリモートから監視するのに最適
 
 ## Installation / インストール
 
