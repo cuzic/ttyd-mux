@@ -665,6 +665,10 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
   let shiftTouchActive = false;  // Track if we're in Shift+touch selection mode
 
   document.addEventListener('touchstart', function(e) {
+    // Don't interfere with IME helper buttons
+    if (e.target.closest('#ttyd-ime-container') || e.target.closest('#ttyd-ime-toggle')) {
+      return;
+    }
     // Single finger touch with Shift active -> convert to mouse event for selection
     if (e.touches.length === 1 && shiftActive) {
       const touch = e.touches[0];
