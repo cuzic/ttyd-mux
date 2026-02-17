@@ -1,4 +1,4 @@
-import { type ChildProcess, spawn, spawnSync } from 'node:child_process';
+import { type ChildProcess, spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import {
   addSession,
@@ -8,6 +8,7 @@ import {
   removeSession
 } from '../config/state.js';
 import type { Config, SessionState, TmuxMode } from '../config/types.js';
+import { ensureSession } from '../tmux.js';
 
 export interface StartSessionOptions {
   name: string;
@@ -16,26 +17,6 @@ export interface StartSessionOptions {
   port: number;
   fullPath: string;
   tmuxMode?: TmuxMode;
-}
-
-/**
- * Ensure tmux session exists (for 'auto' mode)
- * Creates a detached session if it doesn't exist.
- * This is called BEFORE starting ttyd so the session is guaranteed to exist.
- */
-function ensureTmuxSession(name: string, dir: string): void {
-  // Check if session already exists
-  const hasSession = spawnSync('tmux', ['has-session', '-t', name], {
-    stdio: 'ignore'
-  });
-
-  if (hasSession.status !== 0) {
-    // Session doesn't exist, create it
-    spawnSync('tmux', ['new-session', '-d', '-s', name], {
-      cwd: dir,
-      stdio: 'ignore'
-    });
-  }
 }
 
 /**
@@ -48,7 +29,7 @@ function getTmuxCommand(name: string, mode: TmuxMode): string[] {
     case 'new':
       return ['tmux', 'new-session', '-s', name];
     default:
-      // For auto mode, session is pre-created by ensureTmuxSession
+      // For auto mode, session is pre-created by ensureSession
       // Just attach to it
       return ['tmux', 'attach-session', '-t', name];
   }
@@ -77,7 +58,7 @@ class SessionManager extends EventEmitter {
 
     // For auto mode, ensure tmux session exists before starting ttyd
     if (tmuxMode === 'auto') {
-      ensureTmuxSession(name, dir);
+      ensureSession(name, dir);
     }
 
     // Get tmux command based on mode

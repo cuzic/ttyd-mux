@@ -44,49 +44,79 @@ export async function isDaemonRunning(): Promise<boolean> {
   });
 }
 
-export async function ensureDaemon(configPath?: string): Promise<void> {
-  if (await isDaemonRunning()) {
-    return;
-  }
+interface DaemonCommand {
+  executable: string;
+  args: string[];
+}
 
-  // Build command to spawn daemon in background
-  // For 'bun run src/index.ts': argv[1] ends with '.ts' or is 'run'
-  // For 'bun link' / 'npm link': argv[1] ends with '.js' or is a symlink to .js
-  // For compiled binary: execPath is the binary itself
+/**
+ * Resolve script path to absolute path
+ */
+function resolveScriptPath(scriptPath: string | undefined): string {
+  if (!scriptPath) return '';
+  return isAbsolute(scriptPath) ? scriptPath : resolve(scriptPath);
+}
+
+/**
+ * Detect how the script is being run
+ */
+function detectRunMode(): 'bun-run' | 'script' | 'binary' {
+  const arg1 = process.argv[1];
+  if (arg1 === 'run') return 'bun-run';
+  if (arg1?.endsWith('.ts') || arg1?.endsWith('.js')) return 'script';
+  if (arg1 && arg1 !== process.execPath) return 'script'; // symlink
+  return 'binary';
+}
+
+/**
+ * Build the command to spawn daemon based on how this script is being run
+ */
+function buildDaemonCommand(configPath?: string): DaemonCommand {
+  const mode = detectRunMode();
   let executable: string;
   let args: string[];
 
-  const isBunRun = process.argv[1] === 'run';
-  const isBunDirect = process.argv[1]?.endsWith('.ts');
-  const isLinkedScript = process.argv[1]?.endsWith('.js');
-  // Check if running via symlink (e.g., bun link creates symlink without .js extension)
-  // In this case, argv[1] is different from execPath and doesn't have an extension
-  const isSymlinkScript =
-    process.argv[1] && process.argv[1] !== process.execPath && !isBunRun && !isBunDirect && !isLinkedScript;
-
-  if (isBunRun) {
-    // Running via 'bun run src/index.ts'
-    // argv = ['bun', 'run', 'src/index.ts', 'up', ...]
-    executable = process.argv[0] ?? 'bun';
-    const scriptPath = process.argv[2];
-    const absoluteScript = scriptPath && !isAbsolute(scriptPath) ? resolve(scriptPath) : scriptPath;
-    args = ['run', absoluteScript ?? '', 'daemon', '-f'];
-  } else if (isBunDirect || isLinkedScript || isSymlinkScript) {
-    // Running via 'bun src/index.ts' or 'bun link' symlink or direct symlink
-    // argv = ['bun', 'src/index.ts', 'up', ...] or ['node', '/path/to/dist/index.js', 'up', ...]
-    executable = process.argv[0] ?? 'bun';
-    const scriptPath = process.argv[1];
-    const absoluteScript = scriptPath && !isAbsolute(scriptPath) ? resolve(scriptPath) : scriptPath;
-    args = [absoluteScript ?? '', 'daemon', '-f'];
-  } else {
-    // Compiled binary - use execPath which is the actual binary path
-    executable = process.execPath;
-    args = ['daemon', '-f'];
+  switch (mode) {
+    case 'bun-run':
+      executable = process.argv[0] ?? 'bun';
+      args = ['run', resolveScriptPath(process.argv[2]), 'daemon', '-f'];
+      break;
+    case 'script':
+      executable = process.argv[0] ?? 'bun';
+      args = [resolveScriptPath(process.argv[1]), 'daemon', '-f'];
+      break;
+    default:
+      executable = process.execPath;
+      args = ['daemon', '-f'];
   }
 
   if (configPath) {
     args.push('-c', configPath);
   }
+
+  return { executable, args };
+}
+
+/**
+ * Wait for daemon to become ready
+ */
+async function waitForDaemon(): Promise<boolean> {
+  const startTime = Date.now();
+  while (Date.now() - startTime < DAEMON_START_TIMEOUT) {
+    if (await isDaemonRunning()) {
+      return true;
+    }
+    await sleep(DAEMON_CHECK_INTERVAL);
+  }
+  return false;
+}
+
+export async function ensureDaemon(configPath?: string): Promise<void> {
+  if (await isDaemonRunning()) {
+    return;
+  }
+
+  const { executable, args } = buildDaemonCommand(configPath);
 
   const child = spawn(executable, args, {
     detached: true,
@@ -96,16 +126,9 @@ export async function ensureDaemon(configPath?: string): Promise<void> {
 
   child.unref();
 
-  // Wait for daemon to be ready
-  const startTime = Date.now();
-  while (Date.now() - startTime < DAEMON_START_TIMEOUT) {
-    if (await isDaemonRunning()) {
-      return;
-    }
-    await sleep(DAEMON_CHECK_INTERVAL);
+  if (!(await waitForDaemon())) {
+    throw new Error('Failed to start daemon: timeout');
   }
-
-  throw new Error('Failed to start daemon: timeout');
 }
 
 export async function shutdownDaemon(): Promise<void> {
@@ -169,15 +192,15 @@ export async function apiRequest<T>(
   return data as T;
 }
 
-export async function getStatus(config: Config): Promise<StatusResponse> {
+export function getStatus(config: Config): Promise<StatusResponse> {
   return apiRequest<StatusResponse>(config, 'GET', '/api/status');
 }
 
-export async function getSessions(config: Config): Promise<SessionResponse[]> {
+export function getSessions(config: Config): Promise<SessionResponse[]> {
   return apiRequest<SessionResponse[]>(config, 'GET', '/api/sessions');
 }
 
-export async function startSession(
+export function startSession(
   config: Config,
   request: StartSessionRequest
 ): Promise<SessionResponse> {

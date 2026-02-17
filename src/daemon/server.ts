@@ -62,8 +62,8 @@ proxy.on('proxyRes', (proxyRes, req, res) => {
     const modifiedHtml = injectImeHelper(originalHtml);
 
     // Update headers
-    const headers = { ...proxyRes.headers };
-    delete headers['content-encoding'];
+    const headers: Record<string, string | string[] | undefined> = { ...proxyRes.headers };
+    headers['content-encoding'] = undefined;
 
     if (supportsGzip) {
       // Compress with gzip
@@ -226,7 +226,7 @@ function handleRequest(config: Config, req: IncomingMessage, res: ServerResponse
     (req as IncomingMessage & { originalAcceptEncoding?: string }).originalAcceptEncoding = req
       .headers['accept-encoding'] as string | undefined;
     // Remove Accept-Encoding to get uncompressed response for HTML injection
-    delete req.headers['accept-encoding'];
+    req.headers['accept-encoding'] = undefined;
     // Always use selfHandleResponse to avoid conflicts with proxyRes handler
     proxy.web(req, res, { target, selfHandleResponse: true });
     return;
@@ -239,6 +239,17 @@ function handleRequest(config: Config, req: IncomingMessage, res: ServerResponse
 
 // Create WebSocket server (noServer mode for manual upgrade handling)
 const wss = new WebSocketServer({ noServer: true });
+
+/**
+ * Gracefully close a WebSocket connection
+ */
+function closeWebSocket(ws: WebSocket, code: number, reason: string): void {
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.close(code, reason);
+  } else {
+    ws.terminate();
+  }
+}
 
 function handleUpgrade(config: Config, req: IncomingMessage, socket: Socket, head: Buffer): void {
   const url = req.url ?? '/';
@@ -265,23 +276,10 @@ function handleUpgrade(config: Config, req: IncomingMessage, socket: Socket, hea
         if (closed) return;
         closed = true;
 
-        // Close the other side with proper code
         const closeCode = code ?? 1000;
         const closeReason = reason?.toString() ?? '';
-
-        if (initiator === 'client') {
-          if (backendWs.readyState === WebSocket.OPEN) {
-            backendWs.close(closeCode, closeReason);
-          } else {
-            backendWs.terminate();
-          }
-        } else {
-          if (clientWs.readyState === WebSocket.OPEN) {
-            clientWs.close(closeCode, closeReason);
-          } else {
-            clientWs.terminate();
-          }
-        }
+        const wsToClose = initiator === 'client' ? backendWs : clientWs;
+        closeWebSocket(wsToClose, closeCode, closeReason);
       };
 
       // Forward messages bidirectionally

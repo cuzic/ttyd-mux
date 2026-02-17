@@ -51,10 +51,14 @@ export function sessionExists(sessionName: string): boolean {
   }
 }
 
-export function ensureSession(sessionName: string): void {
+export function ensureSession(sessionName: string, cwd?: string): void {
   if (!sessionExists(sessionName)) {
     // Create detached session
-    execSync(`tmux new-session -d -s ${sessionName}`, { stdio: 'ignore' });
+    const options: { stdio: 'ignore'; cwd?: string } = { stdio: 'ignore' };
+    if (cwd) {
+      options.cwd = cwd;
+    }
+    execSync(`tmux new-session -d -s ${sessionName}`, options);
   }
 }
 
