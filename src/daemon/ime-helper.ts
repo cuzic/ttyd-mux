@@ -83,6 +83,12 @@ export const imeHelperScript = `
   background: #1e7e34 !important;
 }
 
+#ttyd-ime-auto.active {
+  background: #f0ad4e !important;
+  border-color: #eea236 !important;
+  color: #000;
+}
+
 #ttyd-ime-input-row {
   display: flex;
   gap: 8px;
@@ -198,6 +204,7 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
     <button id="ttyd-ime-copyall">All</button>
     <button id="ttyd-ime-send">Send</button>
     <button id="ttyd-ime-run">Run</button>
+    <button id="ttyd-ime-auto" class="modifier">Auto</button>
   </div>
   <div id="ttyd-ime-input-row">
     <textarea id="ttyd-ime-input" rows="1" placeholder="日本語入力 (Enter: 送信)"></textarea>
@@ -224,11 +231,13 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
   const downBtn = document.getElementById('ttyd-ime-down');
   const copyBtn = document.getElementById('ttyd-ime-copy');
   const copyAllBtn = document.getElementById('ttyd-ime-copyall');
+  const autoBtn = document.getElementById('ttyd-ime-auto');
 
   let ws = null;
   let ctrlActive = false;
   let altActive = false;
   let shiftActive = false;
+  let autoRunActive = false;
 
   // Detect mobile device
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -422,6 +431,12 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
     if (sendText(text)) {
       input.value = '';
       adjustTextareaHeight();
+      // Auto mode: send Enter after 1 second
+      if (autoRunActive) {
+        setTimeout(function() {
+          sendEnter();
+        }, 1000);
+      }
     }
   }
 
@@ -512,6 +527,12 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
     e.preventDefault();
     shiftActive = !shiftActive;
     shiftBtn.classList.toggle('active', shiftActive);
+  });
+
+  autoBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    autoRunActive = !autoRunActive;
+    autoBtn.classList.toggle('active', autoRunActive);
   });
 
   escBtn.addEventListener('click', function(e) {
