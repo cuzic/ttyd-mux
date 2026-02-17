@@ -1,8 +1,19 @@
-import { describe, expect, test } from 'bun:test';
+// Import test setup FIRST to set environment variables before any other imports
+import { cleanupTestState, resetTestState } from '../test-setup.js';
+
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { Config } from '../config/types.js';
 import { allocatePort, isProcessRunning, sessionNameFromDir } from './session-manager.js';
 
 describe('session-manager', () => {
+  beforeEach(() => {
+    resetTestState();
+  });
+
+  afterEach(() => {
+    cleanupTestState();
+  });
+
   describe('sessionNameFromDir', () => {
     test('extracts directory name from path', () => {
       expect(sessionNameFromDir('/home/user/my-project')).toBe('my-project');
@@ -26,17 +37,38 @@ describe('session-manager', () => {
   });
 
   describe('allocatePort', () => {
-    test('allocates port based on config base_port', () => {
+    test('allocates base_port + 1 when no sessions exist', () => {
       const config: Config = {
         base_path: '/ttyd-mux',
         base_port: 7600,
         daemon_port: 7680
       };
 
-      // When no sessions exist, should return base_port + 1
       const port = allocatePort(config);
 
-      expect(port).toBeGreaterThanOrEqual(7601);
+      expect(port).toBe(7601);
+    });
+
+    test('allocates next available port when sessions exist', async () => {
+      const { addSession } = await import('../config/state.js');
+      const config: Config = {
+        base_path: '/ttyd-mux',
+        base_port: 7600,
+        daemon_port: 7680
+      };
+
+      addSession({
+        name: 'existing-session',
+        pid: 1234,
+        port: 7601,
+        path: '/existing',
+        dir: '/home/test',
+        started_at: '2024-01-01T00:00:00Z'
+      });
+
+      const port = allocatePort(config);
+
+      expect(port).toBe(7602);
     });
   });
 

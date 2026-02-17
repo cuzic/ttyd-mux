@@ -1,15 +1,9 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+// Import test setup FIRST to set environment variables before any other imports
+import { cleanupTestState, resetTestState } from '../test-setup.js';
+
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { Config, SessionState } from '../config/types.js';
 import { createSessionResolver } from './session-resolver.js';
-
-// Mock state functions
-const mockSessions: SessionState[] = [];
-
-mock.module('../config/state.js', () => ({
-  getAllSessions: () => mockSessions,
-  getSession: (name: string) => mockSessions.find((s) => s.name === name),
-  getSessionByDir: (dir: string) => mockSessions.find((s) => s.dir === dir)
-}));
 
 describe('SessionResolver', () => {
   const baseConfig: Config = {
@@ -25,15 +19,16 @@ describe('SessionResolver', () => {
   };
 
   beforeEach(() => {
-    mockSessions.length = 0;
+    resetTestState();
   });
 
   afterEach(() => {
-    mockSessions.length = 0;
+    cleanupTestState();
   });
 
   describe('byName', () => {
-    test('finds session by name', () => {
+    test('finds session by name', async () => {
+      const { addSession } = await import('../config/state.js');
       const session: SessionState = {
         name: 'test-session',
         pid: 1234,
@@ -42,7 +37,7 @@ describe('SessionResolver', () => {
         dir: '/home/user/test',
         started_at: '2024-01-01T00:00:00Z'
       };
-      mockSessions.push(session);
+      addSession(session);
 
       const resolver = createSessionResolver(baseConfig);
       expect(resolver.byName('test-session')).toEqual(session);
@@ -55,7 +50,8 @@ describe('SessionResolver', () => {
   });
 
   describe('byDir', () => {
-    test('finds session by directory', () => {
+    test('finds session by directory', async () => {
+      const { addSession } = await import('../config/state.js');
       const session: SessionState = {
         name: 'test-session',
         pid: 1234,
@@ -64,7 +60,7 @@ describe('SessionResolver', () => {
         dir: '/home/user/test',
         started_at: '2024-01-01T00:00:00Z'
       };
-      mockSessions.push(session);
+      addSession(session);
 
       const resolver = createSessionResolver(baseConfig);
       expect(resolver.byDir('/home/user/test')).toEqual(session);
@@ -77,7 +73,8 @@ describe('SessionResolver', () => {
   });
 
   describe('byPath', () => {
-    test('finds session by URL path', () => {
+    test('finds session by URL path', async () => {
+      const { addSession } = await import('../config/state.js');
       const session: SessionState = {
         name: 'test-session',
         pid: 1234,
@@ -86,13 +83,14 @@ describe('SessionResolver', () => {
         dir: '/home/user/test',
         started_at: '2024-01-01T00:00:00Z'
       };
-      mockSessions.push(session);
+      addSession(session);
 
       const resolver = createSessionResolver(baseConfig);
       expect(resolver.byPath('/ttyd-mux/test/ws')).toEqual(session);
     });
 
-    test('finds session for exact path match', () => {
+    test('finds session for exact path match', async () => {
+      const { addSession } = await import('../config/state.js');
       const session: SessionState = {
         name: 'test-session',
         pid: 1234,
@@ -101,7 +99,7 @@ describe('SessionResolver', () => {
         dir: '/home/user/test',
         started_at: '2024-01-01T00:00:00Z'
       };
-      mockSessions.push(session);
+      addSession(session);
 
       const resolver = createSessionResolver(baseConfig);
       expect(resolver.byPath('/ttyd-mux/test')).toEqual(session);
@@ -128,8 +126,9 @@ describe('SessionResolver', () => {
   });
 
   describe('exists', () => {
-    test('returns true for existing session', () => {
-      mockSessions.push({
+    test('returns true for existing session', async () => {
+      const { addSession } = await import('../config/state.js');
+      addSession({
         name: 'test',
         pid: 1234,
         port: 7601,
@@ -149,25 +148,24 @@ describe('SessionResolver', () => {
   });
 
   describe('all', () => {
-    test('returns all sessions', () => {
-      mockSessions.push(
-        {
-          name: 'session1',
-          pid: 1234,
-          port: 7601,
-          path: '/s1',
-          dir: '/s1',
-          started_at: '2024-01-01T00:00:00Z'
-        },
-        {
-          name: 'session2',
-          pid: 5678,
-          port: 7602,
-          path: '/s2',
-          dir: '/s2',
-          started_at: '2024-01-01T00:00:00Z'
-        }
-      );
+    test('returns all sessions', async () => {
+      const { addSession } = await import('../config/state.js');
+      addSession({
+        name: 'session1',
+        pid: 1234,
+        port: 7601,
+        path: '/s1',
+        dir: '/s1',
+        started_at: '2024-01-01T00:00:00Z'
+      });
+      addSession({
+        name: 'session2',
+        pid: 5678,
+        port: 7602,
+        path: '/s2',
+        dir: '/s2',
+        started_at: '2024-01-01T00:00:00Z'
+      });
 
       const resolver = createSessionResolver(baseConfig);
       expect(resolver.all()).toHaveLength(2);

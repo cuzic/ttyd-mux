@@ -1,16 +1,32 @@
-import { describe, expect, mock, test } from 'bun:test';
+// Import test setup FIRST to set environment variables before any other imports
+import { cleanupTestState, resetTestState } from '../test-setup.js';
+
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 describe('client', () => {
+  beforeEach(() => {
+    resetTestState();
+  });
+
+  afterEach(() => {
+    cleanupTestState();
+  });
+
   describe('isDaemonRunning', () => {
     test('returns false when socket does not exist', async () => {
-      // Mock getSocketPath to return non-existent path
-      mock.module('../config/state.js', () => ({
-        getSocketPath: () => '/tmp/nonexistent-socket-12345.sock',
-        getDaemonState: () => null
-      }));
-
-      // Re-import to get mocked version
       const { isDaemonRunning } = await import('./index.js');
+
+      const result = await isDaemonRunning();
+
+      expect(result).toBe(false);
+    });
+
+    test('returns false when daemon state is null', async () => {
+      const { isDaemonRunning } = await import('./index.js');
+      const { saveState } = await import('../config/state.js');
+
+      // Save state with no daemon
+      saveState({ daemon: null, sessions: [] });
 
       const result = await isDaemonRunning();
 
