@@ -7,9 +7,11 @@ import {
   caddyRemoveCommand,
   caddySetupCommand,
   caddySnippetCommand,
-  caddyStatusCommand
+  caddyStatusCommand,
+  caddySyncCommand
 } from './commands/caddy.js';
 import { daemonCommand } from './commands/daemon.js';
+import { deployCommand } from './commands/deploy.js';
 import { downCommand } from './commands/down.js';
 import { shutdownCommand } from './commands/shutdown.js';
 import { startCommand } from './commands/start.js';
@@ -84,6 +86,16 @@ program
   .option('-c, --config <path>', 'Config file path')
   .action((options) => shutdownCommand(options));
 
+// === Deployment (static mode) ===
+
+program
+  .command('deploy')
+  .description('Generate static files for static mode deployment')
+  .option('--hostname <hostname>', 'Server hostname (or set in config.yaml)')
+  .option('-o, --output <dir>', 'Output directory')
+  .option('-c, --config <path>', 'Config file path')
+  .action((options) => deployCommand(options));
+
 // === Caddy integration ===
 
 const caddy = program.command('caddy').description('Caddy reverse proxy integration');
@@ -97,23 +109,31 @@ caddy
 caddy
   .command('setup')
   .description('Add ttyd-mux route via Caddy Admin API')
-  .requiredOption('--hostname <hostname>', 'Server hostname')
-  .option('--admin-api <url>', 'Caddy Admin API URL', 'http://localhost:2019')
+  .option('--hostname <hostname>', 'Server hostname (or set in config.yaml)')
+  .option('--admin-api <url>', 'Caddy Admin API URL')
   .option('-c, --config <path>', 'Config file path')
   .action((options) => caddySetupCommand(options));
 
 caddy
   .command('remove')
   .description('Remove ttyd-mux route via Caddy Admin API')
-  .requiredOption('--hostname <hostname>', 'Server hostname')
-  .option('--admin-api <url>', 'Caddy Admin API URL', 'http://localhost:2019')
+  .option('--hostname <hostname>', 'Server hostname (or set in config.yaml)')
+  .option('--admin-api <url>', 'Caddy Admin API URL')
   .option('-c, --config <path>', 'Config file path')
   .action((options) => caddyRemoveCommand(options));
 
 caddy
+  .command('sync')
+  .description('Sync session routes with Caddy (static mode only)')
+  .option('--hostname <hostname>', 'Server hostname (or set in config.yaml)')
+  .option('--admin-api <url>', 'Caddy Admin API URL')
+  .option('-c, --config <path>', 'Config file path')
+  .action((options) => caddySyncCommand(options));
+
+caddy
   .command('status')
   .description('Show ttyd-mux routes in Caddy')
-  .option('--admin-api <url>', 'Caddy Admin API URL', 'http://localhost:2019')
+  .option('--admin-api <url>', 'Caddy Admin API URL')
   .option('-c, --config <path>', 'Config file path')
   .action((options) => caddyStatusCommand(options));
 
