@@ -1,6 +1,5 @@
 import { existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import { createServer as createUnixServer } from 'node:net';
-import { fileURLToPath } from 'node:url';
 import { loadConfig } from '../config/config.js';
 import { clearDaemonState, getSocketPath, getStateDir, setDaemonState } from '../config/state.js';
 import { createDaemonServer } from './server.js';
@@ -110,12 +109,5 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
   }
 }
 
-// Run daemon if this file is executed directly
-const __filename = fileURLToPath(import.meta.url);
-if (process.argv[1] === __filename) {
-  const foreground = process.argv.includes('-f') || process.argv.includes('--foreground');
-  startDaemon({ foreground }).catch((err) => {
-    console.error('Failed to start daemon:', err);
-    process.exit(1);
-  });
-}
+// Note: Auto-execution removed because compiled Bun binaries always match
+// process.argv[1] === __filename. Use 'ttyd-mux daemon -f' instead.

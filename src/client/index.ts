@@ -48,17 +48,31 @@ export async function ensureDaemon(configPath?: string): Promise<void> {
     return;
   }
 
-  // Find the path to the daemon script
-  const daemonScript = new URL('../daemon/index.js', import.meta.url).pathname;
+  // Build command to spawn daemon in background
+  // For 'bun run src/index.ts': argv[1] ends with '.ts' or is 'run'
+  // For compiled binary: execPath is the binary itself
+  let executable: string;
+  let args: string[];
 
-  // Spawn daemon in background (use same runtime as current process)
-  const child = spawn(process.execPath, [daemonScript], {
+  const isBunRun = process.argv[1] === 'run' || process.argv[1]?.endsWith('.ts');
+  if (isBunRun) {
+    // Running via 'bun run' or 'bun src/index.ts'
+    executable = process.argv[0] ?? 'bun';
+    args = process.argv.slice(1, 3).concat(['daemon', '-f']);
+  } else {
+    // Compiled binary - use execPath which is the actual binary path
+    executable = process.execPath;
+    args = ['daemon', '-f'];
+  }
+
+  if (configPath) {
+    args.push('-c', configPath);
+  }
+
+  const child = spawn(executable, args, {
     detached: true,
     stdio: 'ignore',
-    env: {
-      ...process.env,
-      TTYD_MUX_CONFIG: configPath ?? ''
-    }
+    env: process.env
   });
 
   child.unref();

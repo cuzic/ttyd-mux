@@ -1,11 +1,13 @@
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from 'node:http';
 import type { Socket } from 'node:net';
+import { gzipSync } from 'node:zlib';
 import httpProxy from 'http-proxy';
 import WebSocket, { WebSocketServer } from 'ws';
 import { getFullPath, normalizeBasePath } from '../config/config.js';
 import { getDaemonState } from '../config/state.js';
 import type { Config, SessionState } from '../config/types.js';
 import { getErrorMessage } from '../utils/errors.js';
+import { injectImeHelper } from './ime-helper.js';
 import { generateJsonResponse, generatePortalHtml } from './portal.js';
 import {
   type StartSessionOptions,
@@ -32,6 +34,50 @@ proxy.on('error', (err, _req, res) => {
       httpRes.end('Bad Gateway');
     }
   }
+});
+
+// Handle selfHandleResponse for HTML injection
+proxy.on('proxyRes', (proxyRes, req, res) => {
+  const httpRes = res as ServerResponse;
+
+  // Check if this is a self-handled HTML response
+  const contentType = proxyRes.headers['content-type'] ?? '';
+  if (!contentType.includes('text/html')) {
+    // Not HTML, just pipe through
+    httpRes.writeHead(proxyRes.statusCode ?? 200, proxyRes.headers);
+    proxyRes.pipe(httpRes);
+    return;
+  }
+
+  // Check if client supports gzip (stored in custom header before deletion)
+  const acceptEncoding = (req as IncomingMessage & { originalAcceptEncoding?: string }).originalAcceptEncoding ?? '';
+  const supportsGzip = acceptEncoding.includes('gzip');
+
+  // Collect HTML body and inject IME helper
+  const chunks: Buffer[] = [];
+  proxyRes.on('data', (chunk: Buffer) => chunks.push(chunk));
+  proxyRes.on('end', () => {
+    const originalHtml = Buffer.concat(chunks).toString('utf-8');
+    const modifiedHtml = injectImeHelper(originalHtml);
+
+    // Update headers
+    const headers = { ...proxyRes.headers };
+    delete headers['content-encoding'];
+
+    if (supportsGzip) {
+      // Compress with gzip
+      const compressed = gzipSync(modifiedHtml);
+      headers['content-encoding'] = 'gzip';
+      headers['content-length'] = String(compressed.length);
+      httpRes.writeHead(proxyRes.statusCode ?? 200, headers);
+      httpRes.end(compressed);
+    } else {
+      // Send uncompressed
+      headers['content-length'] = String(Buffer.byteLength(modifiedHtml));
+      httpRes.writeHead(proxyRes.statusCode ?? 200, headers);
+      httpRes.end(modifiedHtml);
+    }
+  });
 });
 
 export function findSessionForPath(config: Config, path: string): SessionState | null {
@@ -173,8 +219,14 @@ function handleRequest(config: Config, req: IncomingMessage, res: ServerResponse
   // Try to proxy to a session
   const session = findSessionForPath(config, url);
   if (session) {
-    console.log(`[Proxy] ${url} -> http://localhost:${session.port}`);
-    proxy.web(req, res, { target: `http://localhost:${session.port}` });
+    const target = `http://localhost:${session.port}`;
+    // Store original Accept-Encoding before deletion (for gzip re-compression)
+    (req as IncomingMessage & { originalAcceptEncoding?: string }).originalAcceptEncoding =
+      req.headers['accept-encoding'] as string | undefined;
+    // Remove Accept-Encoding to get uncompressed response for HTML injection
+    delete req.headers['accept-encoding'];
+    // Always use selfHandleResponse to avoid conflicts with proxyRes handler
+    proxy.web(req, res, { target, selfHandleResponse: true });
     return;
   }
 
