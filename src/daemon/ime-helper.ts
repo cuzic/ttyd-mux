@@ -767,6 +767,28 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
     }
   }, { passive: true });
 
+  // Double-tap to send Enter (for reconnecting)
+  let lastTapTime = 0;
+  const DOUBLE_TAP_DELAY = 300;  // 300ms 以内の2回タップ
+
+  document.addEventListener('touchend', function(e) {
+    // IME ヘルパー要素は除外
+    if (e.target.closest('#ttyd-ime-container') || e.target.closest('#ttyd-ime-toggle')) {
+      return;
+    }
+    // シングルタッチのみ
+    if (e.changedTouches.length !== 1) return;
+
+    const now = Date.now();
+    if (now - lastTapTime < DOUBLE_TAP_DELAY) {
+      // ダブルタップ検出 → Enter 送信
+      sendEnter();
+      lastTapTime = 0;  // リセット
+    } else {
+      lastTapTime = now;
+    }
+  }, { passive: true });
+
   // Auto-show on mobile devices
   if (isMobile) {
     setTimeout(function() {
