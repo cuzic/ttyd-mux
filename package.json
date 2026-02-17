@@ -16,11 +16,13 @@
     "format": "biome format ./src --write",
     "test": "bun test src/",
     "test:coverage": "bun test src/ --coverage",
+    "complexity": "node scripts/complexity-report.mjs",
     "test:watch": "bun test src/ --watch",
     "test:e2e": "bunx playwright test",
     "test:e2e:headed": "bunx playwright test --headed",
     "test:e2e:debug": "bunx playwright test --debug",
     "validate": "bun run typecheck && bun run check && bun run test",
+    "prebuild": "node scripts/gen-version.mjs",
     "build": "tsc",
     "build:binary": "bun build src/index.ts --compile --outfile ttyd-mux",
     "prepublishOnly": "npm run build"

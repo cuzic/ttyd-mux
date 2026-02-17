@@ -5,6 +5,9 @@ bun.lockb
 # Build output
 dist/
 
+# Auto-generated
+src/version.ts
+
 # Test coverage
 coverage/
 
