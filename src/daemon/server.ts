@@ -230,11 +230,11 @@ function handleRequest(config: Config, req: IncomingMessage, res: ServerResponse
   if (session) {
     const target = `http://localhost:${session.port}`;
     log.debug(`Proxying ${url} to ${target}`);
-    // Store original Accept-Encoding before deletion (for gzip re-compression)
+    // Store original Accept-Encoding before changing (for gzip re-compression)
     (req as IncomingMessage & { originalAcceptEncoding?: string }).originalAcceptEncoding = req
       .headers['accept-encoding'] as string | undefined;
-    // Remove Accept-Encoding to get uncompressed response for HTML injection
-    req.headers['accept-encoding'] = undefined;
+    // Request uncompressed response for HTML injection (identity = no encoding)
+    req.headers['accept-encoding'] = 'identity';
     // Always use selfHandleResponse to avoid conflicts with proxyRes handler
     proxy.web(req, res, { target, selfHandleResponse: true });
     return;
