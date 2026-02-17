@@ -1,4 +1,4 @@
-# ADR 004: Test Isolation Strategy
+# ADR 007: Test Isolation Strategy
 
 ## Status
 
