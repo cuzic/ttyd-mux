@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
-import { getSessions, isDaemonRunning } from '../client/index.js';
-import { loadConfig } from '../config/config.js';
-import type { SessionResponse } from '../config/types.js';
+import { getSessions, isDaemonRunning } from '@/client/index.js';
+import { loadConfig } from '@/config/config.js';
+import type { SessionResponse } from '@/config/types.js';
 
 export interface AttachOptions {
   config?: string;

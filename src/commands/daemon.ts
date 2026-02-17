@@ -1,5 +1,5 @@
-import { isDaemonRunning } from '../client/index.js';
-import { startDaemon } from '../daemon/index.js';
+import { isDaemonRunning } from '@/client/index.js';
+import { startDaemon } from '@/daemon/index.js';
 
 export interface DaemonOptions {
   foreground?: boolean;

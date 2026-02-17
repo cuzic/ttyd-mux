@@ -1,7 +1,7 @@
-import { startSession as apiStartSession, ensureDaemon } from '../client/index.js';
-import { getFullPath, loadConfig } from '../config/config.js';
-import { attachSession } from '../tmux.js';
-import { getErrorMessage } from '../utils/errors.js';
+import { startSession as apiStartSession, ensureDaemon } from '@/client/index.js';
+import { getFullPath, loadConfig } from '@/config/config.js';
+import { attachSession } from '@/tmux.js';
+import { getErrorMessage } from '@/utils/errors.js';
 
 export interface UpOptions {
   name?: string;

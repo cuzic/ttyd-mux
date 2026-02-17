@@ -1,6 +1,6 @@
-import { getStatus, isDaemonRunning } from '../client/index.js';
-import { getFullPath, loadConfig } from '../config/config.js';
-import { handleCliError } from '../utils/errors.js';
+import { getStatus, isDaemonRunning } from '@/client/index.js';
+import { getFullPath, loadConfig } from '@/config/config.js';
+import { handleCliError } from '@/utils/errors.js';
 
 export interface StatusOptions {
   config?: string;

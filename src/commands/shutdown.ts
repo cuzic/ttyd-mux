@@ -1,4 +1,4 @@
-import { isDaemonRunning, shutdownDaemon } from '../client/index.js';
+import { isDaemonRunning, shutdownDaemon } from '@/client/index.js';
 
 export interface ShutdownOptions {
   config?: string;

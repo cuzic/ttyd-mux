@@ -1,6 +1,6 @@
-import { startSession as apiStartSession, ensureDaemon } from '../client/index.js';
-import { findSessionDefinition, getFullPath, loadConfig } from '../config/config.js';
-import { handleCliError } from '../utils/errors.js';
+import { startSession as apiStartSession, ensureDaemon } from '@/client/index.js';
+import { findSessionDefinition, getFullPath, loadConfig } from '@/config/config.js';
+import { handleCliError } from '@/utils/errors.js';
 
 export interface StartOptions {
   all?: boolean;

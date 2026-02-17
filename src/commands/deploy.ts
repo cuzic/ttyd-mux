@@ -1,13 +1,14 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { getSessions, isDaemonRunning } from '../client/index.js';
-import { loadConfig } from '../config/config.js';
-import { getAllSessions } from '../config/state.js';
-import type { Config, SessionState } from '../config/types.js';
-import { generateCaddyJson, generateCaddyfileSnippet } from '../deploy/caddyfile.js';
-import { generateDeployScript } from '../deploy/deploy-script.js';
-import { generateStaticPortalHtml } from '../deploy/static-portal.js';
+import { getSessions, isDaemonRunning } from '@/client/index.js';
+import { loadConfig } from '@/config/config.js';
+import { getAllSessions } from '@/config/state.js';
+import type { SessionState } from '@/config/types.js';
+import { generateCaddyJson, generateCaddyfileSnippet } from '@/deploy/caddyfile.js';
+import { generateDeployScript } from '@/deploy/deploy-script.js';
+import { generateStaticPortalHtml } from '@/deploy/static-portal.js';
+import { requireHostname } from '@/utils/errors.js';
 
 export interface DeployOptions {
   hostname?: string;
@@ -19,18 +20,10 @@ function getDefaultDeployDir(): string {
   return join(homedir(), '.local', 'share', 'ttyd-mux', 'deploy');
 }
 
-function getHostname(options: DeployOptions, config: Config): string | undefined {
-  return options.hostname ?? config.hostname;
-}
-
 export async function deployCommand(options: DeployOptions): Promise<void> {
   const config = loadConfig(options.config);
-  const hostname = getHostname(options, config);
-
-  if (!hostname) {
-    console.error('Error: --hostname is required (or set hostname in config.yaml)');
-    process.exit(1);
-  }
+  const hostname = options.hostname ?? config.hostname;
+  requireHostname(hostname);
 
   const deployDir = options.output ?? getDefaultDeployDir();
   const portalDir = join(deployDir, 'portal');

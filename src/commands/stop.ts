@@ -1,6 +1,6 @@
-import { ensureDaemon, getSessions, stopSession } from '../client/index.js';
-import { loadConfig } from '../config/config.js';
-import { handleCliError } from '../utils/errors.js';
+import { ensureDaemon, getSessions, stopSession } from '@/client/index.js';
+import { loadConfig } from '@/config/config.js';
+import { handleCliError } from '@/utils/errors.js';
 
 export interface StopOptions {
   all?: boolean;
