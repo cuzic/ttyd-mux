@@ -33,3 +33,4 @@ npm-debug.log*
 *.temp
 .cache/
 test-results/
+ttyd-mux
