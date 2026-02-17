@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import { program } from 'commander';
-import pkg from '../package.json' with { type: 'json' };
 import { attachCommand } from './commands/attach.js';
 import {
   caddyRemoveCommand,
@@ -18,11 +17,12 @@ import { startCommand } from './commands/start.js';
 import { statusCommand } from './commands/status.js';
 import { stopCommand } from './commands/stop.js';
 import { upCommand } from './commands/up.js';
+import { NAME, VERSION } from './version.js';
 
 program
-  .name('ttyd-mux')
+  .name(NAME)
   .description('ttyd session multiplexer - manage multiple ttyd+tmux sessions')
-  .version(pkg.version);
+  .version(VERSION);
 
 // === Main commands ===
 
