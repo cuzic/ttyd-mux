@@ -193,6 +193,8 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
     <button id="ttyd-ime-enter">Enter</button>
     <button id="ttyd-ime-zoomout">A-</button>
     <button id="ttyd-ime-zoomin">A+</button>
+    <button id="ttyd-ime-copy">Copy</button>
+    <button id="ttyd-ime-copyall">All</button>
     <button id="ttyd-ime-send">Send</button>
     <button id="ttyd-ime-run">Run</button>
   </div>
@@ -218,6 +220,8 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
   const tabBtn = document.getElementById('ttyd-ime-tab');
   const upBtn = document.getElementById('ttyd-ime-up');
   const downBtn = document.getElementById('ttyd-ime-down');
+  const copyBtn = document.getElementById('ttyd-ime-copy');
+  const copyAllBtn = document.getElementById('ttyd-ime-copyall');
 
   let ws = null;
   let ctrlActive = false;
@@ -347,16 +351,15 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
     console.log('[IME Helper] Dispatched resize event');
   }
 
+  function findTerminal() {
+    if (window.term) return window.term;
+    const termEl = document.querySelector('.xterm');
+    if (termEl && termEl._core) return termEl._core;
+    return null;
+  }
+
   function zoomTerminal(delta) {
-    // Try to find the terminal instance
-    let term = window.term;
-    if (!term) {
-      // ttyd might store it differently
-      const termEl = document.querySelector('.xterm');
-      if (termEl && termEl._core) {
-        term = termEl._core;
-      }
-    }
+    const term = findTerminal();
 
     if (term && term.options) {
       const currentSize = term.options.fontSize || 14;
@@ -367,6 +370,46 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
     } else {
       console.log('[IME Helper] Terminal not found for zoom');
     }
+  }
+
+  function copySelection() {
+    const term = findTerminal();
+    if (!term) {
+      console.log('[IME Helper] Terminal not found for copy');
+      return;
+    }
+    const selection = term.getSelection();
+    if (selection) {
+      navigator.clipboard.writeText(selection).then(function() {
+        console.log('[IME Helper] Copied selection to clipboard');
+      }).catch(function(err) {
+        console.error('[IME Helper] Failed to copy:', err);
+      });
+    } else {
+      console.log('[IME Helper] No text selected');
+    }
+  }
+
+  function copyAll() {
+    const term = findTerminal();
+    if (!term || !term.buffer || !term.buffer.active) {
+      console.log('[IME Helper] Terminal buffer not found');
+      return;
+    }
+    const buffer = term.buffer.active;
+    const lines = [];
+    for (let i = 0; i < buffer.length; i++) {
+      const line = buffer.getLine(i);
+      if (line) {
+        lines.push(line.translateToString(true));
+      }
+    }
+    const text = lines.join('\\n').trimEnd();
+    navigator.clipboard.writeText(text).then(function() {
+      console.log('[IME Helper] Copied all text to clipboard');
+    }).catch(function(err) {
+      console.error('[IME Helper] Failed to copy:', err);
+    });
   }
 
   function submitInput() {
@@ -480,6 +523,16 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
   downBtn.addEventListener('click', function(e) {
     e.preventDefault();
     sendDown();
+  });
+
+  copyBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    copySelection();
+  });
+
+  copyAllBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    copyAll();
   });
 
   input.addEventListener('input', adjustTextareaHeight);
