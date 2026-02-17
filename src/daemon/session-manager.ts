@@ -1,15 +1,10 @@
-import { type ChildProcess, spawn } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import {
-  addSession,
-  getAllSessions,
-  getNextPort,
-  getSession,
-  removeSession
-} from '../config/state.js';
-import type { Config, SessionState, TmuxMode } from '../config/types.js';
-import { ensureSession } from '../tmux.js';
-import { createLogger } from '../utils/logger.js';
+import { type StateStore, defaultStateStore } from '@/config/state-store.js';
+import type { Config, SessionState, TmuxMode } from '@/config/types.js';
+import { createLogger } from '@/utils/logger.js';
+import { type ProcessRunner, defaultProcessRunner } from '@/utils/process-runner.js';
+import { type TmuxClient, defaultTmuxClient } from '@/utils/tmux-client.js';
 
 const log = createLogger('session');
 
@@ -45,19 +40,44 @@ export interface SessionEvents {
 }
 
 /**
+ * Dependencies for SessionManager (for testing)
+ */
+export interface SessionManagerDeps {
+  stateStore: StateStore;
+  processRunner: ProcessRunner;
+  tmuxClient: TmuxClient;
+}
+
+/**
+ * Default dependencies using real implementations
+ */
+export const defaultSessionManagerDeps: SessionManagerDeps = {
+  stateStore: defaultStateStore,
+  processRunner: defaultProcessRunner,
+  tmuxClient: defaultTmuxClient
+};
+
+/**
  * Session manager with EventEmitter for proactive process monitoring
  */
-class SessionManager extends EventEmitter {
+export class SessionManager extends EventEmitter {
   private runningProcesses = new Map<string, ChildProcess>();
+  private deps: SessionManagerDeps;
+
+  constructor(deps: SessionManagerDeps = defaultSessionManagerDeps) {
+    super();
+    this.deps = deps;
+  }
 
   startSession(options: StartSessionOptions): SessionState {
     const { name, dir, path, port, fullPath, tmuxMode = 'auto' } = options;
+    const { stateStore, processRunner, tmuxClient } = this.deps;
 
     log.info(`Starting session: ${name} (port=${port}, mode=${tmuxMode})`);
 
     // Check if already running
-    const existing = getSession(name);
-    if (existing && this.isProcessRunning(existing.pid)) {
+    const existing = stateStore.getSession(name);
+    if (existing && processRunner.isProcessRunning(existing.pid)) {
       log.warn(`Session "${name}" is already running (pid=${existing.pid})`);
       throw new Error(`Session "${name}" is already running`);
     }
@@ -65,7 +85,7 @@ class SessionManager extends EventEmitter {
     // For auto mode, ensure tmux session exists before starting ttyd
     if (tmuxMode === 'auto') {
       log.debug(`Ensuring tmux session exists: ${name}`);
-      ensureSession(name, dir);
+      tmuxClient.ensureSession(name, dir);
     }
 
     // Get tmux command based on mode
@@ -74,7 +94,7 @@ class SessionManager extends EventEmitter {
     log.debug(`ttyd command: ttyd ${ttydArgs.join(' ')}`);
 
     // Start ttyd process
-    const ttydProcess = spawn('ttyd', ttydArgs, {
+    const ttydProcess = processRunner.spawn('ttyd', ttydArgs, {
       cwd: dir,
       detached: true,
       stdio: 'ignore'
@@ -107,15 +127,17 @@ class SessionManager extends EventEmitter {
       started_at: new Date().toISOString()
     };
 
-    addSession(session);
+    stateStore.addSession(session);
     this.emit('session:start', session);
 
     return session;
   }
 
   stopSession(name: string): void {
+    const { stateStore, processRunner } = this.deps;
+
     log.info(`Stopping session: ${name}`);
-    const session = getSession(name);
+    const session = stateStore.getSession(name);
     if (!session) {
       log.warn(`Session "${name}" not found`);
       throw new Error(`Session "${name}" not found`);
@@ -123,7 +145,7 @@ class SessionManager extends EventEmitter {
 
     // Try to kill the process
     try {
-      process.kill(session.pid, 'SIGTERM');
+      processRunner.kill(session.pid, 'SIGTERM');
       log.info(`Sent SIGTERM to pid ${session.pid}`);
     } catch (err) {
       log.debug(`Process ${session.pid} might already be dead: ${err}`);
@@ -135,21 +157,17 @@ class SessionManager extends EventEmitter {
   }
 
   isProcessRunning(pid: number): boolean {
-    try {
-      process.kill(pid, 0);
-      return true;
-    } catch {
-      return false;
-    }
+    return this.deps.processRunner.isProcessRunning(pid);
   }
 
   listSessions(): SessionState[] {
-    const sessions = getAllSessions();
+    const { stateStore, processRunner } = this.deps;
+    const sessions = stateStore.getAllSessions();
 
     // Filter out dead sessions (lazy cleanup for sessions started before daemon)
     const activeSessions: SessionState[] = [];
     for (const session of sessions) {
-      if (this.isProcessRunning(session.pid)) {
+      if (processRunner.isProcessRunning(session.pid)) {
         activeSessions.push(session);
       } else {
         this.cleanup(session.name);
@@ -181,42 +199,36 @@ class SessionManager extends EventEmitter {
   private cleanup(name: string): void {
     log.debug(`Cleaning up session: ${name}`);
     this.runningProcesses.delete(name);
-    removeSession(name);
+    this.deps.stateStore.removeSession(name);
   }
 }
 
-// Singleton instance
-const sessionManager = new SessionManager();
+/**
+ * Shared session manager instance
+ */
+export const sessionManager = new SessionManager();
 
-// Export singleton methods for backward compatibility
-export function startSession(options: StartSessionOptions): SessionState {
-  return sessionManager.startSession(options);
-}
-
-export function stopSession(name: string): void {
-  sessionManager.stopSession(name);
-}
-
-export function isProcessRunning(pid: number): boolean {
-  return sessionManager.isProcessRunning(pid);
-}
-
-export function listSessions(): SessionState[] {
-  return sessionManager.listSessions();
-}
-
-export function stopAllSessions(): void {
-  sessionManager.stopAllSessions();
-}
-
+/**
+ * Allocate next available port for a new session
+ */
 export function allocatePort(config: Config): number {
-  return getNextPort(config.base_port);
+  return defaultStateStore.getNextPort(config.base_port);
 }
 
+/**
+ * Extract session name from directory path
+ */
 export function sessionNameFromDir(dir: string): string {
   const parts = dir.split('/');
   return parts[parts.length - 1] || 'default';
 }
 
-// Export the manager instance for direct event access
-export { sessionManager };
+/**
+ * Create a SessionManager with custom dependencies (for testing)
+ */
+export function createSessionManager(deps: Partial<SessionManagerDeps> = {}): SessionManager {
+  return new SessionManager({
+    ...defaultSessionManagerDeps,
+    ...deps
+  });
+}
