@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { program } from 'commander';
-import pkg from '../package.json';
+import pkg from '../package.json' with { type: 'json' };
 import { attachCommand } from './commands/attach.js';
 import {
   caddyRemoveCommand,
