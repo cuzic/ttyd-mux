@@ -65,9 +65,13 @@ proxy.on('proxyRes', (proxyRes, req, res) => {
     const originalHtml = Buffer.concat(chunks).toString('utf-8');
     const modifiedHtml = injectImeHelper(originalHtml);
 
-    // Update headers
-    const headers: Record<string, string | string[] | undefined> = { ...proxyRes.headers };
-    headers['content-encoding'] = undefined;
+    // Build clean headers object (filter out undefined values)
+    const headers: Record<string, string | string[]> = {};
+    for (const [key, value] of Object.entries(proxyRes.headers)) {
+      if (value !== undefined && key !== 'content-encoding' && key !== 'transfer-encoding') {
+        headers[key] = value;
+      }
+    }
 
     if (supportsGzip) {
       // Compress with gzip
