@@ -2,8 +2,11 @@ import { existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import { createServer as createUnixServer } from 'node:net';
 import { loadConfig } from '../config/config.js';
 import { clearDaemonState, getSocketPath, getStateDir, setDaemonState } from '../config/state.js';
+import { createLogger } from '../utils/logger.js';
 import { createDaemonServer } from './server.js';
 import { stopAllSessions } from './session-manager.js';
+
+const log = createLogger('daemon');
 
 export interface DaemonOptions {
   configPath?: string;
@@ -11,21 +14,37 @@ export interface DaemonOptions {
 }
 
 export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
+  log.info('Starting daemon...');
+
+  // Set up global error handlers
+  process.on('uncaughtException', (error) => {
+    log.error(`Uncaught exception: ${error.message}`, error.stack);
+    process.exit(1);
+  });
+
+  process.on('unhandledRejection', (reason, promise) => {
+    log.error(`Unhandled rejection at: ${promise}, reason: ${reason}`);
+  });
+
   const config = loadConfig(options.configPath);
+  log.info(`Config loaded: port=${config.daemon_port}, base_path=${config.base_path}`);
+
   const socketPath = getSocketPath();
 
   // Ensure state directory exists
   const stateDir = getStateDir();
   if (!existsSync(stateDir)) {
     mkdirSync(stateDir, { recursive: true });
+    log.info(`Created state directory: ${stateDir}`);
   }
 
   // Clean up old socket if exists
   if (existsSync(socketPath)) {
     try {
       unlinkSync(socketPath);
-    } catch {
-      // Ignore
+      log.info(`Removed old socket: ${socketPath}`);
+    } catch (err) {
+      log.warn(`Failed to remove old socket: ${err}`);
     }
   }
 
@@ -40,7 +59,12 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
     const server = httpServers[i];
     if (!address || !server) continue;
 
+    server.on('error', (err) => {
+      log.error(`HTTP server error on ${address}: ${err.message}`, err.stack);
+    });
+
     server.listen(config.daemon_port, address, () => {
+      log.info(`HTTP server listening on ${address}:${config.daemon_port}`);
       if (firstServer) {
         firstServer = false;
         console.log(
@@ -54,6 +78,7 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
           port: config.daemon_port,
           started_at: new Date().toISOString()
         });
+        log.info(`Daemon state saved: pid=${process.pid}`);
       }
     });
   }
@@ -62,6 +87,7 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
   const unixServer = createUnixServer((socket) => {
     socket.on('data', (data) => {
       const command = data.toString().trim();
+      log.debug(`Unix socket received command: ${command}`);
       if (command === 'ping') {
         socket.write('pong');
       } else if (command === 'shutdown') {
@@ -70,37 +96,56 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
       }
       socket.end();
     });
+    socket.on('error', (err) => {
+      log.error(`Unix socket connection error: ${err.message}`);
+    });
+  });
+
+  unixServer.on('error', (err) => {
+    log.error(`Unix server error: ${err.message}`, err.stack);
   });
 
   unixServer.listen(socketPath, () => {
+    log.info(`Unix socket listening: ${socketPath}`);
     console.log(`Unix socket: ${socketPath}`);
   });
 
   // Handle shutdown signals
   const shutdown = () => {
+    log.info('Shutdown requested');
     console.log('\nShutting down...');
     stopAllSessions();
     clearDaemonState();
+    log.info('All sessions stopped and state cleared');
 
     for (const server of httpServers) {
       server.close();
     }
     unixServer.close();
+    log.info('Servers closed');
 
     // Clean up socket file
     if (existsSync(socketPath)) {
       try {
         unlinkSync(socketPath);
-      } catch {
-        // Ignore
+        log.info(`Socket file removed: ${socketPath}`);
+      } catch (err) {
+        log.warn(`Failed to remove socket file: ${err}`);
       }
     }
 
+    log.info('Daemon shutdown complete');
     process.exit(0);
   };
 
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', () => {
+    log.info('Received SIGINT');
+    shutdown();
+  });
+  process.on('SIGTERM', () => {
+    log.info('Received SIGTERM');
+    shutdown();
+  });
 
   // Keep process running
   if (!options.foreground) {
