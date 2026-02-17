@@ -8,13 +8,47 @@ ttyd-mux を Caddy リバースプロキシで外部公開するための設定�
 - ttyd-mux が動作している
 - ドメイン名（例: `example.com`）が設定済み
 
-## 基本構成
+## プロキシモード
+
+ttyd-mux には2つのプロキシモードがあります：
+
+### Proxy モード（デフォルト）
 
 ```
 インターネット → Caddy (:443) → ttyd-mux daemon (:7680) → ttyd (:7601, :7602, ...)
 ```
 
-Caddy は HTTPS 終端とリバースプロキシを担当し、ttyd-mux daemon が各 ttyd プロセスへルーティングします。
+- 全てのトラフィックが ttyd-mux daemon を経由
+- IME ヘルパー（モバイル日本語入力対応）が利用可能
+- 設定がシンプル
+
+### Static モード
+
+```
+インターネット → Caddy (:443) → ttyd (:7601, :7602, ...) 直接
+                     ↓
+              静的ポータル HTML
+```
+
+- Caddy から ttyd に直接ルーティング
+- 低レイテンシ（中間プロキシなし）
+- デーモン常駐不要（セッション管理時のみ使用）
+- IME ヘルパーは利用不可
+
+## 設定ファイル
+
+```yaml
+# ~/.config/ttyd-mux/config.yaml
+
+# プロキシモード: "proxy"（デフォルト）または "static"
+proxy_mode: proxy
+
+# Caddy 連携用のホスト名（--hostname オプションのデフォルト値）
+hostname: example.com
+
+# Caddy Admin API URL
+caddy_admin_api: http://localhost:2019
+```
 
 ## 設定方法
 
@@ -148,6 +182,108 @@ handle /ttyd-mux/* {
     reverse_proxy 127.0.0.1:7680
 }
 ```
+
+## Static モードの設定
+
+Static モードでは、静的ポータルと Caddyfile スニペットを生成して使用します。
+
+### 1. 設定ファイルの準備
+
+```yaml
+# ~/.config/ttyd-mux/config.yaml
+proxy_mode: static
+hostname: example.com
+```
+
+### 2. セッションを起動
+
+```bash
+cd ~/my-project
+ttyd-mux up --detach
+```
+
+### 3. デプロイファイルを生成
+
+```bash
+ttyd-mux deploy
+```
+
+生成されるファイル：
+
+```
+~/.local/share/ttyd-mux/deploy/
+├── portal/
+│   └── index.html          # 静的ポータルページ
+├── Caddyfile.snippet        # Caddyfile 用スニペット
+├── caddy-routes.json        # Caddy Admin API 用 JSON
+└── deploy.sh                # セットアップスクリプト
+```
+
+### 4. Caddyfile に追加
+
+```bash
+cat ~/.local/share/ttyd-mux/deploy/Caddyfile.snippet
+```
+
+出力例：
+
+```caddyfile
+# ttyd-mux static mode configuration for example.com
+
+# Portal page (static HTML)
+handle /ttyd-mux {
+    rewrite * /index.html
+    root * /home/user/.local/share/ttyd-mux/deploy/portal
+    file_server
+}
+
+handle /ttyd-mux/ {
+    rewrite * /index.html
+    root * /home/user/.local/share/ttyd-mux/deploy/portal
+    file_server
+}
+
+# Session: my-project
+handle /ttyd-mux/my-project/* {
+    reverse_proxy localhost:7601
+}
+```
+
+### 5. セッション変更後の更新
+
+セッションを追加/削除した後は、再度デプロイを実行：
+
+```bash
+ttyd-mux up      # 新しいセッションを起動
+ttyd-mux deploy  # ファイルを再生成
+```
+
+または Caddy Admin API 経由で同期：
+
+```bash
+ttyd-mux caddy sync
+```
+
+### deploy コマンドオプション
+
+| オプション | 説明 | デフォルト |
+|-----------|------|-----------|
+| `--hostname` | サーバーのホスト名 | config.yaml の hostname |
+| `-o, --output` | 出力ディレクトリ | `~/.local/share/ttyd-mux/deploy` |
+| `-c, --config` | 設定ファイルのパス | 自動検出 |
+
+### caddy sync コマンド
+
+Static モードで Caddy のルートを現在のセッション状態に同期：
+
+```bash
+ttyd-mux caddy sync --hostname example.com
+```
+
+**動作:**
+1. 現在のセッション一覧を取得
+2. Caddy の既存ルートと比較
+3. 追加/削除されたセッションのルートを更新
 
 ## トラブルシューティング
 
