@@ -1,5 +1,5 @@
-import { getFullPath } from '../config/config.js';
-import type { Config, SessionState } from '../config/types.js';
+import { getFullPath } from '@/config/config.js';
+import type { Config, SessionState } from '@/config/types.js';
 
 export interface CaddyfileOptions {
   hostname: string;
