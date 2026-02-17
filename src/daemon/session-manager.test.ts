@@ -3,7 +3,13 @@ import { cleanupTestState, resetTestState } from '../test-setup.js';
 
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
 import type { Config } from '../config/types.js';
-import { allocatePort, isProcessRunning, sessionNameFromDir } from './session-manager.js';
+import {
+  allocatePort,
+  isProcessRunning,
+  listSessions,
+  sessionNameFromDir,
+  stopSession
+} from './session-manager.js';
 
 describe('session-manager', () => {
   beforeEach(() => {
@@ -89,6 +95,45 @@ describe('session-manager', () => {
       const result = isProcessRunning(0);
       // On most systems, this returns false or throws
       expect(typeof result).toBe('boolean');
+    });
+  });
+
+  describe('listSessions', () => {
+    test('returns array', () => {
+      const sessions = listSessions();
+      expect(Array.isArray(sessions)).toBe(true);
+    });
+
+    test('filters out dead processes', async () => {
+      const { addSession, getAllSessions } = await import('../config/state.js');
+
+      // Count sessions before
+      const beforeCount = listSessions().length;
+
+      // Add a session with a non-existent PID
+      addSession({
+        name: 'dead-session-test',
+        pid: 999999999, // Non-existent PID
+        port: 7699,
+        path: '/dead-test',
+        dir: '/home/test/dead',
+        started_at: '2024-01-01T00:00:00Z'
+      });
+
+      // Verify it was added to state
+      const stateSessionsAfter = getAllSessions();
+      expect(stateSessionsAfter.some((s) => s.name === 'dead-session-test')).toBe(true);
+
+      // listSessions should filter it out (dead process)
+      const sessions = listSessions();
+      expect(sessions.length).toBe(beforeCount); // Same count as before
+      expect(sessions.some((s) => s.name === 'dead-session-test')).toBe(false);
+    });
+  });
+
+  describe('stopSession', () => {
+    test('throws error for non-existent session', () => {
+      expect(() => stopSession('nonexistent-session')).toThrow('Session "nonexistent-session" not found');
     });
   });
 });
