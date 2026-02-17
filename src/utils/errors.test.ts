@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
-import { AppError, formatCliError, getErrorMessage, handleCliError, withErrorHandling } from './errors.js';
+import {
+  AppError,
+  formatCliError,
+  getErrorMessage,
+  handleCliError,
+  withErrorHandling
+} from './errors.js';
 
 describe('getErrorMessage', () => {
   test('extracts message from Error instance', () => {

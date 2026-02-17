@@ -57,3 +57,13 @@ export async function withErrorHandling<T>(
     return null;
   }
 }
+
+/**
+ * Assert that hostname is provided, exit if not
+ */
+export function requireHostname(hostname: string | undefined): asserts hostname is string {
+  if (!hostname) {
+    console.error('Error: --hostname is required (or set hostname in config.yaml)');
+    process.exit(1);
+  }
+}
