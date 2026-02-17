@@ -142,6 +142,121 @@ export class CaddyClient {
   }
 
   /**
+   * Create a route for a specific session (static mode)
+   */
+  createSessionRoute(hostname: string, sessionPath: string, port: number): CaddyRoute {
+    return {
+      match: [
+        {
+          host: [hostname],
+          path: [`${sessionPath}/*`]
+        }
+      ],
+      handle: [
+        {
+          handler: 'reverse_proxy',
+          upstreams: [{ dial: `localhost:${port}` }]
+        }
+      ]
+    };
+  }
+
+  /**
+   * Create portal route (exact match for base path without trailing content)
+   */
+  createPortalRoute(hostname: string, basePath: string, daemonPort: number): CaddyRoute {
+    return {
+      match: [
+        {
+          host: [hostname],
+          path: [`${basePath}`, `${basePath}/`, `${basePath}/api/*`]
+        }
+      ],
+      handle: [
+        {
+          handler: 'reverse_proxy',
+          upstreams: [{ dial: `localhost:${daemonPort}` }]
+        }
+      ]
+    };
+  }
+
+  /**
+   * Check if a session route exists
+   */
+  sessionRouteExists(server: CaddyServer, hostname: string, sessionPath: string): boolean {
+    const routes = server.routes ?? [];
+    return routes.some((route) => {
+      const matches = route.match ?? [];
+      return matches.some(
+        (m) => m.host?.includes(hostname) && m.path?.some((p) => p === `${sessionPath}/*`)
+      );
+    });
+  }
+
+  /**
+   * Get all ttyd-mux session routes from a server
+   */
+  getSessionRoutes(
+    server: CaddyServer,
+    hostname: string,
+    basePath: string
+  ): Array<{ path: string; port: number }> {
+    const results: Array<{ path: string; port: number }> = [];
+    const routes = server.routes ?? [];
+
+    for (const route of routes) {
+      const matches = route.match ?? [];
+      for (const match of matches) {
+        if (!match.host?.includes(hostname)) continue;
+
+        for (const path of match.path ?? []) {
+          // Match session paths like /ttyd-mux/session-name/*
+          if (path.startsWith(`${basePath}/`) && path.endsWith('/*')) {
+            const sessionPath = path.slice(0, -2); // Remove /*
+            const upstream = this.extractUpstream(route);
+            const portMatch = upstream.match(/:(\d+)$/);
+            if (portMatch?.[1]) {
+              results.push({ path: sessionPath, port: Number.parseInt(portMatch[1], 10) });
+            }
+          }
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Remove session routes that are no longer active
+   */
+  filterOutSessionRoutes(
+    routes: CaddyRoute[],
+    hostname: string,
+    basePath: string,
+    keepPaths: Set<string>
+  ): CaddyRoute[] {
+    return routes.filter((route) => {
+      const matches = route.match ?? [];
+      for (const match of matches) {
+        if (!match.host?.includes(hostname)) continue;
+
+        for (const path of match.path ?? []) {
+          // Check if this is a session route
+          if (path.startsWith(`${basePath}/`) && path.endsWith('/*')) {
+            const sessionPath = path.slice(0, -2);
+            // Keep only if in keepPaths
+            if (!keepPaths.has(sessionPath)) {
+              return false;
+            }
+          }
+        }
+      }
+      return true;
+    });
+  }
+
+  /**
    * Extract upstream from route handlers
    */
   private extractUpstream(route: CaddyRoute): string {
