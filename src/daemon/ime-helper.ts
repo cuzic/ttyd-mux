@@ -633,6 +633,75 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
     dragStartPos = null;
   });
 
+  // Convert touch events to mouse events with shiftKey when Shift is active
+  // This enables text selection on mobile devices
+  let touchStartPos = null;
+
+  function dispatchMouseEvent(type, touch, shiftKey) {
+    const mouseEvent = new MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      detail: 1,
+      screenX: touch.screenX,
+      screenY: touch.screenY,
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      ctrlKey: false,
+      altKey: false,
+      shiftKey: shiftKey,
+      metaKey: false,
+      button: 0,
+      buttons: type === 'mouseup' ? 0 : 1,
+      relatedTarget: null
+    });
+    touch.target.dispatchEvent(mouseEvent);
+  }
+
+  document.addEventListener('touchstart', function(e) {
+    // Single finger touch with Shift active -> convert to mouse event for selection
+    if (e.touches.length === 1 && shiftActive) {
+      const touch = e.touches[0];
+      touchStartPos = { x: touch.clientX, y: touch.clientY };
+      e.preventDefault();
+      dispatchMouseEvent('mousedown', touch, true);
+    }
+    // Track non-Shift single touch for hint
+    else if (e.touches.length === 1 && !shiftActive) {
+      const touch = e.touches[0];
+      touchStartPos = { x: touch.clientX, y: touch.clientY };
+    }
+  }, { passive: false, capture: true });
+
+  document.addEventListener('touchmove', function(e) {
+    if (e.touches.length === 1 && shiftActive && touchStartPos) {
+      e.preventDefault();
+      dispatchMouseEvent('mousemove', e.touches[0], true);
+    }
+  }, { passive: false, capture: true });
+
+  document.addEventListener('touchend', function(e) {
+    if (touchStartPos) {
+      const touch = e.changedTouches[0];
+      const dx = touch.clientX - touchStartPos.x;
+      const dy = touch.clientY - touchStartPos.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (shiftActive) {
+        dispatchMouseEvent('mouseup', touch, true);
+        nonShiftDragCount = 0;
+      } else if (distance > 10) {
+        // Non-Shift touch drag
+        nonShiftDragCount++;
+        if (nonShiftDragCount >= 3) {
+          alert('テキスト選択するには、Shift ボタンを ON にしてからドラッグしてください。\\n\\nTo select text, turn ON the Shift button and then drag.');
+          nonShiftDragCount = 0;
+        }
+      }
+      touchStartPos = null;
+    }
+  }, { passive: true, capture: true });
+
   // Pinch-to-zoom for font size (when Ctrl is active)
   let pinchStartDistance = 0;
   let pinchStartFontSize = 14;
