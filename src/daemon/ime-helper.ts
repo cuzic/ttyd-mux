@@ -658,13 +658,23 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
     touch.target.dispatchEvent(mouseEvent);
   }
 
+  let shiftTouchActive = false;  // Track if we're in Shift+touch selection mode
+
   document.addEventListener('touchstart', function(e) {
     // Single finger touch with Shift active -> convert to mouse event for selection
     if (e.touches.length === 1 && shiftActive) {
       const touch = e.touches[0];
       touchStartPos = { x: touch.clientX, y: touch.clientY };
+      shiftTouchActive = true;
       e.preventDefault();
       dispatchMouseEvent('mousedown', touch, true);
+    }
+    // 2nd finger added -> cancel Shift selection mode, allow pinch
+    else if (e.touches.length === 2 && shiftTouchActive) {
+      dispatchMouseEvent('mouseup', e.touches[0], true);
+      shiftTouchActive = false;
+      touchStartPos = null;
+      // Don't preventDefault - let pinch handlers take over
     }
     // Track non-Shift single touch for hint
     else if (e.touches.length === 1 && !shiftActive) {
@@ -674,24 +684,31 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
   }, { passive: false, capture: true });
 
   document.addEventListener('touchmove', function(e) {
-    if (e.touches.length === 1 && shiftActive && touchStartPos) {
+    // Only handle single-finger moves when in Shift selection mode
+    if (e.touches.length === 1 && shiftTouchActive) {
       e.preventDefault();
       dispatchMouseEvent('mousemove', e.touches[0], true);
     }
+    // Don't interfere with 2-finger gestures (pinch)
   }, { passive: false, capture: true });
 
   document.addEventListener('touchend', function(e) {
-    if (touchStartPos) {
+    // Shift selection mode ending
+    if (shiftTouchActive && e.touches.length === 0) {
+      const touch = e.changedTouches[0];
+      dispatchMouseEvent('mouseup', touch, true);
+      shiftTouchActive = false;
+      touchStartPos = null;
+      nonShiftDragCount = 0;
+    }
+    // Non-Shift drag tracking
+    else if (touchStartPos && !shiftTouchActive && e.touches.length === 0) {
       const touch = e.changedTouches[0];
       const dx = touch.clientX - touchStartPos.x;
       const dy = touch.clientY - touchStartPos.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
-      if (shiftActive) {
-        dispatchMouseEvent('mouseup', touch, true);
-        nonShiftDragCount = 0;
-      } else if (distance > 10) {
-        // Non-Shift touch drag
+      if (distance > 10) {
         nonShiftDragCount++;
         if (nonShiftDragCount >= 3) {
           alert('テキスト選択するには、Shift ボタンを ON にしてからドラッグしてください。\\n\\nTo select text, turn ON the Shift button and then drag.');
@@ -702,7 +719,7 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
     }
   }, { passive: true, capture: true });
 
-  // Pinch-to-zoom for font size (when Ctrl is active)
+  // Pinch-to-zoom for font size (when Ctrl or Shift is active)
   let pinchStartDistance = 0;
   let pinchStartFontSize = 14;
 
@@ -713,7 +730,7 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
   }
 
   document.addEventListener('touchstart', function(e) {
-    if (e.touches.length === 2 && ctrlActive) {
+    if (e.touches.length === 2 && (ctrlActive || shiftActive)) {
       pinchStartDistance = getTouchDistance(e.touches);
       const term = findTerminal();
       pinchStartFontSize = (term && term.options) ? (term.options.fontSize || 14) : 14;
@@ -721,7 +738,7 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
   }, { passive: true });
 
   document.addEventListener('touchmove', function(e) {
-    if (e.touches.length === 2 && ctrlActive && pinchStartDistance > 0) {
+    if (e.touches.length === 2 && (ctrlActive || shiftActive) && pinchStartDistance > 0) {
       e.preventDefault();  // Suppress browser zoom
       const currentDistance = getTouchDistance(e.touches);
       const scale = currentDistance / pinchStartDistance;
