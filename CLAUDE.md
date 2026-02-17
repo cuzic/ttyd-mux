@@ -33,15 +33,23 @@ src/
 │   ├── server.ts         # HTTP サーバー + API
 │   ├── proxy.ts          # WebSocket 対応プロキシ
 │   ├── portal.ts         # ポータル HTML 生成
+│   ├── ime-helper.ts     # IME ヘルパー（モバイル日本語入力）
 │   └── session-manager.ts # ttyd プロセス管理
 ├── client/
 │   └── index.ts          # デーモン通信クライアント
+├── caddy/
+│   └── client.ts         # Caddy Admin API クライアント
+├── deploy/
+│   ├── static-portal.ts  # 静的ポータル HTML 生成
+│   ├── caddyfile.ts      # Caddyfile スニペット生成
+│   └── deploy-script.ts  # deploy.sh 生成
 └── commands/
     ├── up.ts, down.ts    # メインコマンド
     ├── start.ts, stop.ts, status.ts
     ├── attach.ts
     ├── daemon.ts, shutdown.ts
-    └── generate.ts
+    ├── caddy.ts          # Caddy 連携コマンド
+    └── deploy.ts         # デプロイコマンド（direct モード用）
 ```
 
 ## 開発コマンド
@@ -119,6 +127,9 @@ interface Config {
   base_path: string;      // "/ttyd-mux"
   base_port: number;      // 7600
   daemon_port: number;    // 7680
+  proxy_mode: 'proxy' | 'static';  // プロキシモード
+  hostname?: string;      // Caddy 連携用ホスト名
+  caddy_admin_api: string; // Caddy Admin API URL
   sessions?: SessionDefinition[];
 }
 
@@ -132,6 +143,19 @@ interface SessionState {
   started_at: string;
 }
 ```
+
+## プロキシモード
+
+### proxy モード（デフォルト）
+- 全トラフィックが ttyd-mux daemon を経由
+- IME ヘルパーによるモバイル日本語入力対応
+- シンプルな Caddy 設定（単一ルート）
+
+### static モード
+- Caddy から ttyd に直接ルーティング
+- 低レイテンシ
+- `ttyd-mux deploy` で静的ポータルを生成
+- セッション変更後は `ttyd-mux caddy sync` でルート同期
 
 ## 注意事項
 
