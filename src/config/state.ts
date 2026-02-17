@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { lockSync, unlockSync } from 'proper-lockfile';
+import type { StateStore } from './state-store.js';
 import type { DaemonState, SessionState, State } from './types.js';
 
 /**
@@ -155,3 +156,24 @@ export function getNextPort(basePort: number): number {
 export function getNextPath(basePath: string, name: string): string {
   return `${basePath}/${name}`.replace(/\/+/g, '/');
 }
+
+/**
+ * Default StateStore implementation using file system
+ * Can be replaced with in-memory store for testing
+ */
+export const defaultStateStore: StateStore = {
+  getStateDir,
+  getSocketPath,
+  loadState,
+  saveState,
+  getDaemonState,
+  setDaemonState,
+  clearDaemonState,
+  addSession,
+  removeSession,
+  getSession,
+  getSessionByDir,
+  getAllSessions,
+  getNextPort,
+  getNextPath
+};
