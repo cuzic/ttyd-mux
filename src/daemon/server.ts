@@ -7,6 +7,7 @@ import { getFullPath, normalizeBasePath } from '../config/config.js';
 import { getDaemonState } from '../config/state.js';
 import type { Config, SessionState } from '../config/types.js';
 import { getErrorMessage } from '../utils/errors.js';
+import { createLogger } from '../utils/logger.js';
 import { injectImeHelper } from './ime-helper.js';
 import { generateJsonResponse, generatePortalHtml } from './portal.js';
 import {
@@ -18,6 +19,8 @@ import {
   stopSession
 } from './session-manager.js';
 
+const log = createLogger('server');
+
 // Create proxy server for HTTP only
 const proxy = httpProxy.createProxyServer({
   changeOrigin: true,
@@ -25,8 +28,9 @@ const proxy = httpProxy.createProxyServer({
 });
 
 // Handle proxy errors
-proxy.on('error', (err, _req, res) => {
-  console.error('Proxy error:', err.message);
+proxy.on('error', (err, req, res) => {
+  const url = (req as IncomingMessage).url ?? 'unknown';
+  log.error(`Proxy error for ${url}: ${err.message}`);
   if (res && 'writeHead' in res && typeof res.writeHead === 'function') {
     const httpRes = res as ServerResponse;
     if (!httpRes.headersSent) {
@@ -198,6 +202,8 @@ function handleRequest(config: Config, req: IncomingMessage, res: ServerResponse
   const method = req.method ?? 'GET';
   const basePath = normalizeBasePath(config.base_path);
 
+  log.debug(`Request: ${method} ${url}`);
+
   // API routes
   if (url.startsWith(`${basePath}/api/`)) {
     handleApiRequest(config, req, res);
@@ -207,6 +213,7 @@ function handleRequest(config: Config, req: IncomingMessage, res: ServerResponse
   // Portal page
   if (url === basePath || url === `${basePath}/`) {
     if (method === 'GET') {
+      log.debug('Serving portal page');
       const sessions = listSessions();
       const html = generatePortalHtml(config, sessions);
       res.writeHead(200, {
@@ -222,6 +229,7 @@ function handleRequest(config: Config, req: IncomingMessage, res: ServerResponse
   const session = findSessionForPath(config, url);
   if (session) {
     const target = `http://localhost:${session.port}`;
+    log.debug(`Proxying ${url} to ${target}`);
     // Store original Accept-Encoding before deletion (for gzip re-compression)
     (req as IncomingMessage & { originalAcceptEncoding?: string }).originalAcceptEncoding = req
       .headers['accept-encoding'] as string | undefined;
@@ -233,6 +241,7 @@ function handleRequest(config: Config, req: IncomingMessage, res: ServerResponse
   }
 
   // Not found
+  log.debug(`Not found: ${url}`);
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('Not Found');
 }
@@ -253,14 +262,18 @@ function closeWebSocket(ws: WebSocket, code: number, reason: string): void {
 
 function handleUpgrade(config: Config, req: IncomingMessage, socket: Socket, head: Buffer): void {
   const url = req.url ?? '/';
+  log.debug(`WebSocket upgrade request: ${url}`);
+
   const session = findSessionForPath(config, url);
   if (!session) {
+    log.warn(`WebSocket upgrade rejected - no session for: ${url}`);
     socket.destroy();
     return;
   }
 
   // Connect to backend WebSocket
   const backendUrl = `ws://127.0.0.1:${session.port}${url}`;
+  log.debug(`Connecting to backend WebSocket: ${backendUrl}`);
   const protocol = req.headers['sec-websocket-protocol'];
   const backendWs = new WebSocket(
     backendUrl,
@@ -268,6 +281,7 @@ function handleUpgrade(config: Config, req: IncomingMessage, socket: Socket, hea
   );
 
   backendWs.on('open', () => {
+    log.debug(`Backend WebSocket connected: ${backendUrl}`);
     // Upgrade client connection once backend is ready
     wss.handleUpgrade(req, socket, head, (clientWs) => {
       let closed = false;
@@ -276,6 +290,7 @@ function handleUpgrade(config: Config, req: IncomingMessage, socket: Socket, hea
         if (closed) return;
         closed = true;
 
+        log.debug(`WebSocket cleanup initiated by ${initiator}, code=${code}`);
         const closeCode = code ?? 1000;
         const closeReason = reason?.toString() ?? '';
         const wsToClose = initiator === 'client' ? backendWs : clientWs;
@@ -300,11 +315,13 @@ function handleUpgrade(config: Config, req: IncomingMessage, socket: Socket, hea
       backendWs.on('close', (code, reason) => cleanup('backend', code, reason));
 
       // Handle errors - terminate to ensure cleanup
-      clientWs.on('error', () => {
+      clientWs.on('error', (err) => {
+        log.error(`Client WebSocket error: ${err.message}`);
         clientWs.terminate();
         cleanup('client', 1006);
       });
-      backendWs.on('error', () => {
+      backendWs.on('error', (err) => {
+        log.error(`Backend WebSocket error: ${err.message}`);
         backendWs.terminate();
         cleanup('backend', 1006);
       });
@@ -312,7 +329,7 @@ function handleUpgrade(config: Config, req: IncomingMessage, socket: Socket, hea
   });
 
   backendWs.on('error', (err) => {
-    console.error(`[WebSocket] Connection error: ${err.message}`);
+    log.error(`Backend WebSocket connection failed: ${backendUrl} - ${err.message}`);
     backendWs.terminate();
     socket.destroy();
   });
