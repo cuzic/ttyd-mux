@@ -16,6 +16,7 @@ process.env['TTYD_MUX_STATE_DIR'] = TEST_STATE_DIR;
 
 /**
  * Reset test state directory - call in beforeEach
+ * This ensures each test starts with a clean state directory.
  */
 export function resetTestState(): void {
   if (existsSync(TEST_STATE_DIR)) {
@@ -25,7 +26,10 @@ export function resetTestState(): void {
 }
 
 /**
- * Cleanup test state directory - call in afterEach
+ * Cleanup test state directory - call in afterAll
+ * This removes the test directory after all tests in the suite complete.
+ * Note: beforeEach already handles cleanup before each test, so this is
+ * only needed for final cleanup after the test suite.
  */
 export function cleanupTestState(): void {
   if (existsSync(TEST_STATE_DIR)) {
