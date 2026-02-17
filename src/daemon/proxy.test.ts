@@ -1,15 +1,10 @@
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import type { Config, SessionState } from '../config/types.js';
+// Import test setup FIRST to set environment variables before any other imports
+import { cleanupTestState, resetTestState } from '@/test-setup.js';
 
-// Mock session-manager to avoid side effects
-mock.module('./session-manager.js', () => ({
-  listSessions: () => mockSessions
-}));
-
-let mockSessions: SessionState[] = [];
-
-// Import after mocking
-import { findSessionForPath } from './server.js';
+import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
+import { addSession } from '@/config/state.js';
+import type { Config } from '@/config/types.js';
+import { findSessionForPath } from './router.js';
 
 describe('proxy', () => {
   const baseConfig: Config = {
@@ -19,29 +14,29 @@ describe('proxy', () => {
   };
 
   beforeEach(() => {
-    mockSessions = [];
+    resetTestState();
+  });
+
+  afterAll(() => {
+    cleanupTestState();
   });
 
   describe('findSessionForPath', () => {
     test('returns null when no sessions exist', () => {
-      mockSessions = [];
-
       const result = findSessionForPath(baseConfig, '/ttyd-mux/test/');
 
       expect(result).toBeNull();
     });
 
     test('finds session matching path prefix', () => {
-      mockSessions = [
-        {
-          name: 'test-session',
-          pid: 12345,
-          port: 7601,
-          path: '/test',
-          dir: '/home/user/test',
-          started_at: '2024-01-01T00:00:00Z'
-        }
-      ];
+      addSession({
+        name: 'test-session',
+        pid: process.pid, // Use current process PID so session is "alive"
+        port: 7601,
+        path: '/test',
+        dir: '/home/user/test',
+        started_at: '2024-01-01T00:00:00Z'
+      });
 
       const result = findSessionForPath(baseConfig, '/ttyd-mux/test/some/path');
 
@@ -50,16 +45,14 @@ describe('proxy', () => {
     });
 
     test('finds session for exact path match', () => {
-      mockSessions = [
-        {
-          name: 'test-session',
-          pid: 12345,
-          port: 7601,
-          path: '/test',
-          dir: '/home/user/test',
-          started_at: '2024-01-01T00:00:00Z'
-        }
-      ];
+      addSession({
+        name: 'test-session',
+        pid: process.pid,
+        port: 7601,
+        path: '/test',
+        dir: '/home/user/test',
+        started_at: '2024-01-01T00:00:00Z'
+      });
 
       const result = findSessionForPath(baseConfig, '/ttyd-mux/test');
 
@@ -68,16 +61,14 @@ describe('proxy', () => {
     });
 
     test('returns null for non-matching path', () => {
-      mockSessions = [
-        {
-          name: 'test-session',
-          pid: 12345,
-          port: 7601,
-          path: '/test',
-          dir: '/home/user/test',
-          started_at: '2024-01-01T00:00:00Z'
-        }
-      ];
+      addSession({
+        name: 'test-session',
+        pid: process.pid,
+        port: 7601,
+        path: '/test',
+        dir: '/home/user/test',
+        started_at: '2024-01-01T00:00:00Z'
+      });
 
       const result = findSessionForPath(baseConfig, '/ttyd-mux/other/path');
 
@@ -85,24 +76,22 @@ describe('proxy', () => {
     });
 
     test('matches correct session among multiple', () => {
-      mockSessions = [
-        {
-          name: 'session-a',
-          pid: 12345,
-          port: 7601,
-          path: '/a',
-          dir: '/home/user/a',
-          started_at: '2024-01-01T00:00:00Z'
-        },
-        {
-          name: 'session-b',
-          pid: 12346,
-          port: 7602,
-          path: '/b',
-          dir: '/home/user/b',
-          started_at: '2024-01-01T00:00:00Z'
-        }
-      ];
+      addSession({
+        name: 'session-a',
+        pid: process.pid,
+        port: 7601,
+        path: '/a',
+        dir: '/home/user/a',
+        started_at: '2024-01-01T00:00:00Z'
+      });
+      addSession({
+        name: 'session-b',
+        pid: process.pid,
+        port: 7602,
+        path: '/b',
+        dir: '/home/user/b',
+        started_at: '2024-01-01T00:00:00Z'
+      });
 
       const result = findSessionForPath(baseConfig, '/ttyd-mux/b/ws');
 
@@ -118,16 +107,14 @@ describe('proxy', () => {
         daemon_port: 7680
       };
 
-      mockSessions = [
-        {
-          name: 'test-session',
-          pid: 12345,
-          port: 7601,
-          path: '/test',
-          dir: '/home/user/test',
-          started_at: '2024-01-01T00:00:00Z'
-        }
-      ];
+      addSession({
+        name: 'test-session',
+        pid: process.pid,
+        port: 7601,
+        path: '/test',
+        dir: '/home/user/test',
+        started_at: '2024-01-01T00:00:00Z'
+      });
 
       const result = findSessionForPath(configWithSlash, '/ttyd-mux/test/path');
 

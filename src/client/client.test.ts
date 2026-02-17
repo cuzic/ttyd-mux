@@ -1,5 +1,5 @@
 // Import test setup FIRST to set environment variables before any other imports
-import { cleanupTestState, resetTestState } from '../test-setup.js';
+import { cleanupTestState, resetTestState } from '@/test-setup.js';
 
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
 

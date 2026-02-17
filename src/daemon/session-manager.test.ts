@@ -1,15 +1,9 @@
 // Import test setup FIRST to set environment variables before any other imports
-import { cleanupTestState, resetTestState } from '../test-setup.js';
+import { cleanupTestState, resetTestState } from '@/test-setup.js';
 
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
-import type { Config } from '../config/types.js';
-import {
-  allocatePort,
-  isProcessRunning,
-  listSessions,
-  sessionNameFromDir,
-  stopSession
-} from './session-manager.js';
+import type { Config } from '@/config/types.js';
+import { allocatePort, sessionManager, sessionNameFromDir } from './session-manager.js';
 
 describe('session-manager', () => {
   beforeEach(() => {
@@ -81,18 +75,18 @@ describe('session-manager', () => {
   describe('isProcessRunning', () => {
     test('returns true for current process', () => {
       // process.pid should always be running
-      expect(isProcessRunning(process.pid)).toBe(true);
+      expect(sessionManager.isProcessRunning(process.pid)).toBe(true);
     });
 
     test('returns false for non-existent PID', () => {
       // Use a very high PID that's unlikely to exist
-      expect(isProcessRunning(999999999)).toBe(false);
+      expect(sessionManager.isProcessRunning(999999999)).toBe(false);
     });
 
     test('returns false for PID 0', () => {
       // PID 0 is special and shouldn't be killable by user process
       // This might throw, so we expect false or an error
-      const result = isProcessRunning(0);
+      const result = sessionManager.isProcessRunning(0);
       // On most systems, this returns false or throws
       expect(typeof result).toBe('boolean');
     });
@@ -100,7 +94,7 @@ describe('session-manager', () => {
 
   describe('listSessions', () => {
     test('returns array', () => {
-      const sessions = listSessions();
+      const sessions = sessionManager.listSessions();
       expect(Array.isArray(sessions)).toBe(true);
     });
 
@@ -108,7 +102,7 @@ describe('session-manager', () => {
       const { addSession, getAllSessions } = await import('../config/state.js');
 
       // Count sessions before
-      const beforeCount = listSessions().length;
+      const beforeCount = sessionManager.listSessions().length;
 
       // Add a session with a non-existent PID
       addSession({
@@ -125,7 +119,7 @@ describe('session-manager', () => {
       expect(stateSessionsAfter.some((s) => s.name === 'dead-session-test')).toBe(true);
 
       // listSessions should filter it out (dead process)
-      const sessions = listSessions();
+      const sessions = sessionManager.listSessions();
       expect(sessions.length).toBe(beforeCount); // Same count as before
       expect(sessions.some((s) => s.name === 'dead-session-test')).toBe(false);
     });
@@ -133,7 +127,9 @@ describe('session-manager', () => {
 
   describe('stopSession', () => {
     test('throws error for non-existent session', () => {
-      expect(() => stopSession('nonexistent-session')).toThrow('Session "nonexistent-session" not found');
+      expect(() => sessionManager.stopSession('nonexistent-session')).toThrow(
+        'Session "nonexistent-session" not found'
+      );
     });
   });
 });

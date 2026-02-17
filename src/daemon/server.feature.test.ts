@@ -1,10 +1,11 @@
 // Import test setup FIRST to set environment variables before any other imports
-import { cleanupTestState, resetTestState } from '../test-setup.js';
+import { cleanupTestState, resetTestState } from '@/test-setup.js';
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import type { Server } from 'node:http';
-import type { Config } from '../config/types.js';
-import { createDaemonServer, findSessionForPath } from './server.js';
+import type { Config } from '@/config/types.js';
+import { findSessionForPath } from './router.js';
+import { createDaemonServer } from './server.js';
 
 describe('server feature tests', () => {
   let server: Server;
@@ -175,5 +176,38 @@ describe('findSessionForPath', () => {
   test('returns null for API path', () => {
     const result = findSessionForPath(testConfig, '/ttyd-mux/api/sessions');
     expect(result).toBeNull();
+  });
+
+  test('finds session by exact path match', async () => {
+    const { addSession } = await import('../config/state.js');
+    // Add a running session (use current pid so isProcessRunning returns true)
+    addSession({
+      name: 'test-session',
+      pid: process.pid,
+      port: 7601,
+      path: '/test-session',
+      dir: '/home/user/test',
+      started_at: '2024-01-01T00:00:00Z'
+    });
+
+    const result = findSessionForPath(testConfig, '/ttyd-mux/test-session');
+    expect(result).not.toBeNull();
+    expect(result?.name).toBe('test-session');
+  });
+
+  test('finds session by path prefix match', async () => {
+    const { addSession } = await import('../config/state.js');
+    addSession({
+      name: 'prefix-session',
+      pid: process.pid,
+      port: 7602,
+      path: '/prefix-session',
+      dir: '/home/user/test',
+      started_at: '2024-01-01T00:00:00Z'
+    });
+
+    const result = findSessionForPath(testConfig, '/ttyd-mux/prefix-session/ws');
+    expect(result).not.toBeNull();
+    expect(result?.name).toBe('prefix-session');
   });
 });
