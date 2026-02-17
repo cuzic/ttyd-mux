@@ -186,6 +186,7 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
   <div id="ttyd-ime-buttons">
     <button id="ttyd-ime-ctrl" class="modifier">Ctrl</button>
     <button id="ttyd-ime-alt" class="modifier">Alt</button>
+    <button id="ttyd-ime-shift" class="modifier">Shift</button>
     <button id="ttyd-ime-esc">Esc</button>
     <button id="ttyd-ime-tab">Tab</button>
     <button id="ttyd-ime-up">↑</button>
@@ -216,6 +217,7 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
   const toggleBtn = document.getElementById('ttyd-ime-toggle');
   const ctrlBtn = document.getElementById('ttyd-ime-ctrl');
   const altBtn = document.getElementById('ttyd-ime-alt');
+  const shiftBtn = document.getElementById('ttyd-ime-shift');
   const escBtn = document.getElementById('ttyd-ime-esc');
   const tabBtn = document.getElementById('ttyd-ime-tab');
   const upBtn = document.getElementById('ttyd-ime-up');
@@ -226,6 +228,7 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
   let ws = null;
   let ctrlActive = false;
   let altActive = false;
+  let shiftActive = false;
 
   // Detect mobile device
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -505,6 +508,12 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
     }
   });
 
+  shiftBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    shiftActive = !shiftActive;
+    shiftBtn.classList.toggle('active', shiftActive);
+  });
+
   escBtn.addEventListener('click', function(e) {
     e.preventDefault();
     sendEsc();
@@ -558,6 +567,35 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
       e.preventDefault();
       toggleIME();
     }
+  });
+
+  // Inject shiftKey into mouse events when Shift button is active
+  // This allows text selection to bypass tmux mouse mode
+  ['mousedown', 'mousemove', 'mouseup'].forEach(function(eventType) {
+    document.addEventListener(eventType, function(e) {
+      if (shiftActive && !e.shiftKey) {
+        const newEvent = new MouseEvent(e.type, {
+          bubbles: e.bubbles,
+          cancelable: e.cancelable,
+          view: e.view,
+          detail: e.detail,
+          screenX: e.screenX,
+          screenY: e.screenY,
+          clientX: e.clientX,
+          clientY: e.clientY,
+          ctrlKey: e.ctrlKey,
+          altKey: e.altKey,
+          shiftKey: true,
+          metaKey: e.metaKey,
+          button: e.button,
+          buttons: e.buttons,
+          relatedTarget: e.relatedTarget
+        });
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        e.target.dispatchEvent(newEvent);
+      }
+    }, true);
   });
 
   // Pinch-to-zoom for font size (when Ctrl is active)
