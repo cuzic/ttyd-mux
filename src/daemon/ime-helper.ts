@@ -573,6 +573,10 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
   // This allows text selection to bypass tmux mouse mode
   ['mousedown', 'mousemove', 'mouseup'].forEach(function(eventType) {
     document.addEventListener(eventType, function(e) {
+      // Don't interfere with IME helper buttons
+      if (e.target.closest('#ttyd-ime-container') || e.target.closest('#ttyd-ime-toggle')) {
+        return;
+      }
       if (shiftActive && !e.shiftKey) {
         const newEvent = new MouseEvent(e.type, {
           bubbles: e.bubbles,
