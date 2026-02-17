@@ -9,6 +9,9 @@ import {
 } from '../config/state.js';
 import type { Config, SessionState, TmuxMode } from '../config/types.js';
 import { ensureSession } from '../tmux.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('session');
 
 export interface StartSessionOptions {
   name: string;
@@ -50,22 +53,28 @@ class SessionManager extends EventEmitter {
   startSession(options: StartSessionOptions): SessionState {
     const { name, dir, path, port, fullPath, tmuxMode = 'auto' } = options;
 
+    log.info(`Starting session: ${name} (port=${port}, mode=${tmuxMode})`);
+
     // Check if already running
     const existing = getSession(name);
     if (existing && this.isProcessRunning(existing.pid)) {
+      log.warn(`Session "${name}" is already running (pid=${existing.pid})`);
       throw new Error(`Session "${name}" is already running`);
     }
 
     // For auto mode, ensure tmux session exists before starting ttyd
     if (tmuxMode === 'auto') {
+      log.debug(`Ensuring tmux session exists: ${name}`);
       ensureSession(name, dir);
     }
 
     // Get tmux command based on mode
     const tmuxCmd = getTmuxCommand(name, tmuxMode);
+    const ttydArgs = ['-W', '-p', String(port), '-b', fullPath, ...tmuxCmd];
+    log.debug(`ttyd command: ttyd ${ttydArgs.join(' ')}`);
 
     // Start ttyd process
-    const ttydProcess = spawn('ttyd', ['-W', '-p', String(port), '-b', fullPath, ...tmuxCmd], {
+    const ttydProcess = spawn('ttyd', ttydArgs, {
       cwd: dir,
       detached: true,
       stdio: 'ignore'
@@ -74,8 +83,11 @@ class SessionManager extends EventEmitter {
     ttydProcess.unref();
 
     if (!ttydProcess.pid) {
+      log.error(`Failed to start ttyd for session "${name}"`);
       throw new Error(`Failed to start ttyd for session "${name}"`);
     }
+
+    log.info(`ttyd started: pid=${ttydProcess.pid}`);
 
     // Track the process
     this.runningProcesses.set(name, ttydProcess);
@@ -102,16 +114,19 @@ class SessionManager extends EventEmitter {
   }
 
   stopSession(name: string): void {
+    log.info(`Stopping session: ${name}`);
     const session = getSession(name);
     if (!session) {
+      log.warn(`Session "${name}" not found`);
       throw new Error(`Session "${name}" not found`);
     }
 
     // Try to kill the process
     try {
       process.kill(session.pid, 'SIGTERM');
-    } catch {
-      // Process might already be dead
+      log.info(`Sent SIGTERM to pid ${session.pid}`);
+    } catch (err) {
+      log.debug(`Process ${session.pid} might already be dead: ${err}`);
     }
 
     // Clean up
@@ -145,22 +160,26 @@ class SessionManager extends EventEmitter {
   }
 
   stopAllSessions(): void {
+    log.info('Stopping all sessions');
     const sessions = this.listSessions();
     for (const session of sessions) {
       try {
         this.stopSession(session.name);
-      } catch {
-        // Ignore errors when stopping
+      } catch (err) {
+        log.warn(`Error stopping session "${session.name}": ${err}`);
       }
     }
+    log.info(`Stopped ${sessions.length} sessions`);
   }
 
   private handleProcessExit(name: string, code: number | null): void {
+    log.info(`Session "${name}" exited with code ${code}`);
     this.cleanup(name);
     this.emit('session:exit', name, code);
   }
 
   private cleanup(name: string): void {
+    log.debug(`Cleaning up session: ${name}`);
     this.runningProcesses.delete(name);
     removeSession(name);
   }
