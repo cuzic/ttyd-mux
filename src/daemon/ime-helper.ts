@@ -560,6 +560,46 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
     }
   });
 
+  // Pinch-to-zoom for font size (when Ctrl is active)
+  let pinchStartDistance = 0;
+  let pinchStartFontSize = 14;
+
+  function getTouchDistance(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  document.addEventListener('touchstart', function(e) {
+    if (e.touches.length === 2 && ctrlActive) {
+      pinchStartDistance = getTouchDistance(e.touches);
+      const term = findTerminal();
+      pinchStartFontSize = (term && term.options) ? (term.options.fontSize || 14) : 14;
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchmove', function(e) {
+    if (e.touches.length === 2 && ctrlActive && pinchStartDistance > 0) {
+      e.preventDefault();  // Suppress browser zoom
+      const currentDistance = getTouchDistance(e.touches);
+      const scale = currentDistance / pinchStartDistance;
+      const newSize = Math.round(pinchStartFontSize * scale);
+      const clampedSize = Math.max(8, Math.min(32, newSize));
+
+      const term = findTerminal();
+      if (term && term.options && term.options.fontSize !== clampedSize) {
+        term.options.fontSize = clampedSize;
+        fitTerminal();
+      }
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchend', function(e) {
+    if (e.touches.length < 2) {
+      pinchStartDistance = 0;
+    }
+  }, { passive: true });
+
   // Auto-show on mobile devices
   if (isMobile) {
     setTimeout(function() {
