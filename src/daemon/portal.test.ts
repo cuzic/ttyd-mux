@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { Config, SessionState } from '../config/types.js';
+import type { Config, SessionState } from '@/config/types.js';
 import { generateJsonResponse, generatePortalHtml } from './portal.js';
 
 describe('portal', () => {

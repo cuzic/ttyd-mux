@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import { createServer as createUnixServer } from 'node:net';
-import { loadConfig } from '../config/config.js';
-import { clearDaemonState, getSocketPath, getStateDir, setDaemonState } from '../config/state.js';
-import { createLogger } from '../utils/logger.js';
+import { loadConfig } from '@/config/config.js';
+import { clearDaemonState, getSocketPath, getStateDir, setDaemonState } from '@/config/state.js';
+import { createLogger } from '@/utils/logger.js';
 import { createDaemonServer } from './server.js';
-import { stopAllSessions } from './session-manager.js';
+import { sessionManager } from './session-manager.js';
 
 const log = createLogger('daemon');
 
@@ -114,7 +114,7 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
   const shutdown = () => {
     log.info('Shutdown requested');
     console.log('\nShutting down...');
-    stopAllSessions();
+    sessionManager.stopAllSessions();
     clearDaemonState();
     log.info('All sessions stopped and state cleared');
 

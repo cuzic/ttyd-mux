@@ -824,5 +824,5 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
 
 export function injectImeHelper(html: string): string {
   // Inject before </body>
-  return html.replace('</body>', imeHelperScript + '</body>');
+  return html.replace('</body>', `${imeHelperScript}</body>`);
 }

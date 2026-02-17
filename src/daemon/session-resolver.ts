@@ -1,6 +1,6 @@
-import { normalizeBasePath } from '../config/config.js';
-import { getAllSessions, getSession, getSessionByDir } from '../config/state.js';
-import type { Config, SessionDefinition, SessionState } from '../config/types.js';
+import { normalizeBasePath } from '@/config/config.js';
+import { getAllSessions, getSession, getSessionByDir } from '@/config/state.js';
+import type { Config, SessionDefinition, SessionState } from '@/config/types.js';
 
 /**
  * Unified session resolution with multiple lookup strategies
