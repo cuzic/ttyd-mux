@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
-import { createLogger, getLogLevel, setLogLevel, type LogLevel } from './logger.js';
+import { type LogLevel, createLogger, getLogLevel, setLogLevel } from './logger.js';
 
 describe('logger', () => {
   let originalLogLevel: LogLevel;
