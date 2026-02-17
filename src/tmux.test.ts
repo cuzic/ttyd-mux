@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 // Import the module
-import { getCwdSessionName, isInsideTmux, isTmuxInstalled, listSessions, sessionExists } from './tmux.js';
+import {
+  getCwdSessionName,
+  isInsideTmux,
+  isTmuxInstalled,
+  listSessions,
+  sessionExists
+} from './tmux.js';
 
 describe('tmux', () => {
   const originalEnv = { ...process.env };

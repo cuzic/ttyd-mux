@@ -1,67 +1,46 @@
-import { execSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { basename } from 'node:path';
 import type { TmuxSession } from './types.js';
+import { defaultTmuxClient } from './utils/tmux-client.js';
 
+/**
+ * Check if currently inside a tmux session
+ */
 export function isInsideTmux(): boolean {
-  return !!process.env['TMUX'];
+  return defaultTmuxClient.isInsideTmux();
 }
 
+/**
+ * Check if tmux is installed
+ */
 export function isTmuxInstalled(): boolean {
-  try {
-    execSync('which tmux', { stdio: 'ignore' });
-    return true;
-  } catch {
-    // Expected: tmux is not installed
-    return false;
-  }
+  return defaultTmuxClient.isInstalled();
 }
 
-const SESSION_FORMAT = '#{session_name}|#{session_windows}|#{session_created}|#{session_attached}';
-
-function parseSessionLine(line: string): TmuxSession {
-  const [name = '', windows = '0', created = '0', attached] = line.split('|');
-  return {
-    name,
-    windows: Number.parseInt(windows, 10),
-    created: new Date(Number.parseInt(created, 10) * 1000),
-    attached: attached === '1'
-  };
-}
-
+/**
+ * List all tmux sessions
+ */
 export function listSessions(): TmuxSession[] {
-  try {
-    const output = execSync(`tmux list-sessions -F "${SESSION_FORMAT}"`, { encoding: 'utf-8' });
-    return output
-      .trim()
-      .split('\n')
-      .filter((line) => line.length > 0)
-      .map(parseSessionLine);
-  } catch {
-    // Expected: no tmux server running or no sessions
-    return [];
-  }
+  return defaultTmuxClient.listSessions();
 }
 
+/**
+ * Check if a session exists
+ */
 export function sessionExists(sessionName: string): boolean {
-  try {
-    execSync(`tmux has-session -t ${sessionName}`, { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
-  }
+  return defaultTmuxClient.sessionExists(sessionName);
 }
 
+/**
+ * Ensure a session exists, creating it if necessary
+ */
 export function ensureSession(sessionName: string, cwd?: string): void {
-  if (!sessionExists(sessionName)) {
-    // Create detached session
-    const options: { stdio: 'ignore'; cwd?: string } = { stdio: 'ignore' };
-    if (cwd) {
-      options.cwd = cwd;
-    }
-    execSync(`tmux new-session -d -s ${sessionName}`, options);
-  }
+  defaultTmuxClient.ensureSession(sessionName, cwd);
 }
 
+/**
+ * Attach to a tmux session (interactive, spawns child process)
+ */
 export function attachSession(sessionName: string): Promise<number> {
   return new Promise((resolve) => {
     // Ensure session exists before attaching
@@ -79,10 +58,16 @@ export function attachSession(sessionName: string): Promise<number> {
   });
 }
 
+/**
+ * Get session name from current working directory
+ */
 export function getCwdSessionName(): string {
   return basename(process.cwd());
 }
 
+/**
+ * Create or attach to a session named after current directory (interactive)
+ */
 export function createSessionFromCwd(): Promise<number> {
   return new Promise((resolve) => {
     const sessionName = getCwdSessionName();
