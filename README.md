@@ -147,6 +147,19 @@ listen_addresses:
 # セッション起動時に自動でtmuxにアタッチ（デフォルト: true）
 auto_attach: true
 
+# Proxy mode: "proxy" (default) or "static"
+# プロキシモード: "proxy"（デフォルト）または "static"
+# - proxy: All traffic goes through ttyd-mux daemon (supports IME helper)
+# - static: Sessions are accessed directly via Caddy (lower latency)
+proxy_mode: proxy
+
+# Hostname for Caddy integration (used by caddy/deploy commands)
+# Caddy連携用のホスト名（caddy/deployコマンドで使用）
+hostname: example.com
+
+# Caddy Admin API URL
+caddy_admin_api: http://localhost:2019
+
 # Predefined sessions (optional) / 事前定義セッション（オプション）
 sessions:
   - name: project-a
@@ -161,6 +174,8 @@ sessions:
 ```
 
 ## Architecture / アーキテクチャ
+
+### Proxy Mode (default) / プロキシモード（デフォルト）
 
 ```
                                     ┌─────────────────┐
@@ -180,6 +195,22 @@ sessions:
 - **Caddy**: Forwards external requests to ttyd-mux / 外部からのリクエストを ttyd-mux に転送
 - **ttyd-mux daemon**: Portal + reverse proxy to ttyd / ポータル表示 + ttyd へのリバースプロキシ
 - **ttyd**: Web terminal for each session (runs tmux) / 各セッションの Web ターミナル（tmux を起動）
+
+### Static Mode / スタティックモード
+
+```
+                 ┌──────────────┐   ┌─────────────────┐
+                 │ Static HTML  │   │   ttyd :7601    │
+┌─────────┐      │ (portal)     │   │    project-a    │
+│  Caddy  │──────┼──────────────┼───┼─────────────────┤
+│         │      │              │   │   ttyd :7602    │
+│ :443    │      │              │   │    project-b    │
+└─────────┘      └──────────────┘   └─────────────────┘
+```
+
+- Lower latency (no intermediate proxy) / 低レイテンシ（中間プロキシなし）
+- Static portal (no daemon needed at runtime) / 静的ポータル（実行時デーモン不要）
+- No IME helper support / IME ヘルパー非対応
 
 ## Caddy Integration / Caddy との連携
 
@@ -207,6 +238,28 @@ ttyd-mux caddy snippet
 handle /ttyd-mux/* {
     reverse_proxy 127.0.0.1:7680
 }
+```
+
+### Static Mode / スタティックモード
+
+For lower latency, use static mode where Caddy routes directly to ttyd:
+
+低レイテンシのために、Caddy から ttyd に直接ルーティングするスタティックモード：
+
+```yaml
+# config.yaml
+proxy_mode: static
+hostname: example.com
+```
+
+```bash
+# Generate static portal and Caddyfile snippet
+# 静的ポータルと Caddyfile スニペットを生成
+ttyd-mux deploy
+
+# Sync routes after starting/stopping sessions
+# セッション開始/停止後にルートを同期
+ttyd-mux caddy sync
 ```
 
 See [docs/caddy-setup.md](docs/caddy-setup.md) for details.
