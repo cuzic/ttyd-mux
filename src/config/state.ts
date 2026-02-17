@@ -4,28 +4,42 @@ import { join } from 'node:path';
 import { lockSync, unlockSync } from 'proper-lockfile';
 import type { DaemonState, SessionState, State } from './types.js';
 
-const STATE_DIR = join(homedir(), '.local', 'state', 'ttyd-mux');
-const STATE_FILE = join(STATE_DIR, 'state.json');
-const SOCKET_PATH = join(STATE_DIR, 'ttyd-mux.sock');
+/**
+ * Get state directory path.
+ * Can be overridden via TTYD_MUX_STATE_DIR environment variable for testing.
+ */
+function getStateDirPath(): string {
+  return process.env['TTYD_MUX_STATE_DIR'] ?? join(homedir(), '.local', 'state', 'ttyd-mux');
+}
+
+function getStateFilePath(): string {
+  return join(getStateDirPath(), 'state.json');
+}
+
+function getSocketFilePath(): string {
+  return join(getStateDirPath(), 'ttyd-mux.sock');
+}
 
 export function getStateDir(): string {
-  return STATE_DIR;
+  return getStateDirPath();
 }
 
 export function getSocketPath(): string {
-  return SOCKET_PATH;
+  return getSocketFilePath();
 }
 
 function ensureStateDir(): void {
-  if (!existsSync(STATE_DIR)) {
-    mkdirSync(STATE_DIR, { recursive: true });
+  const stateDir = getStateDirPath();
+  if (!existsSync(stateDir)) {
+    mkdirSync(stateDir, { recursive: true });
   }
 }
 
 function ensureStateFile(): void {
   ensureStateDir();
-  if (!existsSync(STATE_FILE)) {
-    writeFileSync(STATE_FILE, JSON.stringify(getDefaultState(), null, 2));
+  const stateFile = getStateFilePath();
+  if (!existsSync(stateFile)) {
+    writeFileSync(stateFile, JSON.stringify(getDefaultState(), null, 2));
   }
 }
 
@@ -37,12 +51,13 @@ function getDefaultState(): State {
 }
 
 export function loadState(): State {
-  if (!existsSync(STATE_FILE)) {
+  const stateFile = getStateFilePath();
+  if (!existsSync(stateFile)) {
     return getDefaultState();
   }
 
   try {
-    const content = readFileSync(STATE_FILE, 'utf-8');
+    const content = readFileSync(stateFile, 'utf-8');
     return JSON.parse(content) as State;
   } catch {
     return getDefaultState();
@@ -51,7 +66,8 @@ export function loadState(): State {
 
 export function saveState(state: State): void {
   ensureStateDir();
-  writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+  const stateFile = getStateFilePath();
+  writeFileSync(stateFile, JSON.stringify(state, null, 2));
 }
 
 /**
@@ -59,11 +75,12 @@ export function saveState(state: State): void {
  */
 export function withStateLock<T>(fn: () => T): T {
   ensureStateFile();
-  lockSync(STATE_FILE);
+  const stateFile = getStateFilePath();
+  lockSync(stateFile);
   try {
     return fn();
   } finally {
-    unlockSync(STATE_FILE);
+    unlockSync(stateFile);
   }
 }
 
