@@ -42,8 +42,27 @@ export function listSessions(): TmuxSession[] {
   }
 }
 
+export function sessionExists(sessionName: string): boolean {
+  try {
+    execSync(`tmux has-session -t ${sessionName}`, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function ensureSession(sessionName: string): void {
+  if (!sessionExists(sessionName)) {
+    // Create detached session
+    execSync(`tmux new-session -d -s ${sessionName}`, { stdio: 'ignore' });
+  }
+}
+
 export function attachSession(sessionName: string): Promise<number> {
   return new Promise((resolve) => {
+    // Ensure session exists before attaching
+    ensureSession(sessionName);
+
     const command = isInsideTmux() ? 'switch-client' : 'attach-session';
 
     const tmux = spawn('tmux', [command, '-t', sessionName], {

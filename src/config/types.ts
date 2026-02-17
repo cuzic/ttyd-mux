@@ -2,6 +2,9 @@ import { z } from 'zod';
 
 // === 設定ファイル (config.yaml) ===
 
+export const TmuxModeSchema = z.enum(['auto', 'attach', 'new']);
+export type TmuxMode = z.infer<typeof TmuxModeSchema>;
+
 export const SessionDefinitionSchema = z.object({
   name: z.string().min(1),
   dir: z.string().min(1),
@@ -17,7 +20,11 @@ export const ConfigSchema = z.object({
   daemon_port: z.number().int().min(1024).max(65535).default(7680),
   listen_addresses: z.array(z.string()).default(['127.0.0.1', '::1']),
   auto_attach: z.boolean().default(true),
-  sessions: z.array(SessionDefinitionSchema).default([])
+  sessions: z.array(SessionDefinitionSchema).default([]),
+  proxy_mode: z.enum(['proxy', 'static']).default('proxy'),
+  hostname: z.string().optional(),
+  caddy_admin_api: z.string().default('http://localhost:2019'),
+  tmux_mode: TmuxModeSchema.default('auto')
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

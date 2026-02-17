@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { connect } from 'node:net';
+import { isAbsolute, resolve } from 'node:path';
 import { getDaemonState, getSocketPath } from '../config/state.js';
 import type {
   Config,
@@ -50,15 +51,33 @@ export async function ensureDaemon(configPath?: string): Promise<void> {
 
   // Build command to spawn daemon in background
   // For 'bun run src/index.ts': argv[1] ends with '.ts' or is 'run'
+  // For 'bun link' / 'npm link': argv[1] ends with '.js' or is a symlink to .js
   // For compiled binary: execPath is the binary itself
   let executable: string;
   let args: string[];
 
-  const isBunRun = process.argv[1] === 'run' || process.argv[1]?.endsWith('.ts');
+  const isBunRun = process.argv[1] === 'run';
+  const isBunDirect = process.argv[1]?.endsWith('.ts');
+  const isLinkedScript = process.argv[1]?.endsWith('.js');
+  // Check if running via symlink (e.g., bun link creates symlink without .js extension)
+  // In this case, argv[1] is different from execPath and doesn't have an extension
+  const isSymlinkScript =
+    process.argv[1] && process.argv[1] !== process.execPath && !isBunRun && !isBunDirect && !isLinkedScript;
+
   if (isBunRun) {
-    // Running via 'bun run' or 'bun src/index.ts'
+    // Running via 'bun run src/index.ts'
+    // argv = ['bun', 'run', 'src/index.ts', 'up', ...]
     executable = process.argv[0] ?? 'bun';
-    args = process.argv.slice(1, 3).concat(['daemon', '-f']);
+    const scriptPath = process.argv[2];
+    const absoluteScript = scriptPath && !isAbsolute(scriptPath) ? resolve(scriptPath) : scriptPath;
+    args = ['run', absoluteScript ?? '', 'daemon', '-f'];
+  } else if (isBunDirect || isLinkedScript || isSymlinkScript) {
+    // Running via 'bun src/index.ts' or 'bun link' symlink or direct symlink
+    // argv = ['bun', 'src/index.ts', 'up', ...] or ['node', '/path/to/dist/index.js', 'up', ...]
+    executable = process.argv[0] ?? 'bun';
+    const scriptPath = process.argv[1];
+    const absoluteScript = scriptPath && !isAbsolute(scriptPath) ? resolve(scriptPath) : scriptPath;
+    args = [absoluteScript ?? '', 'daemon', '-f'];
   } else {
     // Compiled binary - use execPath which is the actual binary path
     executable = process.execPath;

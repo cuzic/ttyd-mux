@@ -50,7 +50,8 @@ proxy.on('proxyRes', (proxyRes, req, res) => {
   }
 
   // Check if client supports gzip (stored in custom header before deletion)
-  const acceptEncoding = (req as IncomingMessage & { originalAcceptEncoding?: string }).originalAcceptEncoding ?? '';
+  const acceptEncoding =
+    (req as IncomingMessage & { originalAcceptEncoding?: string }).originalAcceptEncoding ?? '';
   const supportsGzip = acceptEncoding.includes('gzip');
 
   // Collect HTML body and inject IME helper
@@ -153,7 +154,8 @@ function handleApiRequest(config: Config, req: IncomingMessage, res: ServerRespo
           dir: parsed.dir,
           path: sessionPath,
           port,
-          fullPath
+          fullPath,
+          tmuxMode: config.tmux_mode
         };
 
         const session = startSession(options);
@@ -221,8 +223,8 @@ function handleRequest(config: Config, req: IncomingMessage, res: ServerResponse
   if (session) {
     const target = `http://localhost:${session.port}`;
     // Store original Accept-Encoding before deletion (for gzip re-compression)
-    (req as IncomingMessage & { originalAcceptEncoding?: string }).originalAcceptEncoding =
-      req.headers['accept-encoding'] as string | undefined;
+    (req as IncomingMessage & { originalAcceptEncoding?: string }).originalAcceptEncoding = req
+      .headers['accept-encoding'] as string | undefined;
     // Remove Accept-Encoding to get uncompressed response for HTML injection
     delete req.headers['accept-encoding'];
     // Always use selfHandleResponse to avoid conflicts with proxyRes handler
