@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 // Import the module
-import { isInsideTmux, isTmuxInstalled, listSessions } from './tmux.js';
+import { getCwdSessionName, isInsideTmux, isTmuxInstalled, listSessions, sessionExists } from './tmux.js';
 
 describe('tmux', () => {
   const originalEnv = { ...process.env };
@@ -72,5 +72,31 @@ describe('TmuxSession type', () => {
     expect(session.windows).toBe(3);
     expect(session.created).toBeInstanceOf(Date);
     expect(session.attached).toBe(false);
+  });
+});
+
+describe('getCwdSessionName', () => {
+  test('returns basename of current directory', () => {
+    const result = getCwdSessionName();
+    const expected = process.cwd().split('/').pop();
+    expect(result).toBe(expected);
+  });
+
+  test('returns non-empty string', () => {
+    const result = getCwdSessionName();
+    expect(result.length).toBeGreaterThan(0);
+  });
+});
+
+describe('sessionExists', () => {
+  test('returns false for non-existent session', () => {
+    // Use a random name that definitely doesn't exist
+    const randomName = `nonexistent-${Date.now()}-${Math.random()}`;
+    expect(sessionExists(randomName)).toBe(false);
+  });
+
+  test('returns boolean', () => {
+    const result = sessionExists('any-session');
+    expect(typeof result).toBe('boolean');
   });
 });

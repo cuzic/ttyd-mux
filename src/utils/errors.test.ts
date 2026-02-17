@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'bun:test';
-import { AppError, formatCliError, getErrorMessage } from './errors.js';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { AppError, formatCliError, getErrorMessage, handleCliError, withErrorHandling } from './errors.js';
 
 describe('getErrorMessage', () => {
   test('extracts message from Error instance', () => {
@@ -58,5 +58,67 @@ describe('AppError', () => {
     expect(wrapped.message).toBe('Wrapped error');
     expect(wrapped.code).toBe('WRAP_CODE');
     expect(wrapped.cause).toBe(original);
+  });
+});
+
+describe('handleCliError', () => {
+  let consoleErrorMock: ReturnType<typeof mock>;
+  let originalConsoleError: typeof console.error;
+
+  beforeEach(() => {
+    originalConsoleError = console.error;
+    consoleErrorMock = mock(() => {});
+    console.error = consoleErrorMock;
+  });
+
+  afterEach(() => {
+    console.error = originalConsoleError;
+  });
+
+  test('outputs formatted error to console.error', () => {
+    const error = new Error('test error');
+    handleCliError('Operation failed', error);
+
+    expect(consoleErrorMock).toHaveBeenCalledTimes(1);
+    expect(consoleErrorMock).toHaveBeenCalledWith('Operation failed: test error');
+  });
+
+  test('handles string errors', () => {
+    handleCliError('Failed', 'string error');
+
+    expect(consoleErrorMock).toHaveBeenCalledWith('Failed: string error');
+  });
+});
+
+describe('withErrorHandling', () => {
+  let consoleErrorMock: ReturnType<typeof mock>;
+  let originalConsoleError: typeof console.error;
+
+  beforeEach(() => {
+    originalConsoleError = console.error;
+    consoleErrorMock = mock(() => {});
+    console.error = consoleErrorMock;
+  });
+
+  afterEach(() => {
+    console.error = originalConsoleError;
+  });
+
+  test('returns result on success', async () => {
+    const fn = async () => 'success';
+    const result = await withErrorHandling(fn, 'Test');
+
+    expect(result).toBe('success');
+    expect(consoleErrorMock).not.toHaveBeenCalled();
+  });
+
+  test('returns null and logs error on failure', async () => {
+    const fn = async () => {
+      throw new Error('test error');
+    };
+    const result = await withErrorHandling(fn, 'Operation');
+
+    expect(result).toBeNull();
+    expect(consoleErrorMock).toHaveBeenCalledWith('Operation: test error');
   });
 });
