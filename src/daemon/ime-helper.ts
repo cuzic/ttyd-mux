@@ -242,6 +242,35 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
   // Detect mobile device
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
+  // Font size configuration
+  const FONT_SIZE_MIN = 10;
+  const FONT_SIZE_MAX = 48;
+  const FONT_SIZE_DEFAULT = isMobile ? 32 : 14;
+  const FONT_SIZE_STORAGE_KEY = 'ttyd-ime-font-size';
+
+  function saveFontSize(size) {
+    try {
+      localStorage.setItem(FONT_SIZE_STORAGE_KEY, String(size));
+    } catch (e) {
+      console.warn('[IME Helper] Failed to save font size:', e);
+    }
+  }
+
+  function loadFontSize() {
+    try {
+      const saved = localStorage.getItem(FONT_SIZE_STORAGE_KEY);
+      if (saved) {
+        const size = parseInt(saved, 10);
+        if (!isNaN(size) && size >= FONT_SIZE_MIN && size <= FONT_SIZE_MAX) {
+          return size;
+        }
+      }
+    } catch (e) {
+      console.warn('[IME Helper] Failed to load font size:', e);
+    }
+    return FONT_SIZE_DEFAULT;
+  }
+
   // Find the WebSocket connection
   function findWebSocket() {
     if (ws && ws.readyState === WebSocket.OPEN) return ws;
@@ -374,9 +403,10 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
     const term = findTerminal();
 
     if (term && term.options) {
-      const currentSize = term.options.fontSize || 14;
-      const newSize = Math.max(8, Math.min(32, currentSize + delta));
+      const currentSize = term.options.fontSize || FONT_SIZE_DEFAULT;
+      const newSize = Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, currentSize + delta));
       term.options.fontSize = newSize;
+      saveFontSize(newSize);
       console.log('[IME Helper] Font size changed to ' + newSize);
       fitTerminal();
     } else {
@@ -698,7 +728,7 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
 
   // Pinch-to-zoom for font size (when Ctrl or Shift is active)
   let pinchStartDistance = 0;
-  let pinchStartFontSize = 14;
+  let pinchStartFontSize = FONT_SIZE_DEFAULT;
 
   function getTouchDistance(touches) {
     const dx = touches[0].clientX - touches[1].clientX;
@@ -710,7 +740,7 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
     if (e.touches.length === 2 && (ctrlActive || shiftActive)) {
       pinchStartDistance = getTouchDistance(e.touches);
       const term = findTerminal();
-      pinchStartFontSize = (term && term.options) ? (term.options.fontSize || 14) : 14;
+      pinchStartFontSize = (term && term.options) ? (term.options.fontSize || FONT_SIZE_DEFAULT) : FONT_SIZE_DEFAULT;
     }
   }, { passive: true });
 
@@ -720,11 +750,12 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
       const currentDistance = getTouchDistance(e.touches);
       const scale = currentDistance / pinchStartDistance;
       const newSize = Math.round(pinchStartFontSize * scale);
-      const clampedSize = Math.max(8, Math.min(32, newSize));
+      const clampedSize = Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, newSize));
 
       const term = findTerminal();
       if (term && term.options && term.options.fontSize !== clampedSize) {
         term.options.fontSize = clampedSize;
+        saveFontSize(clampedSize);
         fitTerminal();
       }
     }
@@ -776,6 +807,21 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
       toggleIME(true);
     }, 1000);
   }
+
+  // Restore font size from localStorage
+  function applyStoredFontSize() {
+    const term = findTerminal();
+    if (term && term.options) {
+      const storedSize = loadFontSize();
+      term.options.fontSize = storedSize;
+      fitTerminal();
+      console.log('[IME Helper] Restored font size: ' + storedSize);
+    }
+  }
+
+  // Try to apply stored font size after terminal is ready
+  setTimeout(applyStoredFontSize, 500);
+  setTimeout(applyStoredFontSize, 1500);
 
   // Auto-reload when tab becomes visible if WebSocket is disconnected
   document.addEventListener('visibilitychange', function() {
