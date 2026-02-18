@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from 'bun:test';
+import { afterEach, describe, expect, mock, test } from 'bun:test';
 import { EventEmitter } from 'node:events';
 import type { IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
@@ -194,6 +194,10 @@ describe('setupWebSocketForwarding', () => {
 });
 
 describe('handleUpgrade', () => {
+  afterEach(() => {
+    mock.restore();
+  });
+
   test('destroys socket when no session found', async () => {
     // Mock the router module
     mock.module('./router.js', () => ({
