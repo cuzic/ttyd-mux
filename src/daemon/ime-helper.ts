@@ -788,6 +788,18 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
     }
   }, { passive: true });
 
+  // ========== PC: Ctrl+Wheel / Trackpad Pinch ==========
+  document.addEventListener('wheel', function(e) {
+    // ctrlKey = trackpad pinch (Mac) or Ctrl+scroll (PC)
+    if (e.ctrlKey) {
+      e.preventDefault();  // Suppress browser zoom
+
+      // deltaY > 0: zoom out, deltaY < 0: zoom in
+      const delta = e.deltaY > 0 ? -2 : 2;
+      zoomTerminal(delta);
+    }
+  }, { passive: false });
+
   // Double-tap to send Enter (for reconnecting)
   let lastTapTime = 0;
   const DOUBLE_TAP_DELAY = 300;  // 300ms 以内の2回タップ
