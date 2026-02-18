@@ -12,10 +12,14 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "all": true,
+      "nursery": {
+        "all": false
+      },
       "suspicious": {
         "noExplicitAny": "error",
-        "noConsole": "warn",
+        "noConsole": "error",
+        "noConsoleLog": "off",
         "noAsyncPromiseExecutor": "error",
         "noConfusingVoidType": "error",
         "noDoubleEquals": "error",
@@ -25,7 +29,7 @@
         "noFallthroughSwitchClause": "error",
         "noRedeclare": "error",
         "noShadowRestrictedNames": "error",
-        "useAwait": "warn",
+        "useAwait": "error",
         "useDefaultSwitchClauseLast": "error"
       },
       "correctness": {
@@ -34,34 +38,39 @@
         "noConstAssign": "error",
         "noNewSymbol": "error",
         "noUndeclaredVariables": "error",
-        "useExhaustiveDependencies": "warn",
-        "useHookAtTopLevel": "error"
+        "useExhaustiveDependencies": "error",
+        "useHookAtTopLevel": "error",
+        "noNodejsModules": "off"
       },
       "style": {
-        "noNonNullAssertion": "warn",
+        "noNonNullAssertion": "error",
         "useConst": "error",
         "useImportType": "error",
         "useNodejsImportProtocol": "error",
-        "useTemplate": "error"
+        "useTemplate": "error",
+        "noDefaultExport": "off",
+        "useNamingConvention": "off",
+        "useFilenamingConvention": "off"
       },
       "complexity": {
         "noExcessiveCognitiveComplexity": {
-          "level": "warn",
+          "level": "error",
           "options": {
             "maxAllowedComplexity": 15
           }
         },
         "noForEach": "off",
         "useLiteralKeys": "off",
-        "useOptionalChain": "error"
+        "useOptionalChain": "error",
+        "noExcessiveNestedTestSuites": "off"
       },
       "security": {
         "noDangerouslySetInnerHtml": "error",
         "noGlobalEval": "error"
       },
       "performance": {
-        "noBarrelFile": "warn",
-        "noReExportAll": "warn"
+        "noBarrelFile": "error",
+        "noReExportAll": "error"
       }
     }
   },
@@ -94,11 +103,32 @@
       }
     },
     {
-      "include": ["src/index.ts", "src/ui.ts", "src/commands/**/*.ts", "src/daemon/**/*.ts", "src/client/index.ts", "src/utils/errors.ts"],
+      "include": [
+        "src/index.ts",
+        "src/ui.ts",
+        "src/commands/**/*.ts",
+        "src/daemon/index.ts",
+        "src/utils/errors.ts",
+        "src/utils/logger.ts"
+      ],
       "linter": {
         "rules": {
           "suspicious": {
             "noConsole": "off"
+          }
+        }
+      }
+    },
+    {
+      "include": [
+        "src/client/index.ts",
+        "src/config/index.ts",
+        "src/config/state-store.ts"
+      ],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noBarrelFile": "off"
           }
         }
       }
