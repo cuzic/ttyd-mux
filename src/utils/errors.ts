@@ -39,7 +39,6 @@ export function formatCliError(prefix: string, error: unknown): string {
  * Handle CLI command errors consistently
  */
 export function handleCliError(prefix: string, error: unknown): void {
-  // biome-ignore lint/suspicious/noConsole: CLI error output is intentional
   console.error(formatCliError(prefix, error));
 }
 

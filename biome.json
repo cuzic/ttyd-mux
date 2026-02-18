@@ -60,8 +60,8 @@
         "noGlobalEval": "error"
       },
       "performance": {
-        "noBarrelFile": "warn",
-        "noReExportAll": "warn"
+        "noBarrelFile": "off",
+        "noReExportAll": "off"
       }
     }
   },
@@ -70,7 +70,8 @@
       "quoteStyle": "single",
       "semicolons": "always",
       "trailingCommas": "none"
-    }
+    },
+    "globals": ["Bun"]
   },
   "files": {
     "ignore": [
@@ -87,13 +88,15 @@
         "rules": {
           "suspicious": {
             "noExplicitAny": "off",
-            "noConsole": "off"
+            "noConsole": "off",
+            "noEmptyBlockStatements": "off",
+            "useAwait": "off"
           }
         }
       }
     },
     {
-      "include": ["src/index.ts", "src/ui.ts", "src/commands/**/*.ts", "src/daemon/**/*.ts", "src/client/index.ts"],
+      "include": ["src/index.ts", "src/ui.ts", "src/commands/**/*.ts", "src/daemon/**/*.ts", "src/client/index.ts", "src/utils/errors.ts"],
       "linter": {
         "rules": {
           "suspicious": {
