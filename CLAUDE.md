@@ -24,33 +24,51 @@
 ```
 src/
 ├── index.ts              # CLI エントリポイント (Commander)
+├── version.ts            # バージョン情報（自動生成）
 ├── config/
 │   ├── types.ts          # 型定義
 │   ├── config.ts         # config.yaml 読み込み
-│   └── state.ts          # state.json 読み書き
+│   ├── state.ts          # state.json 読み書き
+│   └── state-store.ts    # StateStore インターフェース（DI用）
 ├── daemon/
 │   ├── index.ts          # デーモンエントリ
-│   ├── server.ts         # HTTP サーバー + API
-│   ├── proxy.ts          # WebSocket 対応プロキシ
+│   ├── server.ts         # HTTP サーバー作成
+│   ├── router.ts         # リクエストルーティング
+│   ├── api-handler.ts    # REST API ハンドラ
+│   ├── http-proxy.ts     # HTTP プロキシ + IME 注入
+│   ├── ws-proxy.ts       # WebSocket プロキシ
 │   ├── portal.ts         # ポータル HTML 生成
-│   ├── ime-helper.ts     # IME ヘルパー（モバイル日本語入力）
-│   └── session-manager.ts # ttyd プロセス管理
+│   ├── ime-helper.ts     # IME ヘルパー（日本語入力 + ズーム）
+│   ├── session-manager.ts # ttyd プロセス管理（DI対応）
+│   └── session-resolver.ts # セッション名解決
 ├── client/
-│   └── index.ts          # デーモン通信クライアント
+│   ├── index.ts          # クライアント re-exports
+│   ├── api-client.ts     # HTTP API クライアント
+│   └── daemon-client.ts  # デーモンソケット通信
 ├── caddy/
-│   └── client.ts         # Caddy Admin API クライアント
+│   ├── client.ts         # Caddy Admin API クライアント
+│   ├── route-builder.ts  # ルート構築関数
+│   └── types.ts          # Caddy API 型定義
 ├── deploy/
 │   ├── static-portal.ts  # 静的ポータル HTML 生成
 │   ├── caddyfile.ts      # Caddyfile スニペット生成
 │   └── deploy-script.ts  # deploy.sh 生成
+├── utils/
+│   ├── logger.ts         # ロガー
+│   ├── errors.ts         # エラーユーティリティ
+│   ├── process-runner.ts # ProcessRunner インターフェース（DI用）
+│   ├── socket-client.ts  # SocketClient インターフェース（DI用）
+│   └── tmux-client.ts    # TmuxClient インターフェース（DI用）
 └── commands/
     ├── up.ts, down.ts    # メインコマンド
     ├── start.ts, stop.ts, status.ts
     ├── attach.ts
     ├── daemon.ts, shutdown.ts
     ├── caddy.ts          # Caddy 連携コマンド
-    └── deploy.ts         # デプロイコマンド（direct モード用）
+    └── deploy.ts         # デプロイコマンド（static モード用）
 ```
+
+**パスエイリアス**: `@/` で `src/` ディレクトリを参照可能（例: `import { loadConfig } from "@/config/config.js"`）
 
 ## 開発コマンド
 
@@ -60,6 +78,8 @@ bun run src/index.ts <command>
 
 # テスト
 bun test
+bun test --watch           # ウォッチモード
+bun run test:coverage      # カバレッジ計測
 
 # 型チェック
 bun run typecheck
@@ -69,8 +89,8 @@ bun run check
 bun run check:fix
 bun run format
 
-# ビルド
-bun build src/index.ts --compile --outfile ttyd-mux
+# ビルド（version.ts が自動生成される）
+bun run build
 ```
 
 ## アーキテクチャの重要ポイント
@@ -117,7 +137,25 @@ ttyd -p 7601 -b /ttyd-mux/project-name tmux new -A -s project-name
 bun test                    # 全テスト実行
 bun test --watch            # ウォッチモード
 bun test src/config/        # 特定ディレクトリのみ
+bun run test:coverage       # カバレッジ計測（現在約81%）
 ```
+
+### テストパターン
+
+- **ユニットテスト**: `*.test.ts` - 個別関数のテスト
+- **Feature テスト**: `*.feature.test.ts` - 複数モジュールの統合テスト
+- **DI テスト**: `*.di.test.ts` - 依存注入を使ったテスト
+
+### Dependency Injection
+
+テスト容易性のため、外部依存は DI パターンで抽象化されています:
+
+- `ProcessRunner`: プロセス生成・終了
+- `SocketClient`: Unix ソケット接続
+- `TmuxClient`: tmux コマンド実行
+- `StateStore`: 状態の読み書き
+
+詳細は `docs/adr/009-dependency-injection-for-testability.md` を参照。
 
 ## 主要な型
 
@@ -148,7 +186,9 @@ interface SessionState {
 
 ### proxy モード（デフォルト）
 - 全トラフィックが ttyd-mux daemon を経由
-- IME ヘルパーによるモバイル日本語入力対応
+- IME ヘルパーによる入力支援:
+  - モバイル: 日本語 IME 入力、タッチピンチズーム、ダブルタップ Enter
+  - PC: Ctrl+スクロール / トラックパッドピンチでフォントサイズ変更
 - シンプルな Caddy 設定（単一ルート）
 
 ### static モード
@@ -156,6 +196,7 @@ interface SessionState {
 - 低レイテンシ
 - `ttyd-mux deploy` で静的ポータルを生成
 - セッション変更後は `ttyd-mux caddy sync` でルート同期
+- IME ヘルパー非対応
 
 ## 注意事項
 

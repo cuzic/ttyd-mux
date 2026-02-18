@@ -212,6 +212,24 @@ sessions:
 - Static portal (no daemon needed at runtime) / 静的ポータル（実行時デーモン不要）
 - No IME helper support / IME ヘルパー非対応
 
+## IME Helper Features / IME ヘルパー機能
+
+In proxy mode, ttyd-mux injects an IME helper for improved input experience:
+
+プロキシモードでは、入力体験向上のため IME ヘルパーが注入されます：
+
+### Mobile Support / モバイル対応
+
+- **IME Input**: Virtual keyboard with Japanese IME support / 日本語 IME 対応の仮想キーボード
+- **Touch Pinch Zoom**: Two-finger pinch to resize terminal font (requires Ctrl/Shift button) / 2本指ピンチでフォントサイズ変更（Ctrl/Shift ボタン押下時）
+- **Double-tap Enter**: Double-tap to send Enter key / ダブルタップで Enter キー送信
+
+### PC Browser Support / PC ブラウザ対応
+
+- **Ctrl+Scroll Zoom**: Mouse wheel with Ctrl key to resize terminal font / Ctrl+マウスホイールでフォントサイズ変更
+- **Trackpad Pinch Zoom** (Mac): Two-finger pinch gesture on trackpad / トラックパッドの2本指ピンチでフォントサイズ変更
+- **A-/A+ Buttons**: Click buttons in the helper toolbar / ヘルパーツールバーのボタンでサイズ変更
+
 ## Caddy Integration / Caddy との連携
 
 ### Using Admin API (Recommended) / Admin API で設定（推奨）
