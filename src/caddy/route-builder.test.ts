@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test';
-import type { CaddyServer } from './types.js';
 import {
   createPortalRoute,
   createProxyRoute,
@@ -11,15 +10,14 @@ import {
   routeExists,
   sessionRouteExists
 } from './route-builder.js';
+import type { CaddyServer } from './types.js';
 
 describe('route-builder', () => {
   describe('createProxyRoute', () => {
     test('creates a reverse proxy route', () => {
       const route = createProxyRoute('example.com', '/ttyd-mux', 'localhost:7680');
 
-      expect(route.match).toEqual([
-        { host: ['example.com'], path: ['/ttyd-mux/*'] }
-      ]);
+      expect(route.match).toEqual([{ host: ['example.com'], path: ['/ttyd-mux/*'] }]);
       expect(route.handle).toEqual([
         { handler: 'reverse_proxy', upstreams: [{ dial: 'localhost:7680' }] }
       ]);
@@ -30,9 +28,7 @@ describe('route-builder', () => {
     test('creates a session route', () => {
       const route = createSessionRoute('example.com', '/ttyd-mux/my-session', 7601);
 
-      expect(route.match).toEqual([
-        { host: ['example.com'], path: ['/ttyd-mux/my-session/*'] }
-      ]);
+      expect(route.match).toEqual([{ host: ['example.com'], path: ['/ttyd-mux/my-session/*'] }]);
       expect(route.handle).toEqual([
         { handler: 'reverse_proxy', upstreams: [{ dial: 'localhost:7601' }] }
       ]);
@@ -59,14 +55,10 @@ describe('route-builder', () => {
     test('finds server by hostname', () => {
       const servers = {
         srv1: {
-          routes: [
-            { match: [{ host: ['other.com'], path: ['/*'] }] }
-          ]
+          routes: [{ match: [{ host: ['other.com'], path: ['/*'] }] }]
         },
         srv2: {
-          routes: [
-            { match: [{ host: ['example.com'], path: ['/ttyd-mux/*'] }] }
-          ]
+          routes: [{ match: [{ host: ['example.com'], path: ['/ttyd-mux/*'] }] }]
         }
       };
 
@@ -79,9 +71,7 @@ describe('route-builder', () => {
     test('returns null when no server matches', () => {
       const servers = {
         srv1: {
-          routes: [
-            { match: [{ host: ['other.com'], path: ['/*'] }] }
-          ]
+          routes: [{ match: [{ host: ['other.com'], path: ['/*'] }] }]
         }
       };
 
@@ -100,9 +90,7 @@ describe('route-builder', () => {
   describe('routeExists', () => {
     test('returns true when route exists', () => {
       const server: CaddyServer = {
-        routes: [
-          { match: [{ host: ['example.com'], path: ['/ttyd-mux/*'] }] }
-        ]
+        routes: [{ match: [{ host: ['example.com'], path: ['/ttyd-mux/*'] }] }]
       };
 
       expect(routeExists(server, 'example.com', '/ttyd-mux')).toBe(true);
@@ -110,9 +98,7 @@ describe('route-builder', () => {
 
     test('returns false when route does not exist', () => {
       const server: CaddyServer = {
-        routes: [
-          { match: [{ host: ['example.com'], path: ['/other/*'] }] }
-        ]
+        routes: [{ match: [{ host: ['example.com'], path: ['/other/*'] }] }]
       };
 
       expect(routeExists(server, 'example.com', '/ttyd-mux')).toBe(false);
@@ -128,9 +114,7 @@ describe('route-builder', () => {
   describe('sessionRouteExists', () => {
     test('returns true when session route exists', () => {
       const server: CaddyServer = {
-        routes: [
-          { match: [{ host: ['example.com'], path: ['/ttyd-mux/my-session/*'] }] }
-        ]
+        routes: [{ match: [{ host: ['example.com'], path: ['/ttyd-mux/my-session/*'] }] }]
       };
 
       expect(sessionRouteExists(server, 'example.com', '/ttyd-mux/my-session')).toBe(true);
@@ -138,9 +122,7 @@ describe('route-builder', () => {
 
     test('returns false when session route does not exist', () => {
       const server: CaddyServer = {
-        routes: [
-          { match: [{ host: ['example.com'], path: ['/ttyd-mux/*'] }] }
-        ]
+        routes: [{ match: [{ host: ['example.com'], path: ['/ttyd-mux/*'] }] }]
       };
 
       expect(sessionRouteExists(server, 'example.com', '/ttyd-mux/my-session')).toBe(false);
