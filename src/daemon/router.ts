@@ -10,6 +10,16 @@ import { sessionManager } from './session-manager.js';
 const log = createLogger('router');
 
 /**
+ * Set security headers on response
+ */
+export function setSecurityHeaders(res: ServerResponse): void {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+}
+
+/**
  * Find session that matches the given path
  */
 export function findSessionForPath(config: Config, path: string): SessionState | null {
@@ -46,6 +56,9 @@ export function handleRequest(config: Config, req: IncomingMessage, res: ServerR
   const url = req.url ?? '/';
   const method = req.method ?? 'GET';
   const basePath = normalizeBasePath(config.base_path);
+
+  // Apply security headers to all responses
+  setSecurityHeaders(res);
 
   log.debug(`Request: ${method} ${url}`);
 
