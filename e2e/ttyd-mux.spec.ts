@@ -178,9 +178,9 @@ test.describe('ttyd-mux E2E Tests', () => {
   test.afterAll(async () => {
     cleanupTtydProcesses();
 
-    // Kill any remaining ttyd processes
+    // Kill any remaining ttyd processes (only test ports 17600-17699)
     try {
-      execSync('pkill -f "ttyd.*-p 76[0-9][0-9]" || true', { stdio: 'ignore' });
+      execSync('pkill -f "ttyd.*-p 176[0-9][0-9]" || true', { stdio: 'ignore' });
     } catch {
       // Ignore
     }
