@@ -623,41 +623,6 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
     }, true);
   });
 
-  // Track non-Shift drag operations and show hint after 3 consecutive drags
-  let nonShiftDragCount = 0;
-  let isDragging = false;
-  let dragStartPos = null;
-
-  document.addEventListener('mousedown', function(e) {
-    if (e.button === 0 && !shiftActive && !e.shiftKey) {
-      isDragging = true;
-      dragStartPos = { x: e.clientX, y: e.clientY };
-    }
-  });
-
-  document.addEventListener('mouseup', function(e) {
-    if (isDragging && dragStartPos) {
-      const dx = e.clientX - dragStartPos.x;
-      const dy = e.clientY - dragStartPos.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      // Consider it a drag if moved more than 10 pixels
-      if (distance > 10) {
-        if (shiftActive || e.shiftKey) {
-          nonShiftDragCount = 0;
-        } else {
-          nonShiftDragCount++;
-          if (nonShiftDragCount >= 3) {
-            alert('テキスト選択するには、Shift ボタンを ON にしてからドラッグしてください。\\n\\nTo select text, turn ON the Shift button and then drag.');
-            nonShiftDragCount = 0;
-          }
-        }
-      }
-    }
-    isDragging = false;
-    dragStartPos = null;
-  });
-
   // Convert touch events to mouse events with shiftKey when Shift is active
   // This enables text selection on mobile devices
   let touchStartPos = null;
@@ -727,23 +692,6 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
       const touch = e.changedTouches[0];
       dispatchMouseEvent('mouseup', touch, true);
       shiftTouchActive = false;
-      touchStartPos = null;
-      nonShiftDragCount = 0;
-    }
-    // Non-Shift drag tracking
-    else if (touchStartPos && !shiftTouchActive && e.touches.length === 0) {
-      const touch = e.changedTouches[0];
-      const dx = touch.clientX - touchStartPos.x;
-      const dy = touch.clientY - touchStartPos.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      if (distance > 10) {
-        nonShiftDragCount++;
-        if (nonShiftDragCount >= 3) {
-          alert('テキスト選択するには、Shift ボタンを ON にしてからドラッグしてください。\\n\\nTo select text, turn ON the Shift button and then drag.');
-          nonShiftDragCount = 0;
-        }
-      }
       touchStartPos = null;
     }
   }, { passive: true, capture: true });
