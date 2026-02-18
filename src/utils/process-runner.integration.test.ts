@@ -115,7 +115,22 @@ describe('defaultProcessRunner integration', () => {
 
   describe('isPortAvailable', () => {
     let server: ReturnType<typeof createServer> | null = null;
-    const testPort = 19876; // Use a high port unlikely to be in use
+
+    // Helper to get a dynamically allocated port
+    async function getAvailablePort(): Promise<number> {
+      return new Promise((resolve, reject) => {
+        const s = createServer();
+        s.listen(0, '127.0.0.1', () => {
+          const addr = s.address();
+          if (addr && typeof addr === 'object') {
+            const port = addr.port;
+            s.close(() => resolve(port));
+          } else {
+            reject(new Error('Failed to get port'));
+          }
+        });
+      });
+    }
 
     afterEach(async () => {
       if (server) {
@@ -127,11 +142,13 @@ describe('defaultProcessRunner integration', () => {
     });
 
     test('returns true for unused port', async () => {
+      const testPort = await getAvailablePort();
       const result = await defaultProcessRunner.isPortAvailable(testPort);
       expect(result).toBe(true);
     });
 
     test('returns false for port in use', async () => {
+      const testPort = await getAvailablePort();
       // Start a server on the test port
       server = createServer();
       await new Promise<void>((resolve) => {
@@ -143,6 +160,7 @@ describe('defaultProcessRunner integration', () => {
     });
 
     test('returns true after server closes', async () => {
+      const testPort = await getAvailablePort();
       // Start and immediately close a server
       server = createServer();
       await new Promise<void>((resolve) => {
