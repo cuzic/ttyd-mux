@@ -327,8 +327,184 @@ Error: Cannot connect to Caddy Admin API at http://localhost:2019
 3. **ファイアウォール**: 7680, 7600-7699 ポートは localhost のみに制限
 4. **セッション分離**: 各ユーザーに異なるセッションを割り当て
 
+## 外部公開時の認証設定（Google OAuth）
+
+インターネットから ttyd-mux にアクセスする場合は、OAuth 認証の設定を強く推奨します。
+
+### 1. Caddy に caddy-security プラグインを追加
+
+標準の Caddy には OAuth 機能がないため、`caddy-security` プラグインを含めてビルドする必要があります。
+
+```bash
+# Go のインストール（未インストールの場合）
+# Ubuntu: sudo apt install golang
+# macOS: brew install go
+
+# xcaddy のインストール
+go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+
+# caddy-security 付きでビルド
+~/go/bin/xcaddy build --with github.com/greenpau/caddy-security
+
+# モジュール確認
+./caddy list-modules | grep -i security
+
+# インストール
+sudo mv /usr/bin/caddy /usr/bin/caddy.bak
+sudo mv ./caddy /usr/bin/caddy
+sudo systemctl restart caddy
+```
+
+### 2. Google OAuth の設定
+
+[Google Cloud Console](https://console.cloud.google.com/) で OAuth クライアントを作成：
+
+1. **APIs & Services** → **Credentials** → **Create Credentials** → **OAuth client ID**
+2. **Application type**: Web application
+3. **Authorized redirect URIs**: `https://your-domain.com/oauth2/google`
+4. Client ID と Client Secret を取得
+
+### 3. secrets.env の作成
+
+```bash
+# /etc/caddy/secrets.env
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+```
+
+```bash
+sudo chmod 600 /etc/caddy/secrets.env
+sudo chown caddy:caddy /etc/caddy/secrets.env
+```
+
+### 4. systemd override の設定
+
+Caddy が secrets.env を読み込むように設定：
+
+```bash
+sudo mkdir -p /etc/systemd/system/caddy.service.d
+cat << 'EOF' | sudo tee /etc/systemd/system/caddy.service.d/override.conf
+[Service]
+EnvironmentFile=/etc/caddy/secrets.env
+EOF
+
+sudo systemctl daemon-reload
+```
+
+### 5. Caddyfile の設定
+
+```caddyfile
+{
+    order authenticate before respond
+    order authorize before basicauth
+
+    security {
+        # Google OAuth プロバイダー
+        oauth identity provider google {
+            realm google
+            driver google
+            client_id {$GOOGLE_CLIENT_ID}
+            client_secret {$GOOGLE_CLIENT_SECRET}
+            scopes openid email profile
+        }
+
+        # 認証ポータル
+        authentication portal myportal {
+            crypto default token lifetime 3600
+            enable identity provider google
+            cookie domain your-domain.com
+            cookie lifetime 86400
+
+            # 許可するユーザーを指定
+            transform user {
+                match email your-email@gmail.com
+                action add role authp/user
+            }
+        }
+
+        # 認可ポリシー
+        authorization policy mypolicy {
+            set auth url https://your-domain.com/oauth2/google
+            allow roles authp/user
+        }
+    }
+}
+
+your-domain.com {
+    log {
+        output stdout
+        format json
+    }
+
+    # 信頼する IP アドレス（認証をスキップ）
+    @trusted {
+        remote_ip 127.0.0.1 ::1
+        # 他の信頼する IP を追加
+        # remote_ip 192.168.1.0/24
+    }
+
+    # 信頼しない IP からのアクセス
+    @untrusted {
+        not remote_ip 127.0.0.1 ::1
+    }
+
+    # OAuth コールバック
+    handle /oauth2/* {
+        authenticate with myportal
+    }
+
+    # ttyd-mux（認証付き）
+    handle /ttyd-mux/* {
+        authorize @untrusted with mypolicy
+        reverse_proxy 127.0.0.1:7680
+    }
+
+    # その他（認証付き）
+    handle {
+        authorize @untrusted with mypolicy
+        root * /usr/share/caddy
+        file_server
+    }
+}
+```
+
+### 6. 設定の反映
+
+```bash
+sudo systemctl restart caddy
+```
+
+### 動作確認
+
+1. ブラウザで `https://your-domain.com/ttyd-mux/` にアクセス
+2. Google ログイン画面にリダイレクト
+3. 許可されたメールアドレスでログイン
+4. ttyd-mux ポータルにアクセス可能
+
+### IP ベースの信頼設定
+
+特定の IP アドレスからのアクセスは認証をスキップできます：
+
+```caddyfile
+@trusted {
+    remote_ip 127.0.0.1 ::1 192.168.1.0/24
+}
+
+@untrusted {
+    not remote_ip 127.0.0.1 ::1 192.168.1.0/24
+}
+
+handle /ttyd-mux/* {
+    # @trusted は認証なしでアクセス可能
+    authorize @untrusted with mypolicy
+    reverse_proxy 127.0.0.1:7680
+}
+```
+
 ## 参考リンク
 
-- [Caddy Admin API ドキュメント](https://caddyserver.com/docs/api)
 - [Caddy ドキュメント](https://caddyserver.com/docs/)
-- [ttyd GitHub](https://github.com/tsl0922/ttyd)
+- [Caddy Admin API](https://caddyserver.com/docs/api)
+- [caddy-security プラグイン](https://github.com/greenpau/caddy-security)
+- [xcaddy (Caddy ビルドツール)](https://github.com/caddyserver/xcaddy)
+- [ttyd](https://github.com/tsl0922/ttyd)
