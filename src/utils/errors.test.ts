@@ -73,6 +73,7 @@ describe('handleCliError', () => {
 
   beforeEach(() => {
     originalConsoleError = console.error;
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: mock needs empty function
     consoleErrorMock = mock(() => {});
     console.error = consoleErrorMock;
   });
@@ -102,6 +103,7 @@ describe('withErrorHandling', () => {
 
   beforeEach(() => {
     originalConsoleError = console.error;
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: mock needs empty function
     consoleErrorMock = mock(() => {});
     console.error = consoleErrorMock;
   });
@@ -119,9 +121,7 @@ describe('withErrorHandling', () => {
   });
 
   test('returns null and logs error on failure', async () => {
-    const fn = async () => {
-      throw new Error('test error');
-    };
+    const fn = () => Promise.reject(new Error('test error'));
     const result = await withErrorHandling(fn, 'Operation');
 
     expect(result).toBeNull();

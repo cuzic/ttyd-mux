@@ -9,8 +9,11 @@ describe('logger', () => {
 
   beforeEach(() => {
     originalLogLevel = getLogLevel();
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: mock needs empty function
     consoleLogMock = mock(() => {});
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: mock needs empty function
     consoleWarnMock = mock(() => {});
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: mock needs empty function
     consoleErrorMock = mock(() => {});
     console.log = consoleLogMock;
     console.warn = consoleWarnMock;

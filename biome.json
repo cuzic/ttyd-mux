@@ -60,8 +60,8 @@
         "noGlobalEval": "error"
       },
       "performance": {
-        "noBarrelFile": "off",
-        "noReExportAll": "off"
+        "noBarrelFile": "warn",
+        "noReExportAll": "warn"
       }
     }
   },
@@ -88,9 +88,7 @@
         "rules": {
           "suspicious": {
             "noExplicitAny": "off",
-            "noConsole": "off",
-            "noEmptyBlockStatements": "off",
-            "useAwait": "off"
+            "noConsole": "off"
           }
         }
       }
