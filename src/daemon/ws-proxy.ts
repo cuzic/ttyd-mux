@@ -28,7 +28,9 @@ function setupWebSocketForwarding(clientWs: WebSocket, backendWs: WebSocket): vo
   let closed = false;
 
   const cleanup = (initiator: 'client' | 'backend', code?: number, reason?: Buffer) => {
-    if (closed) return;
+    if (closed) {
+      return;
+    }
     closed = true;
 
     log.debug(`WebSocket cleanup initiated by ${initiator}, code=${code}`);

@@ -12,6 +12,9 @@ import {
   sessionNameFromDir
 } from './session-manager.js';
 
+/** Regex to match DELETE /api/sessions/:name */
+const DELETE_SESSION_REGEX = /^\/api\/sessions\/(.+)$/;
+
 export function sendJson(res: ServerResponse, status: number, data: unknown): void {
   const body = generateJsonResponse(data);
   res.writeHead(status, {
@@ -87,7 +90,7 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
   }
 
   // DELETE /api/sessions/:name
-  const deleteMatch = path.match(/^\/api\/sessions\/(.+)$/);
+  const deleteMatch = path.match(DELETE_SESSION_REGEX);
   if (deleteMatch?.[1] && method === 'DELETE') {
     const name = decodeURIComponent(deleteMatch[1]);
     try {

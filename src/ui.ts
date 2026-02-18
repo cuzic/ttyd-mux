@@ -1,4 +1,4 @@
-import * as readline from 'node:readline';
+import { type Key, emitKeypressEvents } from 'node:readline';
 import type { TmuxSession } from './types.js';
 
 // ANSI escape codes
@@ -73,14 +73,18 @@ export function handleKeypress(
   key: { name?: string; ctrl?: boolean } | undefined,
   sessionsCount: number
 ): KeyAction {
-  if (!key?.name) return { type: 'none' };
+  if (!key?.name) {
+    return { type: 'none' };
+  }
 
   if (key.ctrl && key.name === 'c') {
     return { type: 'quit' };
   }
 
   const binding = keyBindings[key.name];
-  if (binding) return binding;
+  if (binding) {
+    return binding;
+  }
 
   const num = Number.parseInt(key.name, 10);
   if (num >= 1 && num <= 9 && num <= sessionsCount) {
@@ -116,7 +120,7 @@ export function selectSession(sessions: TmuxSession[]): Promise<SelectResult> {
     process.stdout.write(ansi.hideCursor);
     renderSessions(sessions, selectedIndex);
 
-    readline.emitKeypressEvents(process.stdin);
+    emitKeypressEvents(process.stdin);
     if (process.stdin.isTTY) {
       process.stdin.setRawMode(true);
     }
@@ -131,25 +135,30 @@ export function selectSession(sessions: TmuxSession[]): Promise<SelectResult> {
       resolve(result);
     };
 
-    const onKeypress = (_str: string, key: readline.Key): void => {
+    const onKeypress = (_str: string, key: Key): void => {
       const action = handleKeypress(key, sessions.length);
 
+      // biome-ignore lint/style/useDefaultSwitchClause: KeyAction union is exhaustively matched
       switch (action.type) {
-        case 'quit':
+        case 'quit': {
           cleanupAndResolve({ action: 'quit' });
           break;
-        case 'move':
+        }
+        case 'move': {
           selectedIndex = calculateNewIndex(selectedIndex, action.direction, sessions.length - 1);
           renderSessions(sessions, selectedIndex);
           break;
-        case 'select':
+        }
+        case 'select': {
           cleanupAndResolve({
             action: 'attach',
             session: sessions[action.index === -1 ? selectedIndex : action.index]
           });
           break;
-        case 'none':
+        }
+        case 'none': {
           break;
+        }
       }
     };
 

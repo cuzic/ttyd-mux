@@ -57,7 +57,9 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
   for (let i = 0; i < listenAddresses.length; i++) {
     const address = listenAddresses[i];
     const server = httpServers[i];
-    if (!address || !server) continue;
+    if (!(address && server)) {
+      continue;
+    }
 
     server.on('error', (err) => {
       log.error(`HTTP server error on ${address}: ${err.message}`, err.stack);
