@@ -70,7 +70,9 @@ describe('client HTTP API feature tests', () => {
 
     // DELETE /ttyd-mux/api/sessions/:name
     (req, path) => {
-      if (!path.startsWith('/ttyd-mux/api/sessions/') || req.method !== 'DELETE') return null;
+      if (!path.startsWith('/ttyd-mux/api/sessions/') || req.method !== 'DELETE') {
+        return null;
+      }
       const name = decodeURIComponent(path.split('/').pop() ?? '');
       return name === 'nonexistent'
         ? Response.json({ error: 'Session not found' }, { status: 400 })
@@ -97,7 +99,9 @@ describe('client HTTP API feature tests', () => {
 
         for (const handler of handlers) {
           const response = handler(req, path);
-          if (response) return response;
+          if (response) {
+            return response;
+          }
         }
 
         return Response.json({ error: 'Not found' }, { status: 404 });

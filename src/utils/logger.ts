@@ -40,28 +40,24 @@ export function createLogger(component: string) {
   return {
     debug(message: string, ...args: unknown[]): void {
       if (shouldLog('debug')) {
-        // biome-ignore lint/suspicious/noConsole: Logger utility needs console
         console.log(formatMessage('debug', component, message), ...args);
       }
     },
 
     info(message: string, ...args: unknown[]): void {
       if (shouldLog('info')) {
-        // biome-ignore lint/suspicious/noConsole: Logger utility needs console
         console.log(formatMessage('info', component, message), ...args);
       }
     },
 
     warn(message: string, ...args: unknown[]): void {
       if (shouldLog('warn')) {
-        // biome-ignore lint/suspicious/noConsole: Logger utility needs console
         console.warn(formatMessage('warn', component, message), ...args);
       }
     },
 
     error(message: string, ...args: unknown[]): void {
       if (shouldLog('error')) {
-        // biome-ignore lint/suspicious/noConsole: Logger utility needs console
         console.error(formatMessage('error', component, message), ...args);
       }
     }
