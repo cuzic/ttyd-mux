@@ -84,6 +84,7 @@ program
   .command('shutdown')
   .description('Stop the daemon')
   .option('-c, --config <path>', 'Config file path')
+  .option('-s, --stop-sessions', 'Stop all sessions before shutting down')
   .action((options) => shutdownCommand(options));
 
 // === Deployment (static mode) ===

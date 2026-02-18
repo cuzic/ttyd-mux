@@ -11,6 +11,7 @@ import {
   spawn,
   spawnSync
 } from 'node:child_process';
+import { createServer } from 'node:net';
 
 export interface ExecSyncOptions {
   cwd?: string;
@@ -49,6 +50,11 @@ export interface ProcessRunner {
    * Send a signal to a process
    */
   kill(pid: number, signal?: NodeJS.Signals | number): void;
+
+  /**
+   * Check if a port is available (not in use)
+   */
+  isPortAvailable(port: number): Promise<boolean>;
 }
 
 /**
@@ -84,6 +90,21 @@ export const defaultProcessRunner: ProcessRunner = {
 
   kill(pid: number, signal?: NodeJS.Signals | number): void {
     process.kill(pid, signal);
+  },
+
+  isPortAvailable(port: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      const server = createServer();
+      server.once('error', () => {
+        resolve(false);
+      });
+      server.once('listening', () => {
+        server.close(() => {
+          resolve(true);
+        });
+      });
+      server.listen(port, '127.0.0.1');
+    });
   }
 };
 
@@ -106,6 +127,7 @@ export function createMockProcessRunner(overrides?: Partial<ProcessRunner>): Pro
       overrides?.kill ??
       (() => {
         /* no-op mock */
-      })
+      }),
+    isPortAvailable: overrides?.isPortAvailable ?? (() => Promise.resolve(true))
   };
 }

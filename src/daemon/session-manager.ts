@@ -69,7 +69,7 @@ export class SessionManager extends EventEmitter {
     this.deps = deps;
   }
 
-  startSession(options: StartSessionOptions): SessionState {
+  async startSession(options: StartSessionOptions): Promise<SessionState> {
     const { name, dir, path, port, fullPath, tmuxMode = 'auto' } = options;
     const { stateStore, processRunner, tmuxClient } = this.deps;
 
@@ -80,6 +80,13 @@ export class SessionManager extends EventEmitter {
     if (existing && processRunner.isProcessRunning(existing.pid)) {
       log.warn(`Session "${name}" is already running (pid=${existing.pid})`);
       throw new Error(`Session "${name}" is already running`);
+    }
+
+    // Check if port is available
+    const portAvailable = await processRunner.isPortAvailable(port);
+    if (!portAvailable) {
+      log.error(`Port ${port} is already in use`);
+      throw new Error(`Port ${port} is already in use`);
     }
 
     // For auto mode, ensure tmux session exists before starting ttyd
@@ -188,6 +195,31 @@ export class SessionManager extends EventEmitter {
       }
     }
     log.info(`Stopped ${sessions.length} sessions`);
+  }
+
+  /**
+   * Revalidate sessions after daemon restart.
+   * Checks if each session's ttyd process is still running.
+   * Removes dead sessions from state.
+   */
+  revalidateSessions(): { valid: SessionState[]; removed: string[] } {
+    const { stateStore, processRunner } = this.deps;
+    const sessions = stateStore.getAllSessions();
+    const valid: SessionState[] = [];
+    const removed: string[] = [];
+
+    for (const session of sessions) {
+      if (processRunner.isProcessRunning(session.pid)) {
+        valid.push(session);
+        log.debug(`Session "${session.name}" (pid=${session.pid}) is still running`);
+      } else {
+        stateStore.removeSession(session.name);
+        removed.push(session.name);
+        log.info(`Session "${session.name}" (pid=${session.pid}) is dead, removed from state`);
+      }
+    }
+
+    return { valid, removed };
   }
 
   private handleProcessExit(name: string, code: number | null): void {

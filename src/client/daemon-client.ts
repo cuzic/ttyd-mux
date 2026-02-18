@@ -187,21 +187,28 @@ export async function ensureDaemon(configPath?: string): Promise<void> {
   }
 }
 
+export interface ShutdownDaemonOptions {
+  /** Stop all sessions before shutting down the daemon */
+  stopSessions?: boolean;
+}
+
 /**
  * Shutdown daemon via socket command
  */
-export async function shutdownDaemon(): Promise<void> {
+export async function shutdownDaemon(options: ShutdownDaemonOptions = {}): Promise<void> {
   const socketPath = currentDeps.stateStore.getSocketPath();
 
   if (!currentDeps.socketClient.exists(socketPath)) {
     return;
   }
 
+  const command = options.stopSessions ? 'shutdown-with-sessions' : 'shutdown';
+
   return new Promise((resolve, reject) => {
     const socket = currentDeps.socketClient.connect(socketPath);
 
     socket.on('connect', () => {
-      socket.write('shutdown');
+      socket.write(command);
     });
 
     socket.on('data', (data) => {

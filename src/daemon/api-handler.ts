@@ -57,7 +57,7 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
     req.on('data', (chunk) => {
       body += chunk.toString();
     });
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const parsed = JSON.parse(body) as {
           name?: string;
@@ -80,7 +80,7 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
           tmuxMode: config.tmux_mode
         };
 
-        const session = sessionManager.startSession(options);
+        const session = await sessionManager.startSession(options);
         sendJson(res, 201, { ...session, fullPath });
       } catch (error) {
         sendJson(res, 400, { error: getErrorMessage(error) });

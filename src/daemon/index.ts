@@ -13,8 +13,27 @@ export interface DaemonOptions {
   foreground?: boolean;
 }
 
+/**
+ * Revalidate existing sessions from previous daemon instance
+ */
+function revalidateExistingSessions(): void {
+  const { valid, removed } = sessionManager.revalidateSessions();
+  if (valid.length === 0 && removed.length === 0) {
+    return;
+  }
+  log.info(`Session revalidation: ${valid.length} active, ${removed.length} removed`);
+  if (valid.length > 0) {
+    console.log(`Recovered ${valid.length} existing session(s)`);
+  }
+  if (removed.length > 0) {
+    console.log(`Cleaned up ${removed.length} dead session(s)`);
+  }
+}
+
 export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
   log.info('Starting daemon...');
+
+  revalidateExistingSessions();
 
   // Set up global error handlers
   process.on('uncaughtException', (error) => {
@@ -94,7 +113,10 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
         socket.write('pong');
       } else if (command === 'shutdown') {
         socket.write('ok');
-        shutdown();
+        shutdown(false);
+      } else if (command === 'shutdown-with-sessions') {
+        socket.write('ok');
+        shutdown(true);
       }
       socket.end();
     });
@@ -113,12 +135,17 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
   });
 
   // Handle shutdown signals
-  const shutdown = () => {
-    log.info('Shutdown requested');
+  const shutdown = (stopSessions = false) => {
+    log.info(`Shutdown requested (stopSessions=${stopSessions})`);
     console.log('\nShutting down...');
-    sessionManager.stopAllSessions();
+    if (stopSessions) {
+      sessionManager.stopAllSessions();
+      log.info('All sessions stopped');
+    } else {
+      log.info('Sessions preserved (daemon-only shutdown)');
+    }
     clearDaemonState();
-    log.info('All sessions stopped and state cleared');
+    log.info('Daemon state cleared');
 
     for (const server of httpServers) {
       server.close();

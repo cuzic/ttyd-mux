@@ -7,6 +7,8 @@
  * - App icons (SVG with PNG fallbacks)
  */
 
+import { deflateSync as zlibDeflateSync } from 'node:zlib';
+
 /**
  * Generate Web App Manifest JSON
  */
@@ -213,9 +215,7 @@ function createChunk(type: string, data: Uint8Array): Uint8Array {
  * Simple deflate compression (zlib format)
  */
 function deflateSync(data: Uint8Array): Uint8Array {
-  // Use Bun's built-in zlib
-  const zlib = require('node:zlib');
-  return zlib.deflateSync(Buffer.from(data));
+  return zlibDeflateSync(Buffer.from(data));
 }
 
 /**
