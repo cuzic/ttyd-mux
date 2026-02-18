@@ -280,7 +280,7 @@ ttyd-mux deploy
 ttyd-mux caddy sync
 ```
 
-See [docs/caddy-setup.md](docs/caddy-setup.md) for details, including OAuth authentication setup for external access.
+See [docs/caddy-setup.md](docs/caddy-setup.md) for details, including authentication setup (Basic, OAuth, mTLS, Authelia/Authentik) for external access.
 
 ## File Structure / ファイル構成
 

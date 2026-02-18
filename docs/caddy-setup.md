@@ -327,11 +327,53 @@ Error: Cannot connect to Caddy Admin API at http://localhost:2019
 3. **ファイアウォール**: 7680, 7600-7699 ポートは localhost のみに制限
 4. **セッション分離**: 各ユーザーに異なるセッションを割り当て
 
-## 外部公開時の認証設定（Google OAuth）
+## 外部公開時の認証設定
 
-インターネットから ttyd-mux にアクセスする場合は、OAuth 認証の設定を強く推奨します。
+インターネットから ttyd-mux にアクセスする場合は、認証の設定を強く推奨します。
 
-### 1. Caddy に caddy-security プラグインを追加
+### 認証方式の選択
+
+| 方式 | 複雑さ | 特徴 |
+|------|--------|------|
+| **Basic 認証** | 低 | 標準 Caddy で利用可能、シンプル |
+| **OAuth (Google, GitHub 等)** | 中 | SSO、ユーザー管理が容易 |
+| **クライアント証明書 (mTLS)** | 高 | 最も安全、証明書管理が必要 |
+| **外部認証プロバイダ** | 中〜高 | Authelia, Authentik 等と連携 |
+
+---
+
+### 方式1: Basic 認証（シンプル）
+
+標準の Caddy で利用可能な最もシンプルな方法です。
+
+```bash
+# パスワードハッシュを生成
+caddy hash-password
+# プロンプトでパスワードを入力
+```
+
+```caddyfile
+your-domain.com {
+    handle /ttyd-mux/* {
+        basicauth {
+            # ユーザー名とハッシュ化されたパスワード
+            admin $2a$14$xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        }
+        reverse_proxy 127.0.0.1:7680
+    }
+}
+```
+
+**メリット**: 追加プラグイン不要、設定がシンプル
+**デメリット**: ユーザー管理が手動、ブラウザにパスワードが保存される
+
+---
+
+### 方式2: OAuth 認証（Google, GitHub 等）
+
+SSO でログインできる方式です。`caddy-security` プラグインが必要です。
+
+#### 2-1. Caddy に caddy-security プラグインを追加
 
 標準の Caddy には OAuth 機能がないため、`caddy-security` プラグインを含めてビルドする必要があります。
 
@@ -355,7 +397,7 @@ sudo mv ./caddy /usr/bin/caddy
 sudo systemctl restart caddy
 ```
 
-### 2. Google OAuth の設定
+#### 2-2. Google OAuth の設定
 
 [Google Cloud Console](https://console.cloud.google.com/) で OAuth クライアントを作成：
 
@@ -364,7 +406,7 @@ sudo systemctl restart caddy
 3. **Authorized redirect URIs**: `https://your-domain.com/oauth2/google`
 4. Client ID と Client Secret を取得
 
-### 3. secrets.env の作成
+#### 2-3. secrets.env の作成
 
 ```bash
 # /etc/caddy/secrets.env
@@ -377,7 +419,7 @@ sudo chmod 600 /etc/caddy/secrets.env
 sudo chown caddy:caddy /etc/caddy/secrets.env
 ```
 
-### 4. systemd override の設定
+#### 2-4. systemd override の設定
 
 Caddy が secrets.env を読み込むように設定：
 
@@ -391,7 +433,7 @@ EOF
 sudo systemctl daemon-reload
 ```
 
-### 5. Caddyfile の設定
+#### 2-5. Caddyfile の設定
 
 ```caddyfile
 {
@@ -468,22 +510,86 @@ your-domain.com {
 }
 ```
 
-### 6. 設定の反映
+#### 2-6. 設定の反映
 
 ```bash
 sudo systemctl restart caddy
 ```
 
-### 動作確認
+#### 動作確認
 
 1. ブラウザで `https://your-domain.com/ttyd-mux/` にアクセス
 2. Google ログイン画面にリダイレクト
 3. 許可されたメールアドレスでログイン
 4. ttyd-mux ポータルにアクセス可能
 
-### IP ベースの信頼設定
+#### GitHub OAuth を使用する場合
 
-特定の IP アドレスからのアクセスは認証をスキップできます：
+Google の代わりに GitHub OAuth を使用する場合：
+
+```caddyfile
+security {
+    oauth identity provider github {
+        realm github
+        driver github
+        client_id {$GITHUB_CLIENT_ID}
+        client_secret {$GITHUB_CLIENT_SECRET}
+        scopes user
+    }
+    # 以下同様...
+}
+```
+
+---
+
+### 方式3: クライアント証明書認証 (mTLS)
+
+最も安全な方式ですが、証明書の配布・管理が必要です。
+
+```caddyfile
+your-domain.com {
+    tls {
+        client_auth {
+            mode require_and_verify
+            trusted_ca_cert_file /etc/caddy/ca.crt
+        }
+    }
+
+    handle /ttyd-mux/* {
+        reverse_proxy 127.0.0.1:7680
+    }
+}
+```
+
+**メリット**: パスワード不要、最も安全
+**デメリット**: 証明書の発行・配布・更新が必要
+
+---
+
+### 方式4: 外部認証プロバイダ連携
+
+[Authelia](https://www.authelia.com/) や [Authentik](https://goauthentik.io/) などの認証プロバイダと連携する方式です。
+
+```caddyfile
+your-domain.com {
+    handle /ttyd-mux/* {
+        forward_auth authelia:9091 {
+            uri /api/verify?rd=https://auth.your-domain.com
+            copy_headers Remote-User Remote-Groups Remote-Email
+        }
+        reverse_proxy 127.0.0.1:7680
+    }
+}
+```
+
+**メリット**: 2FA、ユーザー管理 UI、監査ログ
+**デメリット**: 追加サービスの運用が必要
+
+---
+
+### IP ベースの信頼設定（共通）
+
+どの認証方式でも、特定の IP アドレスからのアクセスは認証をスキップできます：
 
 ```caddyfile
 @trusted {
@@ -496,7 +602,12 @@ sudo systemctl restart caddy
 
 handle /ttyd-mux/* {
     # @trusted は認証なしでアクセス可能
-    authorize @untrusted with mypolicy
+    # Basic 認証の場合
+    basicauth @untrusted {
+        admin $2a$14$xxxx...
+    }
+    # または OAuth の場合
+    # authorize @untrusted with mypolicy
     reverse_proxy 127.0.0.1:7680
 }
 ```
@@ -507,4 +618,6 @@ handle /ttyd-mux/* {
 - [Caddy Admin API](https://caddyserver.com/docs/api)
 - [caddy-security プラグイン](https://github.com/greenpau/caddy-security)
 - [xcaddy (Caddy ビルドツール)](https://github.com/caddyserver/xcaddy)
+- [Authelia](https://www.authelia.com/) - セルフホスト認証プロバイダ
+- [Authentik](https://goauthentik.io/) - オープンソース IdP
 - [ttyd](https://github.com/tsl0922/ttyd)
