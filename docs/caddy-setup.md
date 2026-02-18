@@ -285,6 +285,120 @@ ttyd-mux caddy sync --hostname example.com
 2. Caddy の既存ルートと比較
 3. 追加/削除されたセッションのルートを更新
 
+### Static モードでの認証設定
+
+Static モードでは Caddy から各 ttyd に直接ルーティングされるため、認証は Caddy 側で設定します。
+
+#### Basic 認証（シンプル）
+
+```caddyfile
+your-domain.com {
+    # 静的ポータル（認証付き）
+    handle /ttyd-mux {
+        basicauth {
+            admin $2a$14$xxxx...
+        }
+        rewrite * /index.html
+        root * /home/user/.local/share/ttyd-mux/deploy/portal
+        file_server
+    }
+
+    handle /ttyd-mux/ {
+        basicauth {
+            admin $2a$14$xxxx...
+        }
+        rewrite * /index.html
+        root * /home/user/.local/share/ttyd-mux/deploy/portal
+        file_server
+    }
+
+    # 各セッション（認証付き）
+    handle /ttyd-mux/my-project/* {
+        basicauth {
+            admin $2a$14$xxxx...
+        }
+        reverse_proxy localhost:7601
+    }
+}
+```
+
+#### OAuth 認証（caddy-security）
+
+```caddyfile
+{
+    order authenticate before respond
+    order authorize before basicauth
+
+    security {
+        # ... OAuth 設定（前述の方式2参照）
+    }
+}
+
+your-domain.com {
+    @untrusted {
+        not remote_ip 127.0.0.1 ::1
+    }
+
+    handle /oauth2/* {
+        authenticate with myportal
+    }
+
+    # 静的ポータル（認証付き）
+    handle /ttyd-mux {
+        authorize @untrusted with mypolicy
+        rewrite * /index.html
+        root * /home/user/.local/share/ttyd-mux/deploy/portal
+        file_server
+    }
+
+    handle /ttyd-mux/ {
+        authorize @untrusted with mypolicy
+        rewrite * /index.html
+        root * /home/user/.local/share/ttyd-mux/deploy/portal
+        file_server
+    }
+
+    # 各セッション（認証付き）
+    handle /ttyd-mux/my-project/* {
+        authorize @untrusted with mypolicy
+        reverse_proxy localhost:7601
+    }
+}
+```
+
+#### 認証を共通化する（推奨）
+
+認証設定を各 handle で繰り返さないために、スニペットを使用：
+
+```caddyfile
+(ttyd-mux-auth) {
+    @untrusted {
+        not remote_ip 127.0.0.1 ::1
+    }
+    authorize @untrusted with mypolicy
+}
+
+your-domain.com {
+    handle /ttyd-mux {
+        import ttyd-mux-auth
+        rewrite * /index.html
+        root * /home/user/.local/share/ttyd-mux/deploy/portal
+        file_server
+    }
+
+    handle /ttyd-mux/* {
+        import ttyd-mux-auth
+        reverse_proxy localhost:7601
+    }
+}
+```
+
+### Static モードの注意点
+
+1. **IME ヘルパー非対応**: モバイルでの日本語入力支援が使えません
+2. **セッション追加時の手動更新**: `ttyd-mux deploy` または `ttyd-mux caddy sync` が必要
+3. **WebSocket**: Caddy は WebSocket を自動的にプロキシします（追加設定不要）
+
 ## トラブルシューティング
 
 ### Admin API に接続できない
