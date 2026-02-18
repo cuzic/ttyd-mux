@@ -127,6 +127,84 @@ describe('server feature tests', () => {
     });
   });
 
+  describe('PWA endpoints', () => {
+    test('GET /ttyd-mux/manifest.json returns web app manifest', async () => {
+      const response = await fetch(`${baseUrl}/ttyd-mux/manifest.json`);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toContain('application/manifest+json');
+
+      const manifest = await response.json();
+      expect(manifest).toHaveProperty('name', 'ttyd-mux');
+      expect(manifest).toHaveProperty('display', 'fullscreen');
+      expect(manifest).toHaveProperty('start_url', '/ttyd-mux/');
+      expect(manifest).toHaveProperty('icons');
+    });
+
+    test('GET /ttyd-mux/sw.js returns service worker script', async () => {
+      const response = await fetch(`${baseUrl}/ttyd-mux/sw.js`);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toContain('application/javascript');
+      expect(response.headers.get('service-worker-allowed')).toBe('/');
+
+      const script = await response.text();
+      expect(script).toContain("addEventListener('install'");
+      expect(script).toContain("addEventListener('fetch'");
+    });
+
+    test('GET /ttyd-mux/icon.svg returns SVG icon', async () => {
+      const response = await fetch(`${baseUrl}/ttyd-mux/icon.svg`);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toContain('image/svg+xml');
+      expect(response.headers.get('cache-control')).toContain('max-age=86400');
+
+      const svg = await response.text();
+      expect(svg).toContain('<svg');
+      expect(svg).toContain('</svg>');
+    });
+
+    test('GET /ttyd-mux/icon-192.png returns PNG icon', async () => {
+      const response = await fetch(`${baseUrl}/ttyd-mux/icon-192.png`);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toBe('image/png');
+      expect(response.headers.get('cache-control')).toContain('max-age=86400');
+
+      const buffer = await response.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      // PNG magic bytes
+      expect(bytes[0]).toBe(0x89);
+      expect(bytes[1]).toBe(0x50); // P
+      expect(bytes[2]).toBe(0x4e); // N
+      expect(bytes[3]).toBe(0x47); // G
+    });
+
+    test('GET /ttyd-mux/icon-512.png returns PNG icon', async () => {
+      const response = await fetch(`${baseUrl}/ttyd-mux/icon-512.png`);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toBe('image/png');
+
+      const buffer = await response.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      // PNG magic bytes
+      expect(bytes[0]).toBe(0x89);
+      expect(bytes[1]).toBe(0x50);
+    });
+
+    test('portal HTML includes PWA meta tags', async () => {
+      const response = await fetch(`${baseUrl}/ttyd-mux/`);
+      const html = await response.text();
+
+      expect(html).toContain('<link rel="manifest" href="/ttyd-mux/manifest.json">');
+      expect(html).toContain('<meta name="apple-mobile-web-app-capable" content="yes">');
+      expect(html).toContain('<meta name="theme-color" content="#00d9ff">');
+      expect(html).toContain("navigator.serviceWorker.register('/ttyd-mux/sw.js')");
+    });
+  });
+
   describe('404 handling', () => {
     test('GET /unknown returns 404', async () => {
       const response = await fetch(`${baseUrl}/unknown-path`);

@@ -1,7 +1,35 @@
-import { getFullPath } from '@/config/config.js';
+import { getFullPath, normalizeBasePath } from '@/config/config.js';
 import type { Config, SessionState } from '@/config/types.js';
 
+/**
+ * Generate PWA meta tags and links for the portal page
+ */
+function generatePwaHead(basePath: string): string {
+  return `
+  <meta name="theme-color" content="#00d9ff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ttyd-mux">
+  <link rel="manifest" href="${basePath}/manifest.json">
+  <link rel="apple-touch-icon" href="${basePath}/icon-192.png">
+  <link rel="icon" type="image/svg+xml" href="${basePath}/icon.svg">`;
+}
+
+/**
+ * Generate Service Worker registration script
+ */
+function generateSwRegistration(basePath: string): string {
+  return `
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('${basePath}/sw.js')
+        .catch(err => console.warn('SW registration failed:', err));
+    }
+  </script>`;
+}
+
 export function generatePortalHtml(config: Config, sessions: SessionState[]): string {
+  const basePath = normalizeBasePath(config.base_path);
   const sessionItems = sessions
     .map((session) => {
       const fullPath = getFullPath(config, session.path);
@@ -24,7 +52,7 @@ export function generatePortalHtml(config: Config, sessions: SessionState[]): st
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ttyd-mux</title>
+  <title>ttyd-mux</title>${generatePwaHead(basePath)}
   <style>
     * {
       box-sizing: border-box;
@@ -113,7 +141,7 @@ ${sessionItems}
   ${noSessions}
   <div class="refresh">
     <a href="javascript:location.reload()">Refresh</a>
-  </div>
+  </div>${generateSwRegistration(basePath)}
 </body>
 </html>
 `;

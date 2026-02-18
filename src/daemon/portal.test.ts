@@ -71,7 +71,9 @@ describe('portal', () => {
 
       const html = generatePortalHtml(baseConfig, sessions);
 
-      expect(html).not.toContain('<script>');
+      // Malicious script content should be escaped
+      expect(html).not.toContain('<script>alert');
+      expect(html).toContain('&lt;script&gt;alert');
       expect(html).toContain('&lt;script&gt;');
     });
 
