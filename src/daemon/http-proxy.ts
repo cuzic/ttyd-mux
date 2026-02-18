@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { gzipSync } from 'node:zlib';
 import { createLogger } from '@/utils/logger.js';
 import httpProxy from 'http-proxy';
-import { injectImeHelper } from './ime-helper.js';
+import { injectToolbar } from './toolbar/index.js';
 
 const log = createLogger('proxy');
 
@@ -22,13 +22,14 @@ export function buildCleanHeaders(
 }
 
 /**
- * Transform HTML response with IME helper injection and optional gzip compression
+ * Transform HTML response with toolbar injection and optional gzip compression
  */
 export function transformHtmlResponse(
   originalHtml: string,
-  supportsGzip: boolean
+  supportsGzip: boolean,
+  basePath: string
 ): { body: Buffer; headers: Record<string, string> } {
-  const modifiedHtml = injectImeHelper(originalHtml);
+  const modifiedHtml = injectToolbar(originalHtml, basePath);
   const headers: Record<string, string> = {};
 
   if (supportsGzip) {
@@ -87,17 +88,26 @@ proxy.on('proxyRes', (proxyRes, req, res) => {
     return;
   }
 
-  // Check if client supports gzip (stored in custom header before deletion)
-  const acceptEncoding =
-    (req as IncomingMessage & { originalAcceptEncoding?: string }).originalAcceptEncoding ?? '';
+  // Check if client supports gzip (stored in custom property before deletion)
+  type ExtendedRequest = IncomingMessage & {
+    originalAcceptEncoding?: string;
+    toolbarBasePath?: string;
+  };
+  const extReq = req as ExtendedRequest;
+  const acceptEncoding = extReq.originalAcceptEncoding ?? '';
   const supportsGzip = supportsGzipEncoding(acceptEncoding);
+  const basePath = extReq.toolbarBasePath ?? '/ttyd-mux';
 
-  // Collect HTML body and inject IME helper
+  // Collect HTML body and inject toolbar
   const chunks: Buffer[] = [];
   proxyRes.on('data', (chunk: Buffer) => chunks.push(chunk));
   proxyRes.on('end', () => {
     const originalHtml = Buffer.concat(chunks).toString('utf-8');
-    const { body, headers: transformHeaders } = transformHtmlResponse(originalHtml, supportsGzip);
+    const { body, headers: transformHeaders } = transformHtmlResponse(
+      originalHtml,
+      supportsGzip,
+      basePath
+    );
 
     // Build clean headers object
     const headers = buildCleanHeaders(proxyRes.headers);
@@ -111,13 +121,23 @@ proxy.on('proxyRes', (proxyRes, req, res) => {
 /**
  * Proxy HTTP request to session backend
  */
-export function proxyToSession(req: IncomingMessage, res: ServerResponse, port: number): void {
+export function proxyToSession(
+  req: IncomingMessage,
+  res: ServerResponse,
+  port: number,
+  basePath: string
+): void {
   const target = `http://localhost:${port}`;
   log.debug(`Proxying ${req.url} to ${target}`);
 
-  // Store original Accept-Encoding before changing (for gzip re-compression)
-  (req as IncomingMessage & { originalAcceptEncoding?: string }).originalAcceptEncoding = req
-    .headers['accept-encoding'] as string | undefined;
+  // Store original Accept-Encoding and basePath for use in proxyRes handler
+  type ExtendedRequest = IncomingMessage & {
+    originalAcceptEncoding?: string;
+    toolbarBasePath?: string;
+  };
+  const extReq = req as ExtendedRequest;
+  extReq.originalAcceptEncoding = req.headers['accept-encoding'] as string | undefined;
+  extReq.toolbarBasePath = basePath;
 
   // Request uncompressed response for HTML injection (identity = no encoding)
   req.headers['accept-encoding'] = 'identity';
