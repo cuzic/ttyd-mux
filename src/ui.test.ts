@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import type { TmuxSession } from './types.js';
-import { calculateNewIndex, findInitialIndex, formatDate, handleKeypress } from './ui.js';
+import {
+  calculateNewIndex,
+  findInitialIndex,
+  formatDate,
+  formatSessionLine,
+  handleKeypress
+} from './ui.js';
 
 describe('ui', () => {
   describe('formatDate', () => {
@@ -22,6 +28,62 @@ describe('ui', () => {
     test('formats end of day correctly', () => {
       const date = new Date(2024, 2, 1, 23, 59); // Mar 1, 2024 23:59
       expect(formatDate(date)).toBe('03/01 23:59');
+    });
+  });
+
+  describe('formatSessionLine', () => {
+    const createSession = (name: string, windows: number, attached: boolean): TmuxSession => ({
+      name,
+      windows,
+      created: new Date(2024, 0, 15, 10, 30),
+      attached
+    });
+
+    test('includes session name', () => {
+      const session = createSession('my-project', 1, false);
+      const result = formatSessionLine(session, 0, false);
+      expect(result).toContain('my-project');
+    });
+
+    test('includes index number starting from 1', () => {
+      const session = createSession('test', 1, false);
+      expect(formatSessionLine(session, 0, false)).toContain('[1]');
+      expect(formatSessionLine(session, 2, false)).toContain('[3]');
+    });
+
+    test('includes window count with correct label', () => {
+      const oneWindow = createSession('test', 1, false);
+      const multiWindow = createSession('test', 3, false);
+      expect(formatSessionLine(oneWindow, 0, false)).toContain('1 window');
+      expect(formatSessionLine(multiWindow, 0, false)).toContain('3 windows');
+    });
+
+    test('includes formatted date', () => {
+      const session = createSession('test', 1, false);
+      const result = formatSessionLine(session, 0, false);
+      expect(result).toContain('01/15 10:30');
+    });
+
+    test('shows attached indicator when attached', () => {
+      const attached = createSession('test', 1, true);
+      const detached = createSession('test', 1, false);
+      expect(formatSessionLine(attached, 0, false)).toContain('*attached*');
+      expect(formatSessionLine(detached, 0, false)).not.toContain('*attached*');
+    });
+
+    test('shows selection prefix when selected', () => {
+      const session = createSession('test', 1, false);
+      const selected = formatSessionLine(session, 0, true);
+      const notSelected = formatSessionLine(session, 0, false);
+      expect(selected).toContain('>');
+      expect(notSelected).not.toContain('>');
+    });
+
+    test('includes ANSI codes for styling', () => {
+      const session = createSession('test', 1, false);
+      const result = formatSessionLine(session, 0, false);
+      // Check for ANSI escape codes
+      expect(result).toContain('\x1b[');
     });
   });
 

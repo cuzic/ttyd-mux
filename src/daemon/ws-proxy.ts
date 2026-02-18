@@ -13,7 +13,7 @@ const wss = new WebSocketServer({ noServer: true });
 /**
  * Gracefully close a WebSocket connection
  */
-function closeWebSocket(ws: WebSocket, code: number, reason: string): void {
+export function closeWebSocket(ws: WebSocket, code: number, reason: string): void {
   if (ws.readyState === WebSocket.OPEN) {
     ws.close(code, reason);
   } else {
@@ -24,7 +24,7 @@ function closeWebSocket(ws: WebSocket, code: number, reason: string): void {
 /**
  * Setup bidirectional WebSocket forwarding
  */
-function setupWebSocketForwarding(clientWs: WebSocket, backendWs: WebSocket): void {
+export function setupWebSocketForwarding(clientWs: WebSocket, backendWs: WebSocket): void {
   let closed = false;
 
   const cleanup = (initiator: 'client' | 'backend', code?: number, reason?: Buffer) => {

@@ -6,6 +6,55 @@ import { injectImeHelper } from './ime-helper.js';
 
 const log = createLogger('proxy');
 
+/**
+ * Build clean headers object (filter out undefined values and encoding headers)
+ */
+export function buildCleanHeaders(
+  headers: Record<string, string | string[] | undefined>
+): Record<string, string | string[]> {
+  const cleanHeaders: Record<string, string | string[]> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (value !== undefined && key !== 'content-encoding' && key !== 'transfer-encoding') {
+      cleanHeaders[key] = value;
+    }
+  }
+  return cleanHeaders;
+}
+
+/**
+ * Transform HTML response with IME helper injection and optional gzip compression
+ */
+export function transformHtmlResponse(
+  originalHtml: string,
+  supportsGzip: boolean
+): { body: Buffer; headers: Record<string, string> } {
+  const modifiedHtml = injectImeHelper(originalHtml);
+  const headers: Record<string, string> = {};
+
+  if (supportsGzip) {
+    const compressed = gzipSync(modifiedHtml);
+    headers['content-encoding'] = 'gzip';
+    headers['content-length'] = String(compressed.length);
+    return { body: compressed, headers };
+  }
+  headers['content-length'] = String(Buffer.byteLength(modifiedHtml));
+  return { body: Buffer.from(modifiedHtml), headers };
+}
+
+/**
+ * Check if content type is HTML
+ */
+export function isHtmlContentType(contentType: string): boolean {
+  return contentType.includes('text/html');
+}
+
+/**
+ * Check if client supports gzip encoding
+ */
+export function supportsGzipEncoding(acceptEncoding: string): boolean {
+  return acceptEncoding.includes('gzip');
+}
+
 // Create proxy server for HTTP only
 export const proxy = httpProxy.createProxyServer({
   changeOrigin: true,
@@ -31,7 +80,7 @@ proxy.on('proxyRes', (proxyRes, req, res) => {
 
   // Check if this is a self-handled HTML response
   const contentType = proxyRes.headers['content-type'] ?? '';
-  if (!contentType.includes('text/html')) {
+  if (!isHtmlContentType(contentType)) {
     // Not HTML, just pipe through
     httpRes.writeHead(proxyRes.statusCode ?? 200, proxyRes.headers);
     proxyRes.pipe(httpRes);
@@ -41,36 +90,21 @@ proxy.on('proxyRes', (proxyRes, req, res) => {
   // Check if client supports gzip (stored in custom header before deletion)
   const acceptEncoding =
     (req as IncomingMessage & { originalAcceptEncoding?: string }).originalAcceptEncoding ?? '';
-  const supportsGzip = acceptEncoding.includes('gzip');
+  const supportsGzip = supportsGzipEncoding(acceptEncoding);
 
   // Collect HTML body and inject IME helper
   const chunks: Buffer[] = [];
   proxyRes.on('data', (chunk: Buffer) => chunks.push(chunk));
   proxyRes.on('end', () => {
     const originalHtml = Buffer.concat(chunks).toString('utf-8');
-    const modifiedHtml = injectImeHelper(originalHtml);
+    const { body, headers: transformHeaders } = transformHtmlResponse(originalHtml, supportsGzip);
 
-    // Build clean headers object (filter out undefined values)
-    const headers: Record<string, string | string[]> = {};
-    for (const [key, value] of Object.entries(proxyRes.headers)) {
-      if (value !== undefined && key !== 'content-encoding' && key !== 'transfer-encoding') {
-        headers[key] = value;
-      }
-    }
+    // Build clean headers object
+    const headers = buildCleanHeaders(proxyRes.headers);
+    Object.assign(headers, transformHeaders);
 
-    if (supportsGzip) {
-      // Compress with gzip
-      const compressed = gzipSync(modifiedHtml);
-      headers['content-encoding'] = 'gzip';
-      headers['content-length'] = String(compressed.length);
-      httpRes.writeHead(proxyRes.statusCode ?? 200, headers);
-      httpRes.end(compressed);
-    } else {
-      // Send uncompressed
-      headers['content-length'] = String(Buffer.byteLength(modifiedHtml));
-      httpRes.writeHead(proxyRes.statusCode ?? 200, headers);
-      httpRes.end(modifiedHtml);
-    }
+    httpRes.writeHead(proxyRes.statusCode ?? 200, headers);
+    httpRes.end(body);
   });
 });
 

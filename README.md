@@ -1,5 +1,8 @@
 # ttyd-mux
 
+[![CI](https://github.com/cuzic/ttyd-mux/actions/workflows/ci.yml/badge.svg)](https://github.com/cuzic/ttyd-mux/actions/workflows/ci.yml)
+![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/cuzic/cc6203266343ecd145c80ea0e848fb33/raw/ttyd-mux-coverage.json)
+
 A CLI tool for managing multiple ttyd+tmux web terminal sessions.
 
 複数の ttyd+tmux Web ターミナルセッションを管理する CLI ツール。

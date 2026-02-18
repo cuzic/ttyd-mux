@@ -106,3 +106,8 @@ describe('sessionExists', () => {
     expect(typeof result).toBe('boolean');
   });
 });
+
+// Note: attachSession and createSessionFromCwd are interactive functions
+// that spawn tmux with stdio: 'inherit', making them difficult to test
+// without actually running tmux. They delegate to ensureSession which
+// is tested via tmux-client.ts tests.
