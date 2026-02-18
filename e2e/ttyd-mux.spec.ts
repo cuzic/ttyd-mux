@@ -1,13 +1,41 @@
 import { test, expect, type Page } from '@playwright/test';
 import { spawn, execSync, type ChildProcess } from 'node:child_process';
-import { existsSync, rmSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, rmSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { createServer } from 'node:net';
 
 const STATE_DIR = join(homedir(), '.local', 'state', 'ttyd-mux');
 const TEST_DIR = '/tmp/ttyd-mux-e2e-test';
-const DAEMON_PORT = 7680;
 const BASE_PATH = '/ttyd-mux';
+
+// Find an available port dynamically
+async function findAvailablePort(startPort = 17680): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.listen(startPort, '127.0.0.1', () => {
+      const address = server.address();
+      const port = typeof address === 'object' && address ? address.port : startPort;
+      server.close(() => resolve(port));
+    });
+    server.on('error', () => {
+      // Port in use, try next one
+      findAvailablePort(startPort + 1).then(resolve).catch(reject);
+    });
+  });
+}
+
+// Create a temporary config file with the specified daemon port
+function createTestConfig(daemonPort: number): string {
+  const configPath = join(TEST_DIR, 'test-config.yaml');
+  const configContent = `
+daemon_port: ${daemonPort}
+base_path: ${BASE_PATH}
+base_port: 17600
+`;
+  writeFileSync(configPath, configContent);
+  return configPath;
+}
 
 // Track processes for cleanup
 const ttydProcesses: ChildProcess[] = [];
@@ -115,6 +143,14 @@ function cleanupTtydProcesses(): void {
   ttydProcesses.length = 0;
 }
 
+// Port allocation for ttyd tests
+let nextTtydPort = 17610;
+async function allocateTtydPort(): Promise<number> {
+  const port = await findAvailablePort(nextTtydPort);
+  nextTtydPort = port + 1;
+  return port;
+}
+
 test.describe('ttyd-mux E2E Tests', () => {
   test.beforeAll(async () => {
     // Clean up state
@@ -127,13 +163,6 @@ test.describe('ttyd-mux E2E Tests', () => {
       rmSync(TEST_DIR, { recursive: true });
     }
     mkdirSync(TEST_DIR, { recursive: true });
-
-    // Kill any existing ttyd processes on test ports
-    try {
-      execSync('pkill -f "ttyd.*-p 76[0-9][0-9]" || true', { stdio: 'ignore' });
-    } catch {
-      // Ignore
-    }
 
     // Kill any existing test tmux sessions
     const testSessions = ['test-load', 'test-echo', 'test-files', 'test-ctrlc', 'test-persist', 'test-multi-1', 'test-multi-2', 'test-special', 'test-history'];
@@ -168,7 +197,7 @@ test.describe('ttyd-mux E2E Tests', () => {
   });
 
   test('ttyd terminal loads and displays prompt', async ({ page }) => {
-    const port = 7610;
+    const port = await allocateTtydPort();
     const sessionName = 'test-load';
 
     await startTtyd(port, sessionName);
@@ -185,7 +214,7 @@ test.describe('ttyd-mux E2E Tests', () => {
   });
 
   test('can type in terminal and execute commands', async ({ page }) => {
-    const port = 7611;
+    const port = await allocateTtydPort();
     const sessionName = 'test-echo';
     const outputFile = `${TEST_DIR}/echo-output.txt`;
 
@@ -204,7 +233,7 @@ test.describe('ttyd-mux E2E Tests', () => {
   });
 
   test('can create and list files via terminal', async ({ page }) => {
-    const port = 7612;
+    const port = await allocateTtydPort();
     const sessionName = 'test-files';
     const testFileName = 'e2e-test-file.txt';
     const resultFile = `${TEST_DIR}/ls-result.txt`;
@@ -229,7 +258,7 @@ test.describe('ttyd-mux E2E Tests', () => {
   });
 
   test('Ctrl+C interrupts running command', async ({ page }) => {
-    const port = 7613;
+    const port = await allocateTtydPort();
     const sessionName = 'test-ctrlc';
     const markerFile = `${TEST_DIR}/interrupt-marker.txt`;
 
@@ -258,7 +287,7 @@ test.describe('ttyd-mux E2E Tests', () => {
   });
 
   test('tmux session persists across reconnections', async ({ page }) => {
-    const port = 7614;
+    const port = await allocateTtydPort();
     const sessionName = 'test-persist';
     const varFile = `${TEST_DIR}/persist-var.txt`;
     const uniqueValue = `persist-${Date.now()}`;
@@ -287,8 +316,8 @@ test.describe('ttyd-mux E2E Tests', () => {
   });
 
   test('multiple terminals can run independently', async ({ page, context }) => {
-    const port1 = 7615;
-    const port2 = 7616;
+    const port1 = await allocateTtydPort();
+    const port2 = await allocateTtydPort();
     const session1 = 'test-multi-1';
     const session2 = 'test-multi-2';
     const file1 = `${TEST_DIR}/multi-1.txt`;
@@ -326,7 +355,7 @@ test.describe('ttyd-mux E2E Tests', () => {
   });
 
   test('terminal handles special characters', async ({ page }) => {
-    const port = 7617;
+    const port = await allocateTtydPort();
     const sessionName = 'test-special';
     const outputFile = `${TEST_DIR}/special-chars.txt`;
 
@@ -344,7 +373,7 @@ test.describe('ttyd-mux E2E Tests', () => {
   });
 
   test('terminal supports arrow keys for history', async ({ page }) => {
-    const port = 7618;
+    const port = await allocateTtydPort();
     const sessionName = 'test-history';
     const historyFile = `${TEST_DIR}/history-test.txt`;
 
@@ -381,6 +410,7 @@ test.describe('ttyd-mux E2E Tests', () => {
 
 test.describe('ttyd-mux Daemon E2E', () => {
   let daemonProcess: ChildProcess | null = null;
+  let daemonPort: number;
 
   test.beforeAll(async () => {
     // Clean up state
@@ -388,8 +418,17 @@ test.describe('ttyd-mux Daemon E2E', () => {
       rmSync(STATE_DIR, { recursive: true });
     }
 
-    // Start daemon in foreground
-    daemonProcess = spawn('bun', ['run', 'src/index.ts', 'daemon', '-f'], {
+    // Ensure test directory exists
+    if (!existsSync(TEST_DIR)) {
+      mkdirSync(TEST_DIR, { recursive: true });
+    }
+
+    // Find an available port
+    daemonPort = await findAvailablePort();
+    const configPath = createTestConfig(daemonPort);
+
+    // Start daemon in foreground with custom config
+    daemonProcess = spawn('bun', ['run', 'src/index.ts', 'daemon', '-f', '-c', configPath], {
       cwd: process.cwd(),
       stdio: ['pipe', 'pipe', 'pipe'],
       detached: false,
@@ -424,19 +463,19 @@ test.describe('ttyd-mux Daemon E2E', () => {
   });
 
   test('daemon portal page loads', async ({ page }) => {
-    await page.goto(`http://127.0.0.1:${DAEMON_PORT}${BASE_PATH}/`);
+    await page.goto(`http://127.0.0.1:${daemonPort}${BASE_PATH}/`);
 
     await expect(page.locator('h1')).toContainText('ttyd-mux');
   });
 
   test('daemon portal shows no sessions message when empty', async ({ page }) => {
-    await page.goto(`http://127.0.0.1:${DAEMON_PORT}${BASE_PATH}/`);
+    await page.goto(`http://127.0.0.1:${daemonPort}${BASE_PATH}/`);
 
     await expect(page.locator('text=No active sessions')).toBeVisible();
   });
 
   test('daemon API returns status', async ({ request }) => {
-    const response = await request.get(`http://127.0.0.1:${DAEMON_PORT}${BASE_PATH}/api/status`);
+    const response = await request.get(`http://127.0.0.1:${daemonPort}${BASE_PATH}/api/status`);
 
     expect(response.ok()).toBeTruthy();
 
@@ -447,7 +486,7 @@ test.describe('ttyd-mux Daemon E2E', () => {
   });
 
   test('daemon API returns sessions list', async ({ request }) => {
-    const response = await request.get(`http://127.0.0.1:${DAEMON_PORT}${BASE_PATH}/api/sessions`);
+    const response = await request.get(`http://127.0.0.1:${daemonPort}${BASE_PATH}/api/sessions`);
 
     expect(response.ok()).toBeTruthy();
 

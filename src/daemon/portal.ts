@@ -28,6 +28,21 @@ function generateSwRegistration(basePath: string): string {
   </script>`;
 }
 
+/**
+ * Generate auto-reload script for portal page
+ * Reloads the page when the tab becomes visible to refresh session list
+ */
+function generateAutoReloadScript(): string {
+  return `
+  <script>
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) {
+        location.reload();
+      }
+    });
+  </script>`;
+}
+
 export function generatePortalHtml(config: Config, sessions: SessionState[]): string {
   const basePath = normalizeBasePath(config.base_path);
   const sessionItems = sessions
@@ -141,7 +156,7 @@ ${sessionItems}
   ${noSessions}
   <div class="refresh">
     <a href="javascript:location.reload()">Refresh</a>
-  </div>${generateSwRegistration(basePath)}
+  </div>${generateSwRegistration(basePath)}${generateAutoReloadScript()}
 </body>
 </html>
 `;

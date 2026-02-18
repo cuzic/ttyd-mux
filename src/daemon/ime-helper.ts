@@ -777,6 +777,17 @@ body:has(#ttyd-ime-container:not(.hidden)) .xterm {
     }, 1000);
   }
 
+  // Auto-reload when tab becomes visible if WebSocket is disconnected
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) {
+      const socket = findWebSocket();
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        console.log('[IME Helper] Connection lost, reloading...');
+        location.reload();
+      }
+    }
+  });
+
   console.log('[IME Helper] Loaded. ' + (isMobile ? 'Mobile mode.' : 'Press Ctrl+J or click keyboard button to toggle.'));
 })();
 </script>
