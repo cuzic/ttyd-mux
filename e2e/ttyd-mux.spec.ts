@@ -37,8 +37,9 @@ base_port: 17600
   return configPath;
 }
 
-// Track processes for cleanup
+// Track processes and sessions for cleanup
 const ttydProcesses: ChildProcess[] = [];
+const tmuxSessions: Set<string> = new Set();
 
 // Helper to start ttyd directly and wait for it
 async function startTtyd(port: number, sessionName: string): Promise<ChildProcess> {
@@ -57,6 +58,7 @@ async function startTtyd(port: number, sessionName: string): Promise<ChildProces
 
   proc.unref();
   ttydProcesses.push(proc);
+  tmuxSessions.add(sessionName);
 
   // Wait for ttyd to start - use the correct base path
   await waitForTtyd(port, basePath, 10000);
@@ -129,18 +131,29 @@ async function waitForFileContent(filePath: string, expected: string, timeout = 
   return false;
 }
 
-// Helper to cleanup ttyd processes
+// Helper to cleanup ttyd processes and tmux sessions
 function cleanupTtydProcesses(): void {
+  // Kill ttyd processes
   for (const proc of ttydProcesses) {
     try {
       if (proc.pid) {
         process.kill(proc.pid, 'SIGTERM');
       }
     } catch {
-      // Ignore
+      // Ignore - process may have already exited
     }
   }
   ttydProcesses.length = 0;
+
+  // Kill tmux sessions
+  for (const session of tmuxSessions) {
+    try {
+      execSync(`tmux kill-session -t ${session} 2>/dev/null || true`, { stdio: 'ignore' });
+    } catch {
+      // Ignore
+    }
+  }
+  tmuxSessions.clear();
 }
 
 // Port allocation for ttyd tests
@@ -177,13 +190,6 @@ test.describe('ttyd-mux E2E Tests', () => {
 
   test.afterAll(async () => {
     cleanupTtydProcesses();
-
-    // Kill any remaining ttyd processes (only test ports 17600-17699)
-    try {
-      execSync('pkill -f "ttyd.*-p 176[0-9][0-9]" || true', { stdio: 'ignore' });
-    } catch {
-      // Ignore
-    }
 
     // Clean up test directory
     if (existsSync(TEST_DIR)) {
