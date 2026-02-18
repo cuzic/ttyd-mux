@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import { type LogLevel, createLogger, getLogLevel, setLogLevel } from './logger.js';
 
+/** Regex to match timestamp format in log messages */
+const TIMESTAMP_REGEX = /^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+
 describe('logger', () => {
   let originalLogLevel: LogLevel;
   let consoleLogMock: ReturnType<typeof mock>;
@@ -114,7 +117,7 @@ describe('logger', () => {
       const message = call[0] as string;
 
       // Check format: [timestamp] LEVEL [component] message
-      expect(message).toMatch(/^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+      expect(message).toMatch(TIMESTAMP_REGEX);
       expect(message).toContain('INFO');
       expect(message).toContain('[my-component]');
       expect(message).toContain('test message');

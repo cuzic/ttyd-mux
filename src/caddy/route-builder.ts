@@ -1,5 +1,8 @@
 import type { CaddyMatch, CaddyRoute, CaddyServer } from './types.js';
 
+/** Regex to extract port from upstream URL */
+const PORT_REGEX = /:(\d+)$/;
+
 /**
  * Create a reverse proxy route
  */
@@ -137,8 +140,10 @@ function extractSessionInfo(
 ): { path: string; port: number } | null {
   const sessionPath = path.slice(0, -2); // Remove /*
   const upstream = extractUpstream(route);
-  const portMatch = upstream.match(/:(\d+)$/);
-  if (!portMatch?.[1]) return null;
+  const portMatch = upstream.match(PORT_REGEX);
+  if (!portMatch?.[1]) {
+    return null;
+  }
   return { path: sessionPath, port: Number.parseInt(portMatch[1], 10) };
 }
 
@@ -151,7 +156,9 @@ function extractSessionRoutesFromMatch(
   hostname: string,
   basePath: string
 ): Array<{ path: string; port: number }> {
-  if (!match.host?.includes(hostname)) return [];
+  if (!match.host?.includes(hostname)) {
+    return [];
+  }
 
   return (match.path ?? [])
     .filter((p) => isSessionPath(p, basePath))
@@ -184,12 +191,18 @@ function isStaleSessionRoute(
   keepPaths: Set<string>
 ): boolean {
   for (const match of route.match ?? []) {
-    if (!match.host?.includes(hostname)) continue;
+    if (!match.host?.includes(hostname)) {
+      continue;
+    }
 
     for (const path of match.path ?? []) {
-      if (!isSessionPath(path, basePath)) continue;
+      if (!isSessionPath(path, basePath)) {
+        continue;
+      }
       const sessionPath = path.slice(0, -2);
-      if (!keepPaths.has(sessionPath)) return true;
+      if (!keepPaths.has(sessionPath)) {
+        return true;
+      }
     }
   }
   return false;
