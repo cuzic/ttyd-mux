@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, mock, spyOn, test } from 'bun:test';
+import { describe, expect, mock, test } from 'bun:test';
 import { EventEmitter } from 'node:events';
 import type { IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
 import WebSocket from 'ws';
-import { closeWebSocket, handleUpgrade, setupWebSocketForwarding } from './ws-proxy.js';
+import { closeWebSocket, setupWebSocketForwarding } from './ws-proxy.js';
 
 /**
  * Create a mock WebSocket for testing
@@ -11,9 +11,9 @@ import { closeWebSocket, handleUpgrade, setupWebSocketForwarding } from './ws-pr
 function createMockWebSocket(readyState: number = WebSocket.OPEN): WebSocket {
   const ws = new EventEmitter() as WebSocket;
   ws.readyState = readyState;
-  ws.close = mock(() => {});
-  ws.terminate = mock(() => {});
-  ws.send = mock(() => {});
+  ws.close = mock(() => undefined);
+  ws.terminate = mock(() => undefined);
+  ws.send = mock(() => undefined);
   return ws;
 }
 

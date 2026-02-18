@@ -157,7 +157,7 @@ describe('transformHtmlResponse', () => {
   });
 
   test('handles large HTML content', () => {
-    const largeHtml = '<html><body>' + 'x'.repeat(100000) + '</body></html>';
+    const largeHtml = `<html><body>${'x'.repeat(100000)}</body></html>`;
     const result = transformHtmlResponse(largeHtml, true);
     const decompressed = gunzipSync(result.body).toString();
     expect(decompressed).toContain('x'.repeat(100));

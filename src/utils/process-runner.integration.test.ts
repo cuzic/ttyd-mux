@@ -2,7 +2,7 @@
  * Integration tests for defaultProcessRunner
  * These tests use real processes and ports
  */
-import { afterEach, beforeAll, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeAll, describe, expect, mock, test } from 'bun:test';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { defaultProcessRunner } from './process-runner.js';

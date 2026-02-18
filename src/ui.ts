@@ -24,7 +24,11 @@ export function formatDate(date: Date): string {
   return `${month}/${day} ${hours}:${minutes}`;
 }
 
-export function formatSessionLine(session: TmuxSession, index: number, isSelected: boolean): string {
+export function formatSessionLine(
+  session: TmuxSession,
+  index: number,
+  isSelected: boolean
+): string {
   const prefix = isSelected ? `${ansi.cyan}>${ansi.reset}` : ' ';
   const num = `${ansi.yellow}[${index + 1}]${ansi.reset}`;
   const name = isSelected
