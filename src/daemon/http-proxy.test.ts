@@ -108,16 +108,17 @@ describe('supportsGzipEncoding', () => {
 
 describe('transformHtmlResponse', () => {
   const sampleHtml = '<!DOCTYPE html><html><head></head><body>Hello</body></html>';
+  const basePath = '/ttyd-mux';
 
   test('returns uncompressed body when gzip not supported', () => {
-    const result = transformHtmlResponse(sampleHtml, false);
+    const result = transformHtmlResponse(sampleHtml, false, basePath);
     expect(result.headers['content-encoding']).toBeUndefined();
     expect(result.headers['content-length']).toBeDefined();
     expect(result.body.toString()).toContain('Hello');
   });
 
   test('returns gzip compressed body when gzip supported', () => {
-    const result = transformHtmlResponse(sampleHtml, true);
+    const result = transformHtmlResponse(sampleHtml, true, basePath);
     expect(result.headers['content-encoding']).toBe('gzip');
     expect(result.headers['content-length']).toBeDefined();
 
@@ -126,40 +127,48 @@ describe('transformHtmlResponse', () => {
     expect(decompressed).toContain('Hello');
   });
 
-  test('injects IME helper into HTML', () => {
-    const result = transformHtmlResponse(sampleHtml, false);
+  test('injects toolbar into HTML', () => {
+    const result = transformHtmlResponse(sampleHtml, false, basePath);
     const html = result.body.toString();
-    // IME helper should be injected before </body>
-    expect(html).toContain('ttyd-ime-container');
+    // Toolbar should be injected before </body>
+    expect(html).toContain('ttyd-toolbar');
+    expect(html).toContain(`<script src="${basePath}/toolbar.js"></script>`);
   });
 
   test('sets correct content-length for uncompressed', () => {
-    const result = transformHtmlResponse(sampleHtml, false);
+    const result = transformHtmlResponse(sampleHtml, false, basePath);
     const expectedLength = Buffer.byteLength(result.body);
     expect(result.headers['content-length']).toBe(String(expectedLength));
   });
 
   test('sets correct content-length for compressed', () => {
-    const result = transformHtmlResponse(sampleHtml, true);
+    const result = transformHtmlResponse(sampleHtml, true, basePath);
     expect(result.headers['content-length']).toBe(String(result.body.length));
   });
 
   test('handles empty HTML', () => {
-    const result = transformHtmlResponse('', false);
+    const result = transformHtmlResponse('', false, basePath);
     expect(result.body).toBeDefined();
     expect(result.headers['content-length']).toBeDefined();
   });
 
   test('handles HTML with special characters', () => {
     const htmlWithSpecial = '<html><body>日本語テスト</body></html>';
-    const result = transformHtmlResponse(htmlWithSpecial, false);
+    const result = transformHtmlResponse(htmlWithSpecial, false, basePath);
     expect(result.body.toString()).toContain('日本語テスト');
   });
 
   test('handles large HTML content', () => {
     const largeHtml = `<html><body>${'x'.repeat(100000)}</body></html>`;
-    const result = transformHtmlResponse(largeHtml, true);
+    const result = transformHtmlResponse(largeHtml, true, basePath);
     const decompressed = gunzipSync(result.body).toString();
     expect(decompressed).toContain('x'.repeat(100));
+  });
+
+  test('uses custom basePath in script src', () => {
+    const customBasePath = '/custom-path';
+    const result = transformHtmlResponse(sampleHtml, false, customBasePath);
+    const html = result.body.toString();
+    expect(html).toContain(`<script src="${customBasePath}/toolbar.js"></script>`);
   });
 });
