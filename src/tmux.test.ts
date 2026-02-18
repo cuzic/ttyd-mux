@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 
 // Import the module
 import {
@@ -10,14 +10,10 @@ import {
 } from './tmux.js';
 
 describe('tmux', () => {
-  const originalEnv = { ...process.env };
-
-  beforeEach(() => {
-    process.env = { ...originalEnv };
-  });
+  const originalTmux = process.env['TMUX'];
 
   afterEach(() => {
-    process.env = originalEnv;
+    process.env['TMUX'] = originalTmux;
   });
 
   describe('isInsideTmux', () => {
