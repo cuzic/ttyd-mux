@@ -9,7 +9,11 @@ export const DEFAULT_ADMIN_API = 'http://localhost:2019';
  * Client for Caddy Admin API
  */
 export class CaddyClient {
-  constructor(private adminApi: string = DEFAULT_ADMIN_API) {}
+  private readonly adminApi: string;
+
+  constructor(adminApi: string = DEFAULT_ADMIN_API) {
+    this.adminApi = adminApi;
+  }
 
   /**
    * Get current Caddy configuration

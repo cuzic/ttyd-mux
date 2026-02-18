@@ -6,7 +6,11 @@ import type { Config, SessionDefinition, SessionState } from '@/config/types.js'
  * Unified session resolution with multiple lookup strategies
  */
 export class SessionResolver {
-  constructor(private config: Config) {}
+  private readonly config: Config;
+
+  constructor(config: Config) {
+    this.config = config;
+  }
 
   /**
    * Find session by name

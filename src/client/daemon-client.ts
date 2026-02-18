@@ -91,7 +91,9 @@ interface DaemonCommand {
  * Resolve script path to absolute path
  */
 function resolveScriptPath(scriptPath: string | undefined): string {
-  if (!scriptPath) return '';
+  if (!scriptPath) {
+    return '';
+  }
   return isAbsolute(scriptPath) ? scriptPath : resolve(scriptPath);
 }
 
@@ -100,9 +102,15 @@ function resolveScriptPath(scriptPath: string | undefined): string {
  */
 function detectRunMode(): 'bun-run' | 'script' | 'binary' {
   const arg1 = process.argv[1];
-  if (arg1 === 'run') return 'bun-run';
-  if (arg1?.endsWith('.ts') || arg1?.endsWith('.js')) return 'script';
-  if (arg1 && arg1 !== process.execPath) return 'script'; // symlink
+  if (arg1 === 'run') {
+    return 'bun-run';
+  }
+  if (arg1?.endsWith('.ts') || arg1?.endsWith('.js')) {
+    return 'script';
+  }
+  if (arg1 && arg1 !== process.execPath) {
+    return 'script'; // symlink
+  }
   return 'binary';
 }
 
@@ -115,17 +123,20 @@ function buildDaemonCommand(configPath?: string): DaemonCommand {
   let args: string[];
 
   switch (mode) {
-    case 'bun-run':
+    case 'bun-run': {
       executable = process.argv[0] ?? 'bun';
       args = ['run', resolveScriptPath(process.argv[2]), 'daemon', '-f'];
       break;
-    case 'script':
+    }
+    case 'script': {
       executable = process.argv[0] ?? 'bun';
       args = [resolveScriptPath(process.argv[1]), 'daemon', '-f'];
       break;
-    default:
+    }
+    default: {
       executable = process.execPath;
       args = ['daemon', '-f'];
+    }
   }
 
   if (configPath) {
