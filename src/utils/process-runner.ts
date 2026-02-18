@@ -3,11 +3,23 @@
  * Allows mocking in tests without actually spawning processes
  */
 
-import { type ChildProcess, type SpawnOptions, execSync, spawn } from 'node:child_process';
+import {
+  type ChildProcess,
+  type SpawnOptions,
+  type SpawnSyncReturns,
+  execSync,
+  spawn,
+  spawnSync
+} from 'node:child_process';
 
 export interface ExecSyncOptions {
   cwd?: string;
   encoding?: 'utf-8' | 'utf8' | 'ascii' | 'base64' | 'hex' | 'latin1' | 'binary';
+  stdio?: 'pipe' | 'ignore' | 'inherit';
+}
+
+export interface SpawnSyncOptions {
+  cwd?: string;
   stdio?: 'pipe' | 'ignore' | 'inherit';
 }
 
@@ -18,7 +30,13 @@ export interface ProcessRunner {
   spawn(command: string, args: string[], options?: SpawnOptions): ChildProcess;
 
   /**
+   * Spawn a command synchronously with array arguments (safe from injection)
+   */
+  spawnSync(command: string, args: string[], options?: SpawnSyncOptions): SpawnSyncReturns<string>;
+
+  /**
    * Execute a command synchronously
+   * @deprecated Use spawnSync with array arguments to prevent command injection
    */
   execSync(command: string, options?: ExecSyncOptions): string;
 
@@ -39,6 +57,13 @@ export interface ProcessRunner {
 export const defaultProcessRunner: ProcessRunner = {
   spawn(command: string, args: string[], options?: SpawnOptions): ChildProcess {
     return spawn(command, args, options ?? {});
+  },
+
+  spawnSync(command: string, args: string[], options?: SpawnSyncOptions): SpawnSyncReturns<string> {
+    return spawnSync(command, args, {
+      ...options,
+      encoding: 'utf-8'
+    });
   },
 
   execSync(command: string, options?: ExecSyncOptions): string {
@@ -72,6 +97,9 @@ export function createMockProcessRunner(overrides?: Partial<ProcessRunner>): Pro
       (() => {
         throw new Error('spawn not mocked');
       }),
+    spawnSync:
+      overrides?.spawnSync ??
+      (() => ({ status: 0, stdout: '', stderr: '', pid: 0, output: [], signal: null })),
     execSync: overrides?.execSync ?? (() => ''),
     isProcessRunning: overrides?.isProcessRunning ?? (() => false),
     kill:
