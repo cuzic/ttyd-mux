@@ -3,6 +3,7 @@ import { getFullPath, normalizeBasePath } from '@/config/config.js';
 import { getDaemonState } from '@/config/state.js';
 import type { Config } from '@/config/types.js';
 import { getErrorMessage } from '@/utils/errors.js';
+import { isValidSessionName, sanitizeSessionName } from '@/utils/tmux-client.js';
 import { generateJsonResponse } from './portal.js';
 import {
   type StartSessionOptions,
@@ -60,7 +61,9 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
           dir: string;
           path?: string;
         };
-        const name = parsed.name ?? sessionNameFromDir(parsed.dir);
+        const rawName = parsed.name ?? sessionNameFromDir(parsed.dir);
+        // Sanitize session name to prevent command injection
+        const name = isValidSessionName(rawName) ? rawName : sanitizeSessionName(rawName);
         const sessionPath = parsed.path ?? `/${name}`;
         const port = allocatePort(config);
         const fullPath = getFullPath(config, sessionPath);
