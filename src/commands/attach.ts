@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { getSessions, isDaemonRunning } from '@/client/index.js';
 import { loadConfig } from '@/config/config.js';
 import type { SessionResponse } from '@/config/types.js';
@@ -35,7 +35,7 @@ async function interactiveAttach(_options: AttachOptions): Promise<void> {
   }
 
   // Also get tmux sessions directly
-  const tmuxSessions = await getTmuxSessions();
+  const tmuxSessions = getTmuxSessions();
 
   // Merge session lists (prefer daemon info)
   const allSessions = new Map<string, string>();
@@ -106,9 +106,7 @@ async function attachToSession(name: string): Promise<void> {
   });
 }
 
-async function getTmuxSessions(): Promise<string[]> {
-  const { execSync } = await import('node:child_process');
-
+function getTmuxSessions(): string[] {
   try {
     const output = execSync('tmux list-sessions -F "#{session_name}"', {
       encoding: 'utf-8',
