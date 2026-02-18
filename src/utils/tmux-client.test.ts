@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { createMockProcessRunner } from './process-runner.js';
-import { createMockTmuxClient, createTmuxClient } from './tmux-client.js';
+import {
+  createMockTmuxClient,
+  createTmuxClient,
+  isValidSessionName,
+  sanitizeSessionName
+} from './tmux-client.js';
 
 describe('createTmuxClient', () => {
   const originalEnv = process.env['TMUX'];
@@ -87,7 +92,7 @@ describe('createTmuxClient', () => {
   describe('sessionExists', () => {
     test('returns true when session exists', () => {
       const mockRunner = createMockProcessRunner({
-        execSync: () => ''
+        spawnSync: () => ({ status: 0, stdout: '', stderr: '', pid: 0, output: [], signal: null })
       });
       const client = createTmuxClient(mockRunner);
       expect(client.sessionExists('my-session')).toBe(true);
@@ -95,12 +100,16 @@ describe('createTmuxClient', () => {
 
     test('returns false when session does not exist', () => {
       const mockRunner = createMockProcessRunner({
-        execSync: () => {
-          throw new Error('session not found');
-        }
+        spawnSync: () => ({ status: 1, stdout: '', stderr: '', pid: 0, output: [], signal: null })
       });
       const client = createTmuxClient(mockRunner);
       expect(client.sessionExists('nonexistent')).toBe(false);
+    });
+
+    test('returns false for invalid session name', () => {
+      const mockRunner = createMockProcessRunner();
+      const client = createTmuxClient(mockRunner);
+      expect(client.sessionExists('invalid;name')).toBe(false);
     });
   });
 
@@ -110,16 +119,16 @@ describe('createTmuxClient', () => {
       let hasSessionCalls = 0;
 
       const mockRunner = createMockProcessRunner({
-        execSync: (cmd: string) => {
-          if (cmd.includes('has-session')) {
+        spawnSync: (_cmd: string, args: string[]) => {
+          if (args.includes('has-session')) {
             hasSessionCalls++;
-            throw new Error('session not found');
+            return { status: 1, stdout: '', stderr: '', pid: 0, output: [], signal: null };
           }
-          if (cmd.includes('new-session')) {
+          if (args.includes('new-session')) {
             createCalled = true;
-            return '';
+            return { status: 0, stdout: '', stderr: '', pid: 0, output: [], signal: null };
           }
-          return '';
+          return { status: 0, stdout: '', stderr: '', pid: 0, output: [], signal: null };
         }
       });
 
@@ -134,14 +143,14 @@ describe('createTmuxClient', () => {
       let createCalled = false;
 
       const mockRunner = createMockProcessRunner({
-        execSync: (cmd: string) => {
-          if (cmd.includes('has-session')) {
-            return ''; // Session exists
+        spawnSync: (_cmd: string, args: string[]) => {
+          if (args.includes('has-session')) {
+            return { status: 0, stdout: '', stderr: '', pid: 0, output: [], signal: null };
           }
-          if (cmd.includes('new-session')) {
+          if (args.includes('new-session')) {
             createCalled = true;
           }
-          return '';
+          return { status: 0, stdout: '', stderr: '', pid: 0, output: [], signal: null };
         }
       });
 
@@ -152,24 +161,34 @@ describe('createTmuxClient', () => {
     });
 
     test('passes cwd option when creating session', () => {
-      let createCommand = '';
+      let cwdArg = '';
 
       const mockRunner = createMockProcessRunner({
-        execSync: (cmd: string) => {
-          if (cmd.includes('has-session')) {
-            throw new Error('session not found');
+        spawnSync: (_cmd: string, args: string[]) => {
+          if (args.includes('has-session')) {
+            return { status: 1, stdout: '', stderr: '', pid: 0, output: [], signal: null };
           }
-          if (cmd.includes('new-session')) {
-            createCommand = cmd;
+          if (args.includes('new-session')) {
+            const cwdIndex = args.indexOf('-c');
+            if (cwdIndex >= 0) {
+              cwdArg = args[cwdIndex + 1];
+            }
+            return { status: 0, stdout: '', stderr: '', pid: 0, output: [], signal: null };
           }
-          return '';
+          return { status: 0, stdout: '', stderr: '', pid: 0, output: [], signal: null };
         }
       });
 
       const client = createTmuxClient(mockRunner);
       client.ensureSession('new-session', '/home/user/project');
 
-      expect(createCommand).toContain('-c "/home/user/project"');
+      expect(cwdArg).toBe('/home/user/project');
+    });
+
+    test('throws error for invalid session name', () => {
+      const mockRunner = createMockProcessRunner();
+      const client = createTmuxClient(mockRunner);
+      expect(() => client.ensureSession('invalid;rm -rf /')).toThrow('Invalid session name');
     });
   });
 });
@@ -192,5 +211,55 @@ describe('createMockTmuxClient', () => {
     });
     expect(mock.isInsideTmux()).toBe(true);
     expect(mock.listSessions().length).toBe(1);
+  });
+});
+
+describe('isValidSessionName', () => {
+  test('accepts valid session names', () => {
+    expect(isValidSessionName('my-session')).toBe(true);
+    expect(isValidSessionName('session_1')).toBe(true);
+    expect(isValidSessionName('Project.Name')).toBe(true);
+    expect(isValidSessionName('abc123')).toBe(true);
+  });
+
+  test('rejects invalid session names', () => {
+    expect(isValidSessionName('')).toBe(false);
+    expect(isValidSessionName('session;rm -rf /')).toBe(false);
+    expect(isValidSessionName('session`whoami`')).toBe(false);
+    expect(isValidSessionName('session$(cat /etc/passwd)')).toBe(false);
+    expect(isValidSessionName('session name')).toBe(false); // space
+    expect(isValidSessionName('a'.repeat(65))).toBe(false); // too long
+  });
+});
+
+describe('sanitizeSessionName', () => {
+  test('returns valid names unchanged', () => {
+    expect(sanitizeSessionName('my-session')).toBe('my-session');
+    expect(sanitizeSessionName('session_1')).toBe('session_1');
+  });
+
+  test('sanitizes invalid characters', () => {
+    expect(sanitizeSessionName('session;rm')).toBe('session-rm');
+    expect(sanitizeSessionName('session name')).toBe('session-name');
+    expect(sanitizeSessionName('session`test`')).toBe('session-test');
+  });
+
+  test('collapses multiple hyphens', () => {
+    expect(sanitizeSessionName('a--b')).toBe('a-b');
+    expect(sanitizeSessionName('a;;;b')).toBe('a-b');
+  });
+
+  test('trims leading/trailing hyphens', () => {
+    expect(sanitizeSessionName('-session-')).toBe('session');
+    expect(sanitizeSessionName(';session;')).toBe('session');
+  });
+
+  test('truncates to max length', () => {
+    const longName = 'a'.repeat(100);
+    expect(sanitizeSessionName(longName).length).toBe(64);
+  });
+
+  test('returns default for empty result', () => {
+    expect(sanitizeSessionName(';;;')).toBe('session');
   });
 });
