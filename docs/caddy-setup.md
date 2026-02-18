@@ -285,11 +285,11 @@ ttyd-mux caddy sync --hostname example.com
 2. Caddy の既存ルートと比較
 3. 追加/削除されたセッションのルートを更新
 
-### Static モードでの認証設定
+### Static モードでの Caddyfile 例
 
-Static モードでは Caddy から各 ttyd に直接ルーティングされるため、認証は Caddy 側で設定します。
+Static モードでは各セッションへのルートを個別に設定します。
 
-#### Basic 認証（シンプル）
+#### Basic 認証
 
 ```caddyfile
 your-domain.com {
@@ -322,18 +322,11 @@ your-domain.com {
 }
 ```
 
-#### OAuth 認証（caddy-security）
+#### OAuth 認証
+
+OAuth 設定は「外部公開時の認証設定」の方式2を参照してください。
 
 ```caddyfile
-{
-    order authenticate before respond
-    order authorize before basicauth
-
-    security {
-        # ... OAuth 設定（前述の方式2参照）
-    }
-}
-
 your-domain.com {
     @untrusted {
         not remote_ip 127.0.0.1 ::1
@@ -343,7 +336,7 @@ your-domain.com {
         authenticate with myportal
     }
 
-    # 静的ポータル（認証付き）
+    # 静的ポータル
     handle /ttyd-mux {
         authorize @untrusted with mypolicy
         rewrite * /index.html
@@ -358,7 +351,7 @@ your-domain.com {
         file_server
     }
 
-    # 各セッション（認証付き）
+    # 各セッション
     handle /ttyd-mux/my-project/* {
         authorize @untrusted with mypolicy
         reverse_proxy localhost:7601
@@ -444,6 +437,8 @@ Error: Cannot connect to Caddy Admin API at http://localhost:2019
 ## 外部公開時の認証設定
 
 インターネットから ttyd-mux にアクセスする場合は、認証の設定を強く推奨します。
+
+**認証は常に Caddy 側で設定します**（proxy モード・static モード共通）。ttyd-mux 自体には認証機能がありません。
 
 ### 認証方式の選択
 
