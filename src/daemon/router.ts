@@ -7,6 +7,7 @@ import { proxyToSession } from './http-proxy.js';
 import { generatePortalHtml } from './portal.js';
 import { getIconPng, getIconSvg, getManifestJson, getServiceWorker } from './pwa.js';
 import { sessionManager } from './session-manager.js';
+import { getToolbarJs } from './toolbar/index.js';
 
 const log = createLogger('router');
 
@@ -102,6 +103,19 @@ function servePwaIconPng(res: ServerResponse, size: 192 | 512): void {
 }
 
 /**
+ * Serve toolbar JavaScript
+ */
+function serveToolbarJs(res: ServerResponse): void {
+  const script = getToolbarJs();
+  res.writeHead(200, {
+    'Content-Type': 'application/javascript',
+    'Content-Length': Buffer.byteLength(script),
+    'Cache-Control': 'public, max-age=3600'
+  });
+  res.end(script);
+}
+
+/**
  * Handle incoming HTTP request
  */
 export function handleRequest(config: Config, req: IncomingMessage, res: ServerResponse): void {
@@ -142,6 +156,12 @@ export function handleRequest(config: Config, req: IncomingMessage, res: ServerR
     return;
   }
 
+  // Toolbar JavaScript
+  if (url === `${basePath}/toolbar.js`) {
+    serveToolbarJs(res);
+    return;
+  }
+
   // Portal page
   if (url === basePath || url === `${basePath}/`) {
     if (method === 'GET') {
@@ -154,7 +174,7 @@ export function handleRequest(config: Config, req: IncomingMessage, res: ServerR
   // Try to proxy to a session
   const session = findSessionForPath(config, url);
   if (session) {
-    proxyToSession(req, res, session.port);
+    proxyToSession(req, res, session.port, basePath);
     return;
   }
 
