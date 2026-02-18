@@ -35,10 +35,14 @@ src/
 │   ├── server.ts         # HTTP サーバー作成
 │   ├── router.ts         # リクエストルーティング
 │   ├── api-handler.ts    # REST API ハンドラ
-│   ├── http-proxy.ts     # HTTP プロキシ + IME 注入
+│   ├── http-proxy.ts     # HTTP プロキシ + ツールバー注入
 │   ├── ws-proxy.ts       # WebSocket プロキシ
 │   ├── portal.ts         # ポータル HTML 生成
-│   ├── ime-helper.ts     # IME ヘルパー（日本語入力 + ズーム）
+│   ├── toolbar/          # ツールバーモジュール
+│   │   ├── index.ts      # エクスポート、inject 関数
+│   │   ├── config.ts     # 設定定数
+│   │   ├── styles.ts     # CSS
+│   │   └── template.ts   # HTML テンプレート
 │   ├── session-manager.ts # ttyd プロセス管理（DI対応）
 │   └── session-resolver.ts # セッション名解決
 ├── client/
@@ -64,6 +68,7 @@ src/
     ├── start.ts, stop.ts, status.ts
     ├── attach.ts
     ├── daemon.ts, shutdown.ts
+    ├── doctor.ts         # 診断コマンド
     ├── caddy.ts          # Caddy 連携コマンド
     └── deploy.ts         # デプロイコマンド（static モード用）
 ```
@@ -165,6 +170,8 @@ interface Config {
   base_path: string;      // "/ttyd-mux"
   base_port: number;      // 7600
   daemon_port: number;    // 7680
+  listen_addresses: string[];  // ["127.0.0.1", "::1"]
+  listen_sockets: string[];    // Unix ソケットパス（オプション）
   proxy_mode: 'proxy' | 'static';  // プロキシモード
   hostname?: string;      // Caddy 連携用ホスト名
   caddy_admin_api: string; // Caddy Admin API URL
@@ -186,20 +193,32 @@ interface SessionState {
 
 ### proxy モード（デフォルト）
 - 全トラフィックが ttyd-mux daemon を経由
-- IME ヘルパーによる入力支援:
-  - モバイル: 日本語 IME 入力、タッチピンチズーム、ダブルタップ Enter
-  - PC: Ctrl+スクロール / トラックパッドピンチでフォントサイズ変更
+- ツールバーによる入力支援:
+  - モバイル: 日本語 IME 入力、タッチピンチズーム、ダブルタップ Enter、最小化モード
+  - PC: Ctrl+スクロール / トラックパッドピンチでフォントサイズ変更、Ctrl+J でトグル
+  - 初回利用時のオンボーディングヒント
 - シンプルな Caddy 設定（単一ルート）
+- Unix ソケット経由のリバースプロキシ対応 (`listen_sockets`)
 
 ### static モード
 - Caddy から ttyd に直接ルーティング
 - 低レイテンシ
 - `ttyd-mux deploy` で静的ポータルを生成
 - セッション変更後は `ttyd-mux caddy sync` でルート同期
-- IME ヘルパー非対応
+- ツールバー非対応
+
+## 診断コマンド
+
+`ttyd-mux doctor` で依存関係と設定の問題を診断できます:
+
+- ttyd / tmux / bun のインストール確認
+- 設定ファイルの検証
+- デーモンの状態確認
+- ポートの空き状況確認
 
 ## 注意事項
 
 - ttyd がシステムにインストールされている必要があります
 - tmux がシステムにインストールされている必要があります
 - bun 1.0 以上が必要です
+- `ttyd-mux doctor` で問題を診断できます

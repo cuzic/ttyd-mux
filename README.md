@@ -115,6 +115,28 @@ ttyd-mux daemon -f              # Start in foreground (debug) / フォアグラ�
 ttyd-mux shutdown               # Stop daemon / デーモン終了
 ```
 
+### Diagnostics / 診断
+
+```bash
+ttyd-mux doctor                 # Check dependencies and configuration / 依存関係と設定をチェック
+```
+
+The `doctor` command checks:
+- ttyd installation
+- tmux installation
+- Bun version (requires 1.0+)
+- Configuration file validity
+- Daemon status
+- Port availability
+
+`doctor` コマンドは以下をチェックします：
+- ttyd のインストール
+- tmux のインストール
+- Bun のバージョン（1.0以上が必要）
+- 設定ファイルの妥当性
+- デーモンの状態
+- ポートの空き状況
+
 ## Configuration / 設定
 
 Configuration files are searched in the following order:
@@ -145,6 +167,11 @@ listen_addresses:
   - "127.0.0.1"
   - "::1"
   # - "0.0.0.0"  # Allow external access / 外部からのアクセスを許可する場合
+
+# Unix socket listeners (optional, for reverse proxy integration)
+# Unix ソケットリスナー（オプション、リバースプロキシ連携用）
+listen_sockets:
+  # - /run/ttyd-mux.sock  # Caddy: reverse_proxy unix//run/ttyd-mux.sock
 
 # Auto-attach to tmux on session start (default: true)
 # セッション起動時に自動でtmuxにアタッチ（デフォルト: true）
@@ -215,23 +242,26 @@ sessions:
 - Static portal (no daemon needed at runtime) / 静的ポータル（実行時デーモン不要）
 - No IME helper support / IME ヘルパー非対応
 
-## IME Helper Features / IME ヘルパー機能
+## Toolbar Features / ツールバー機能
 
-In proxy mode, ttyd-mux injects an IME helper for improved input experience:
+In proxy mode, ttyd-mux injects a toolbar for improved input experience:
 
-プロキシモードでは、入力体験向上のため IME ヘルパーが注入されます：
+プロキシモードでは、入力体験向上のためツールバーが注入されます：
 
 ### Mobile Support / モバイル対応
 
 - **IME Input**: Virtual keyboard with Japanese IME support / 日本語 IME 対応の仮想キーボード
 - **Touch Pinch Zoom**: Two-finger pinch to resize terminal font (requires Ctrl/Shift button) / 2本指ピンチでフォントサイズ変更（Ctrl/Shift ボタン押下時）
 - **Double-tap Enter**: Double-tap to send Enter key / ダブルタップで Enter キー送信
+- **Minimize Mode**: Compact toolbar showing only input field / コンパクト表示（入力フィールドのみ）
+- **Onboarding Tips**: First-time usage hints / 初回利用時のヒント表示
 
 ### PC Browser Support / PC ブラウザ対応
 
 - **Ctrl+Scroll Zoom**: Mouse wheel with Ctrl key to resize terminal font / Ctrl+マウスホイールでフォントサイズ変更
 - **Trackpad Pinch Zoom** (Mac): Two-finger pinch gesture on trackpad / トラックパッドの2本指ピンチでフォントサイズ変更
-- **A-/A+ Buttons**: Click buttons in the helper toolbar / ヘルパーツールバーのボタンでサイズ変更
+- **A-/A+ Buttons**: Click buttons in the toolbar / ツールバーのボタンでサイズ変更
+- **Ctrl+J Toggle**: Keyboard shortcut to show/hide toolbar / Ctrl+J でツールバー表示/非表示
 
 ## Caddy Integration / Caddy との連携
 

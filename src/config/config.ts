@@ -38,7 +38,12 @@ export function loadConfig(configPath?: string): Config {
     return ConfigSchema.parse(parsed);
   } catch (error) {
     if (error instanceof Error) {
-      throw new Error(`Failed to load config from ${path}: ${error.message}`);
+      const hint = error.message.includes('YAMLParseError')
+        ? '\n  Check YAML syntax: indentation and colons.'
+        : error.name === 'ZodError'
+          ? '\n  Run "ttyd-mux doctor" to validate config.'
+          : '';
+      throw new Error(`Failed to load config from ${path}:\n  ${error.message}${hint}`);
     }
     throw error;
   }

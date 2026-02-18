@@ -14,17 +14,38 @@ export const SessionDefinitionSchema = z.object({
 
 export type SessionDefinition = z.infer<typeof SessionDefinitionSchema>;
 
+export const ToolbarConfigSchema = z.object({
+  font_size_default_mobile: z.number().int().min(8).max(72).default(32),
+  font_size_default_pc: z.number().int().min(8).max(72).default(14),
+  font_size_min: z.number().int().min(6).max(20).default(10),
+  font_size_max: z.number().int().min(24).max(96).default(48),
+  double_tap_delay: z.number().int().min(100).max(1000).default(300)
+});
+
+export type ToolbarConfig = z.infer<typeof ToolbarConfigSchema>;
+
+/** Default toolbar configuration */
+export const DEFAULT_TOOLBAR_CONFIG: ToolbarConfig = {
+  font_size_default_mobile: 32,
+  font_size_default_pc: 14,
+  font_size_min: 10,
+  font_size_max: 48,
+  double_tap_delay: 300
+};
+
 export const ConfigSchema = z.object({
   base_path: z.string().startsWith('/').default('/ttyd-mux'),
   base_port: z.number().int().min(1024).max(65535).default(7600),
   daemon_port: z.number().int().min(1024).max(65535).default(7680),
   listen_addresses: z.array(z.string()).default(['127.0.0.1', '::1']),
+  listen_sockets: z.array(z.string()).default([]),
   auto_attach: z.boolean().default(true),
   sessions: z.array(SessionDefinitionSchema).default([]),
   proxy_mode: z.enum(['proxy', 'static']).default('proxy'),
   hostname: z.string().optional(),
   caddy_admin_api: z.string().default('http://localhost:2019'),
-  tmux_mode: TmuxModeSchema.default('auto')
+  tmux_mode: TmuxModeSchema.default('auto'),
+  toolbar: ToolbarConfigSchema.default(DEFAULT_TOOLBAR_CONFIG)
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

@@ -9,34 +9,34 @@
  * - Modifier key buttons (Ctrl, Alt, Shift)
  */
 
-import {
-  DOUBLE_TAP_DELAY,
-  FONT_SIZE_DEFAULT_MOBILE,
-  FONT_SIZE_DEFAULT_PC,
-  FONT_SIZE_MAX,
-  FONT_SIZE_MIN,
-  STORAGE_KEY
-} from './config.js';
+import { DEFAULT_TOOLBAR_CONFIG, type ToolbarConfig } from '@/config/types.js';
+import { AUTO_RUN_KEY, ONBOARDING_SHOWN_KEY, STORAGE_KEY } from './config.js';
 import { toolbarStyles } from './styles.js';
-import { toolbarHtml } from './template.js';
+import { onboardingHtml, toolbarHtml } from './template.js';
 
-// Re-export config constants
-export {
-  DOUBLE_TAP_DELAY,
-  FONT_SIZE_DEFAULT_MOBILE,
-  FONT_SIZE_DEFAULT_PC,
-  FONT_SIZE_MAX,
-  FONT_SIZE_MIN,
-  STORAGE_KEY
-};
+// Re-export config constants (localStorage keys only)
+export { AUTO_RUN_KEY, ONBOARDING_SHOWN_KEY, STORAGE_KEY };
 
 // Re-export for direct access
-export { toolbarHtml, toolbarStyles };
+export { onboardingHtml, toolbarHtml, toolbarStyles };
+
+// Re-export type and default config
+export { DEFAULT_TOOLBAR_CONFIG };
+export type { ToolbarConfig };
 
 /**
  * Generate the toolbar JavaScript code
+ * @param config - Toolbar configuration from config.yaml
  */
-export function getToolbarScript(): string {
+export function getToolbarScript(config: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG): string {
+  const {
+    font_size_min,
+    font_size_max,
+    font_size_default_mobile,
+    font_size_default_pc,
+    double_tap_delay
+  } = config;
+
   return `(function() {
   const container = document.getElementById('ttyd-toolbar');
   const input = document.getElementById('ttyd-toolbar-input');
@@ -56,21 +56,28 @@ export function getToolbarScript(): string {
   const copyBtn = document.getElementById('ttyd-toolbar-copy');
   const copyAllBtn = document.getElementById('ttyd-toolbar-copyall');
   const autoBtn = document.getElementById('ttyd-toolbar-auto');
+  const minimizeBtn = document.getElementById('ttyd-toolbar-minimize');
+  const scrollBtn = document.getElementById('ttyd-toolbar-scroll');
+  const pageUpBtn = document.getElementById('ttyd-toolbar-pageup');
+  const pageDownBtn = document.getElementById('ttyd-toolbar-pagedown');
 
   let ws = null;
   let ctrlActive = false;
   let altActive = false;
   let shiftActive = false;
   let autoRunActive = false;
+  let scrollActive = false;
 
   // Detect mobile device
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-  // Font size configuration
-  const FONT_SIZE_MIN = ${FONT_SIZE_MIN};
-  const FONT_SIZE_MAX = ${FONT_SIZE_MAX};
-  const FONT_SIZE_DEFAULT = isMobile ? ${FONT_SIZE_DEFAULT_MOBILE} : ${FONT_SIZE_DEFAULT_PC};
+  // Font size configuration (from config.yaml)
+  const FONT_SIZE_MIN = ${font_size_min};
+  const FONT_SIZE_MAX = ${font_size_max};
+  const FONT_SIZE_DEFAULT = isMobile ? ${font_size_default_mobile} : ${font_size_default_pc};
   const FONT_SIZE_STORAGE_KEY = '${STORAGE_KEY}';
+  const ONBOARDING_KEY = '${ONBOARDING_SHOWN_KEY}';
+  const AUTO_RUN_STORAGE_KEY = '${AUTO_RUN_KEY}';
 
   function saveFontSize(size) {
     try {
@@ -93,6 +100,24 @@ export function getToolbarScript(): string {
       console.warn('[Toolbar] Failed to load font size:', e);
     }
     return FONT_SIZE_DEFAULT;
+  }
+
+  function saveAutoRun(enabled) {
+    try {
+      localStorage.setItem(AUTO_RUN_STORAGE_KEY, enabled ? '1' : '0');
+    } catch (e) {
+      console.warn('[Toolbar] Failed to save auto-run state:', e);
+    }
+  }
+
+  function loadAutoRun() {
+    try {
+      const saved = localStorage.getItem(AUTO_RUN_STORAGE_KEY);
+      return saved === '1';
+    } catch (e) {
+      console.warn('[Toolbar] Failed to load auto-run state:', e);
+    }
+    return false;
   }
 
   // Find the WebSocket connection
@@ -197,6 +222,14 @@ export function getToolbarScript(): string {
 
   function sendDown() {
     sendBytes([0x1B, 0x5B, 0x42]);  // ESC [ B
+  }
+
+  function sendPageUp() {
+    sendBytes([0x1B, 0x5B, 0x35, 0x7E]);  // ESC [ 5 ~
+  }
+
+  function sendPageDown() {
+    sendBytes([0x1B, 0x5B, 0x36, 0x7E]);  // ESC [ 6 ~
   }
 
   function fitTerminal() {
@@ -387,6 +420,7 @@ export function getToolbarScript(): string {
     e.preventDefault();
     autoRunActive = !autoRunActive;
     autoBtn.classList.toggle('active', autoRunActive);
+    saveAutoRun(autoRunActive);
   });
 
   escBtn.addEventListener('click', function(e) {
@@ -409,6 +443,27 @@ export function getToolbarScript(): string {
     sendDown();
   });
 
+  pageUpBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    sendPageUp();
+  });
+
+  pageDownBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    sendPageDown();
+  });
+
+  scrollBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    scrollActive = !scrollActive;
+    scrollBtn.classList.toggle('active', scrollActive);
+    if (scrollActive) {
+      console.log('[Toolbar] Scroll mode enabled - drag to scroll');
+    } else {
+      console.log('[Toolbar] Scroll mode disabled');
+    }
+  });
+
   copyBtn.addEventListener('click', function(e) {
     e.preventDefault();
     copySelection();
@@ -417,6 +472,14 @@ export function getToolbarScript(): string {
   copyAllBtn.addEventListener('click', function(e) {
     e.preventDefault();
     copyAll();
+  });
+
+  minimizeBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    container.classList.toggle('minimized');
+    // Update button text based on state
+    minimizeBtn.textContent = container.classList.contains('minimized') ? '▲' : '▼';
+    setTimeout(fitTerminal, 100);
   });
 
   input.addEventListener('input', adjustTextareaHeight);
@@ -503,37 +566,67 @@ export function getToolbarScript(): string {
   }
 
   let shiftTouchActive = false;  // Track if we're in Shift+touch selection mode
+  let scrollTouchActive = false;  // Track if we're in scroll drag mode
+  let scrollLastY = 0;  // Track last Y position for scroll delta
+  const SCROLL_THRESHOLD = 30;  // Pixels to drag before triggering scroll
 
   document.addEventListener('touchstart', function(e) {
     // Don't interfere with toolbar buttons
     if (e.target.closest('#ttyd-toolbar') || e.target.closest('#ttyd-toolbar-toggle')) {
       return;
     }
+    // Single finger touch with Scroll active -> enable scroll drag mode
+    if (e.touches.length === 1 && scrollActive) {
+      const touch = e.touches[0];
+      touchStartPos = { x: touch.clientX, y: touch.clientY };
+      scrollLastY = touch.clientY;
+      scrollTouchActive = true;
+      e.preventDefault();
+    }
     // Single finger touch with Shift active -> convert to mouse event for selection
-    if (e.touches.length === 1 && shiftActive) {
+    else if (e.touches.length === 1 && shiftActive) {
       const touch = e.touches[0];
       touchStartPos = { x: touch.clientX, y: touch.clientY };
       shiftTouchActive = true;
       e.preventDefault();
       dispatchMouseEvent('mousedown', touch, true);
     }
-    // 2nd finger added -> cancel Shift selection mode, allow pinch
-    else if (e.touches.length === 2 && shiftTouchActive) {
-      dispatchMouseEvent('mouseup', e.touches[0], true);
+    // 2nd finger added -> cancel Shift/Scroll mode, allow pinch
+    else if (e.touches.length === 2 && (shiftTouchActive || scrollTouchActive)) {
+      if (shiftTouchActive) {
+        dispatchMouseEvent('mouseup', e.touches[0], true);
+      }
       shiftTouchActive = false;
+      scrollTouchActive = false;
       touchStartPos = null;
       // Don't preventDefault - let pinch handlers take over
     }
-    // Track non-Shift single touch for hint
-    else if (e.touches.length === 1 && !shiftActive) {
+    // Track non-Shift/Scroll single touch for hint
+    else if (e.touches.length === 1 && !shiftActive && !scrollActive) {
       const touch = e.touches[0];
       touchStartPos = { x: touch.clientX, y: touch.clientY };
     }
   }, { passive: false, capture: true });
 
   document.addEventListener('touchmove', function(e) {
-    // Only handle single-finger moves when in Shift selection mode
-    if (e.touches.length === 1 && shiftTouchActive) {
+    // Handle scroll drag mode
+    if (e.touches.length === 1 && scrollTouchActive) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const deltaY = scrollLastY - touch.clientY;  // Positive = dragging up (scroll down/page down)
+
+      // Trigger scroll when threshold is reached
+      if (Math.abs(deltaY) >= SCROLL_THRESHOLD) {
+        if (deltaY > 0) {
+          sendPageDown();
+        } else {
+          sendPageUp();
+        }
+        scrollLastY = touch.clientY;  // Reset for next scroll step
+      }
+    }
+    // Handle Shift selection mode
+    else if (e.touches.length === 1 && shiftTouchActive) {
       e.preventDefault();
       dispatchMouseEvent('mousemove', e.touches[0], true);
     }
@@ -541,8 +634,13 @@ export function getToolbarScript(): string {
   }, { passive: false, capture: true });
 
   document.addEventListener('touchend', function(e) {
+    // Scroll mode ending
+    if (scrollTouchActive && e.touches.length === 0) {
+      scrollTouchActive = false;
+      touchStartPos = null;
+    }
     // Shift selection mode ending
-    if (shiftTouchActive && e.touches.length === 0) {
+    else if (shiftTouchActive && e.touches.length === 0) {
       const touch = e.changedTouches[0];
       dispatchMouseEvent('mouseup', touch, true);
       shiftTouchActive = false;
@@ -605,7 +703,7 @@ export function getToolbarScript(): string {
 
   // Double-tap to send Enter (for reconnecting)
   let lastTapTime = 0;
-  const DOUBLE_TAP_DELAY = ${DOUBLE_TAP_DELAY};
+  const DOUBLE_TAP_DELAY = ${double_tap_delay};
 
   document.addEventListener('touchend', function(e) {
     // Exclude toolbar elements
@@ -632,6 +730,52 @@ export function getToolbarScript(): string {
     }, 1000);
   }
 
+  // Onboarding: show tips on first access (mobile only)
+  function showOnboarding() {
+    const onboarding = document.getElementById('ttyd-toolbar-onboarding');
+    if (!onboarding) return;
+
+    try {
+      if (localStorage.getItem(ONBOARDING_KEY)) {
+        onboarding.remove();
+        return;
+      }
+    } catch (e) {
+      // localStorage not available
+    }
+
+    // Show onboarding tooltip
+    onboarding.style.display = 'block';
+
+    const closeBtn = document.getElementById('ttyd-toolbar-onboarding-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function() {
+        onboarding.remove();
+        try {
+          localStorage.setItem(ONBOARDING_KEY, '1');
+        } catch (e) {
+          // Ignore
+        }
+      });
+    }
+
+    // Auto-dismiss after 15 seconds
+    setTimeout(function() {
+      if (onboarding.parentNode) {
+        onboarding.remove();
+        try {
+          localStorage.setItem(ONBOARDING_KEY, '1');
+        } catch (e) {
+          // Ignore
+        }
+      }
+    }, 15000);
+  }
+
+  if (isMobile) {
+    setTimeout(showOnboarding, 1500);
+  }
+
   // Restore font size from localStorage
   function applyStoredFontSize() {
     const term = findTerminal();
@@ -646,6 +790,17 @@ export function getToolbarScript(): string {
   // Try to apply stored font size after terminal is ready
   setTimeout(applyStoredFontSize, 500);
   setTimeout(applyStoredFontSize, 1500);
+
+  // Restore auto-run state from localStorage
+  function applyStoredAutoRun() {
+    const storedAutoRun = loadAutoRun();
+    if (storedAutoRun) {
+      autoRunActive = true;
+      autoBtn.classList.add('active');
+      console.log('[Toolbar] Restored auto-run mode: enabled');
+    }
+  }
+  applyStoredAutoRun();
 
   // Auto-reload when tab becomes visible if WebSocket is disconnected
   document.addEventListener('visibilitychange', function() {
@@ -664,9 +819,10 @@ export function getToolbarScript(): string {
 
 /**
  * Get the complete toolbar JavaScript for serving as external file
+ * @param config - Toolbar configuration from config.yaml
  */
-export function getToolbarJs(): string {
-  return getToolbarScript();
+export function getToolbarJs(config: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG): string {
+  return getToolbarScript(config);
 }
 
 /**
@@ -675,6 +831,7 @@ export function getToolbarJs(): string {
  * Injects:
  * - CSS styles (inline for FOUC avoidance)
  * - HTML structure
+ * - Onboarding tooltip (hidden by default)
  * - Script tag referencing external toolbar.js
  *
  * @param html - Original HTML content
@@ -685,6 +842,7 @@ export function injectToolbar(html: string, basePath: string): string {
   const injection = `
 <style>${toolbarStyles}</style>
 ${toolbarHtml}
+${onboardingHtml.replace('id="ttyd-toolbar-onboarding"', 'id="ttyd-toolbar-onboarding" style="display:none"')}
 <script src="${basePath}/toolbar.js"></script>
 `;
   return html.replace('</body>', `${injection}</body>`);

@@ -105,8 +105,8 @@ function servePwaIconPng(res: ServerResponse, size: 192 | 512): void {
 /**
  * Serve toolbar JavaScript
  */
-function serveToolbarJs(res: ServerResponse): void {
-  const script = getToolbarJs();
+function serveToolbarJs(config: Config, res: ServerResponse): void {
+  const script = getToolbarJs(config.toolbar);
   res.writeHead(200, {
     'Content-Type': 'application/javascript',
     'Content-Length': Buffer.byteLength(script),
@@ -158,7 +158,7 @@ export function handleRequest(config: Config, req: IncomingMessage, res: ServerR
 
   // Toolbar JavaScript
   if (url === `${basePath}/toolbar.js`) {
-    serveToolbarJs(res);
+    serveToolbarJs(config, res);
     return;
   }
 

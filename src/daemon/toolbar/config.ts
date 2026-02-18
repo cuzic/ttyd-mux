@@ -1,21 +1,15 @@
 /**
  * Terminal Toolbar Configuration Constants
+ *
+ * Note: Configurable values (font sizes, delays) are now in config.yaml under `toolbar:` section.
+ * This file only contains internal localStorage keys.
  */
-
-/** Minimum font size in pixels */
-export const FONT_SIZE_MIN = 10;
-
-/** Maximum font size in pixels */
-export const FONT_SIZE_MAX = 48;
-
-/** Default font size for mobile devices */
-export const FONT_SIZE_DEFAULT_MOBILE = 32;
-
-/** Default font size for PC */
-export const FONT_SIZE_DEFAULT_PC = 14;
 
 /** localStorage key for persisting font size */
 export const STORAGE_KEY = 'ttyd-toolbar-font-size';
 
-/** Double-tap detection delay in milliseconds */
-export const DOUBLE_TAP_DELAY = 300;
+/** localStorage key for onboarding shown flag */
+export const ONBOARDING_SHOWN_KEY = 'ttyd-toolbar-onboarding-shown';
+
+/** localStorage key for auto-run mode state */
+export const AUTO_RUN_KEY = 'ttyd-toolbar-auto-run';

@@ -79,14 +79,18 @@ export class SessionManager extends EventEmitter {
     const existing = stateStore.getSession(name);
     if (existing && processRunner.isProcessRunning(existing.pid)) {
       log.warn(`Session "${name}" is already running (pid=${existing.pid})`);
-      throw new Error(`Session "${name}" is already running`);
+      throw new Error(
+        `Session "${name}" is already running on port ${existing.port}.\n  To view running sessions: ttyd-mux status\n  To stop this session: ttyd-mux down ${name}`
+      );
     }
 
     // Check if port is available
     const portAvailable = await processRunner.isPortAvailable(port);
     if (!portAvailable) {
       log.error(`Port ${port} is already in use`);
-      throw new Error(`Port ${port} is already in use`);
+      throw new Error(
+        `Port ${port} is already in use by another process.\n  To find the process: lsof -i :${port}\n  To stop all sessions: ttyd-mux shutdown`
+      );
     }
 
     // For auto mode, ensure tmux session exists before starting ttyd
@@ -111,7 +115,9 @@ export class SessionManager extends EventEmitter {
 
     if (!ttydProcess.pid) {
       log.error(`Failed to start ttyd for session "${name}"`);
-      throw new Error(`Failed to start ttyd for session "${name}"`);
+      throw new Error(
+        `Failed to start ttyd for session "${name}".\n  Possible causes:\n    - ttyd is not installed\n    - Directory "${dir}" does not exist\n    - Permission denied\n  Run 'ttyd-mux doctor' to check dependencies.`
+      );
     }
 
     log.info(`ttyd started: pid=${ttydProcess.pid}`);
@@ -147,7 +153,7 @@ export class SessionManager extends EventEmitter {
     const session = stateStore.getSession(name);
     if (!session) {
       log.warn(`Session "${name}" not found`);
-      throw new Error(`Session "${name}" not found`);
+      throw new Error(`Session "${name}" not found.\n  To view running sessions: ttyd-mux status`);
     }
 
     // Try to kill the process

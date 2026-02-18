@@ -86,6 +86,11 @@ export const toolbarStyles = `
   color: #000;
 }
 
+#ttyd-toolbar-scroll.active {
+  background: #17a2b8 !important;
+  border-color: #138496 !important;
+}
+
 #ttyd-toolbar-input-row {
   display: flex;
   gap: 8px;
@@ -150,6 +155,83 @@ body:has(#ttyd-toolbar:not(.hidden)) .xterm {
   height: calc(100vh - 140px) !important;
 }
 
+/* Minimized mode - compact toolbar with input only */
+#ttyd-toolbar.minimized #ttyd-toolbar-buttons {
+  display: none;
+}
+
+#ttyd-toolbar.minimized {
+  padding: 4px 8px;
+}
+
+#ttyd-toolbar-minimize {
+  background: #555 !important;
+  border-color: #666 !important;
+  font-size: 10px;
+  padding: 4px 8px;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+/* Onboarding tooltip */
+#ttyd-toolbar-onboarding {
+  position: fixed;
+  bottom: 90px;
+  right: 16px;
+  background: #333;
+  border: 1px solid #007acc;
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: #fff;
+  font-size: 13px;
+  max-width: 280px;
+  z-index: 10002;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  line-height: 1.5;
+}
+
+#ttyd-toolbar-onboarding::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  right: 24px;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid #333;
+}
+
+#ttyd-toolbar-onboarding-close {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+}
+
+#ttyd-toolbar-onboarding-close:hover {
+  color: #fff;
+}
+
+#ttyd-toolbar-onboarding ul {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+}
+
+#ttyd-toolbar-onboarding li {
+  margin: 4px 0;
+}
+
+#ttyd-toolbar-onboarding code {
+  background: #444;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
 /* Mobile optimizations */
 @media (max-width: 768px) {
   #ttyd-toolbar {
@@ -181,6 +263,16 @@ body:has(#ttyd-toolbar:not(.hidden)) .xterm {
 
   body:has(#ttyd-toolbar:not(.hidden)) .xterm {
     height: calc(100vh - 130px) !important;
+  }
+
+  body:has(#ttyd-toolbar.minimized:not(.hidden)) .xterm {
+    height: calc(100vh - 60px) !important;
+  }
+
+  #ttyd-toolbar-onboarding {
+    left: 16px;
+    right: 16px;
+    max-width: none;
   }
 }
 `;

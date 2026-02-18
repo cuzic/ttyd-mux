@@ -4,6 +4,9 @@ import { join } from 'node:path';
 import { TEST_CONFIG_DIR } from '../test-setup.js';
 import { findSessionDefinition, getFullPath, getSessionPort, loadConfig } from './config.js';
 
+// Top-level regex patterns for linter compliance
+const FAILED_TO_LOAD_CONFIG_REGEX = /Failed to load config/;
+
 describe('config', () => {
   beforeEach(() => {
     if (existsSync(TEST_CONFIG_DIR)) {
@@ -64,6 +67,88 @@ sessions:
       expect(config.base_path).toBe('/ttyd-mux');
       expect(config.base_port).toBe(9000);
       expect(config.daemon_port).toBe(7680);
+    });
+
+    test('loads listen_sockets configuration', () => {
+      const configPath = join(TEST_CONFIG_DIR, 'sockets.yaml');
+      const yaml = `
+listen_sockets:
+  - /run/ttyd-mux.sock
+  - /tmp/ttyd-mux-alt.sock
+`;
+      writeFileSync(configPath, yaml);
+
+      const config = loadConfig(configPath);
+
+      expect(config.listen_sockets).toHaveLength(2);
+      expect(config.listen_sockets?.[0]).toBe('/run/ttyd-mux.sock');
+      expect(config.listen_sockets?.[1]).toBe('/tmp/ttyd-mux-alt.sock');
+    });
+
+    test('defaults listen_sockets to empty array', () => {
+      const config = loadConfig();
+
+      expect(config.listen_sockets).toEqual([]);
+    });
+
+    test('loads toolbar configuration', () => {
+      const configPath = join(TEST_CONFIG_DIR, 'toolbar.yaml');
+      const yaml = `
+toolbar:
+  font_size_default_mobile: 28
+  font_size_default_pc: 16
+  font_size_min: 8
+  font_size_max: 64
+  double_tap_delay: 400
+`;
+      writeFileSync(configPath, yaml);
+
+      const config = loadConfig(configPath);
+
+      expect(config.toolbar.font_size_default_mobile).toBe(28);
+      expect(config.toolbar.font_size_default_pc).toBe(16);
+      expect(config.toolbar.font_size_min).toBe(8);
+      expect(config.toolbar.font_size_max).toBe(64);
+      expect(config.toolbar.double_tap_delay).toBe(400);
+    });
+
+    test('defaults toolbar to default values', () => {
+      const config = loadConfig();
+
+      expect(config.toolbar.font_size_default_mobile).toBe(32);
+      expect(config.toolbar.font_size_default_pc).toBe(14);
+      expect(config.toolbar.font_size_min).toBe(10);
+      expect(config.toolbar.font_size_max).toBe(48);
+      expect(config.toolbar.double_tap_delay).toBe(300);
+    });
+
+    test('partially overrides toolbar defaults', () => {
+      const configPath = join(TEST_CONFIG_DIR, 'toolbar-partial.yaml');
+      const yaml = `
+toolbar:
+  font_size_default_mobile: 36
+`;
+      writeFileSync(configPath, yaml);
+
+      const config = loadConfig(configPath);
+
+      expect(config.toolbar.font_size_default_mobile).toBe(36);
+      expect(config.toolbar.font_size_default_pc).toBe(14); // default
+      expect(config.toolbar.font_size_min).toBe(10); // default
+    });
+
+    test('error message includes hint for YAML parse errors', () => {
+      const configPath = join(TEST_CONFIG_DIR, 'bad-yaml.yaml');
+      writeFileSync(configPath, '{ invalid yaml content');
+
+      expect(() => loadConfig(configPath)).toThrow(FAILED_TO_LOAD_CONFIG_REGEX);
+    });
+
+    test('error message includes hint for Zod validation errors', () => {
+      const configPath = join(TEST_CONFIG_DIR, 'invalid-type.yaml');
+      writeFileSync(configPath, 'base_port: not-a-number\n');
+
+      expect(() => loadConfig(configPath)).toThrow(FAILED_TO_LOAD_CONFIG_REGEX);
     });
 
     test('throws on invalid yaml', () => {

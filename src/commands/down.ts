@@ -19,6 +19,16 @@ export async function downCommand(options: DownOptions): Promise<void> {
 
   if (!session) {
     console.error(`No session found for directory: ${dir}`);
+    if (sessions.length > 0) {
+      console.error('\nRunning sessions:');
+      for (const s of sessions) {
+        console.error(`  - ${s.name} (${s.dir})`);
+      }
+      console.error('\nTo stop a specific session: ttyd-mux stop <name>');
+    } else {
+      console.error('\nNo sessions are currently running.');
+      console.error('Start one with: ttyd-mux up');
+    }
     process.exit(1);
   }
 

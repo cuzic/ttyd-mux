@@ -183,7 +183,9 @@ export async function ensureDaemon(configPath?: string): Promise<void> {
   child.unref();
 
   if (!(await waitForDaemon())) {
-    throw new Error('Failed to start daemon: timeout');
+    throw new Error(
+      `Failed to start daemon: timeout after ${DAEMON_START_TIMEOUT / 1000} seconds.\n  Possible causes:\n    - Required commands (ttyd, tmux) not installed\n    - Port ${process.env['TTYD_MUX_DAEMON_PORT'] || 7680} already in use\n    - Permission issues with socket path\n  Run 'ttyd-mux doctor' to diagnose the problem.`
+    );
   }
 }
 

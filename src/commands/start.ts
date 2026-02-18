@@ -1,10 +1,23 @@
 import { startSession as apiStartSession, ensureDaemon } from '@/client/index.js';
 import { findSessionDefinition, getFullPath, loadConfig } from '@/config/config.js';
+import type { Config } from '@/config/types.js';
 import { handleCliError } from '@/utils/errors.js';
 
 export interface StartOptions {
   all?: boolean;
   config?: string;
+}
+
+function handleSessionNotFound(name: string, config: Config): never {
+  const available = config.sessions?.map((s) => s.name) ?? [];
+  console.error(`Session "${name}" not found in config.`);
+  if (available.length > 0) {
+    console.error(`\nAvailable sessions: ${available.join(', ')}`);
+  } else {
+    console.error('\nNo sessions defined in config.');
+    console.error('To start a session in the current directory: ttyd-mux up');
+  }
+  process.exit(1);
 }
 
 export async function startCommand(name: string | undefined, options: StartOptions): Promise<void> {
@@ -39,15 +52,16 @@ export async function startCommand(name: string | undefined, options: StartOptio
   }
 
   if (!name) {
-    console.error('Session name required. Use --all to start all sessions.');
+    console.error('Session name required.');
+    console.error('  Usage: ttyd-mux start <session-name>');
+    console.error('  Or use --all to start all predefined sessions.');
     process.exit(1);
   }
 
   // Find session definition
   const sessionDef = findSessionDefinition(config, name);
   if (!sessionDef) {
-    console.error(`Session "${name}" not found in config.`);
-    process.exit(1);
+    handleSessionNotFound(name, config);
   }
 
   try {

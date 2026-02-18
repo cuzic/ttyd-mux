@@ -69,8 +69,14 @@ proxy.on('error', (err, req, res) => {
   if (res && 'writeHead' in res && typeof res.writeHead === 'function') {
     const httpRes = res as ServerResponse;
     if (!httpRes.headersSent) {
-      httpRes.writeHead(502, { 'Content-Type': 'text/plain' });
-      httpRes.end('Bad Gateway');
+      httpRes.writeHead(502, { 'Content-Type': 'text/html; charset=utf-8' });
+      httpRes.end(`<!DOCTYPE html>
+<html><head><title>502 Bad Gateway</title></head>
+<body style="font-family:sans-serif;padding:2em;">
+<h1>502 Bad Gateway</h1>
+<p>The ttyd session may have been stopped or is not responding.</p>
+<p>Try <a href="javascript:location.reload()">reloading</a> or check session status with: <code>ttyd-mux status</code></p>
+</body></html>`);
     }
   }
 });

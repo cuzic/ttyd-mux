@@ -14,6 +14,29 @@ export interface DaemonOptions {
 }
 
 /**
+ * Clean up a socket file if it exists
+ */
+function cleanupSocketFile(socketPath: string, label = 'socket'): void {
+  if (existsSync(socketPath)) {
+    try {
+      unlinkSync(socketPath);
+      log.info(`Removed old ${label}: ${socketPath}`);
+    } catch (err) {
+      log.warn(`Failed to remove old ${label} ${socketPath}: ${err}`);
+    }
+  }
+}
+
+/**
+ * Clean up multiple socket files
+ */
+function cleanupSocketFiles(socketPaths: string[], label = 'socket'): void {
+  for (const socketPath of socketPaths) {
+    cleanupSocketFile(socketPath, label);
+  }
+}
+
+/**
  * Revalidate existing sessions from previous daemon instance
  */
 function revalidateExistingSessions(): void {
@@ -57,21 +80,21 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
     log.info(`Created state directory: ${stateDir}`);
   }
 
-  // Clean up old socket if exists
-  if (existsSync(socketPath)) {
-    try {
-      unlinkSync(socketPath);
-      log.info(`Removed old socket: ${socketPath}`);
-    } catch (err) {
-      log.warn(`Failed to remove old socket: ${err}`);
-    }
-  }
+  // Clean up old sockets
+  cleanupSocketFile(socketPath, 'CLI socket');
 
   // Create HTTP servers for each listen address
   const listenAddresses = config.listen_addresses ?? ['127.0.0.1', '::1'];
+  const listenSockets = config.listen_sockets ?? [];
   const httpServers = listenAddresses.map(() => createDaemonServer(config));
 
-  // Start HTTP servers
+  // Create HTTP servers for Unix sockets
+  const socketServers = listenSockets.map(() => createDaemonServer(config));
+
+  // Clean up old HTTP socket files
+  cleanupSocketFiles(listenSockets, 'HTTP socket');
+
+  // Start HTTP servers on TCP
   let firstServer = true;
   for (let i = 0; i < listenAddresses.length; i++) {
     const address = listenAddresses[i];
@@ -92,6 +115,9 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
           `ttyd-mux daemon started on http://localhost:${config.daemon_port}${config.base_path}/`
         );
         console.log(`  Listening on: ${listenAddresses.join(', ')}`);
+        if (listenSockets.length > 0) {
+          console.log(`  Unix sockets: ${listenSockets.join(', ')}`);
+        }
 
         // Save daemon state
         setDaemonState({
@@ -101,6 +127,23 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
         });
         log.info(`Daemon state saved: pid=${process.pid}`);
       }
+    });
+  }
+
+  // Start HTTP servers on Unix sockets
+  for (let i = 0; i < listenSockets.length; i++) {
+    const sockPath = listenSockets[i];
+    const server = socketServers[i];
+    if (!(sockPath && server)) {
+      continue;
+    }
+
+    server.on('error', (err) => {
+      log.error(`HTTP socket server error on ${sockPath}: ${err.message}`, err.stack);
+    });
+
+    server.listen(sockPath, () => {
+      log.info(`HTTP server listening on unix:${sockPath}`);
     });
   }
 
@@ -150,18 +193,15 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
     for (const server of httpServers) {
       server.close();
     }
+    for (const server of socketServers) {
+      server.close();
+    }
     unixServer.close();
     log.info('Servers closed');
 
-    // Clean up socket file
-    if (existsSync(socketPath)) {
-      try {
-        unlinkSync(socketPath);
-        log.info(`Socket file removed: ${socketPath}`);
-      } catch (err) {
-        log.warn(`Failed to remove socket file: ${err}`);
-      }
-    }
+    // Clean up socket files
+    cleanupSocketFile(socketPath, 'CLI socket');
+    cleanupSocketFiles(listenSockets, 'HTTP socket');
 
     log.info('Daemon shutdown complete');
     process.exit(0);
