@@ -2,12 +2,15 @@ import { test, expect, type Page } from '@playwright/test';
 import { spawn, execSync, type ChildProcess } from 'node:child_process';
 import { existsSync, rmSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { homedir } from 'node:os';
 import { createServer } from 'node:net';
 
-const STATE_DIR = join(homedir(), '.local', 'state', 'ttyd-mux');
+// Use test-specific state directory to avoid affecting production
+const TEST_STATE_DIR = '/tmp/ttyd-mux-e2e-state';
 const TEST_DIR = '/tmp/ttyd-mux-e2e-test';
 const BASE_PATH = '/ttyd-mux';
+
+// Set environment variable for test state directory
+process.env['TTYD_MUX_STATE_DIR'] = TEST_STATE_DIR;
 
 // Find an available port dynamically
 async function findAvailablePort(startPort = 17680): Promise<number> {
@@ -104,18 +107,6 @@ async function pressKey(page: Page, key: string): Promise<void> {
   await page.keyboard.press(key);
 }
 
-// Helper to wait for a file to exist (verifies command execution)
-async function waitForFile(filePath: string, timeout = 5000): Promise<boolean> {
-  const startTime = Date.now();
-  while (Date.now() - startTime < timeout) {
-    if (existsSync(filePath)) {
-      return true;
-    }
-    await new Promise(resolve => setTimeout(resolve, 200));
-  }
-  return false;
-}
-
 // Helper to wait for file content to contain expected text
 async function waitForFileContent(filePath: string, expected: string, timeout = 5000): Promise<boolean> {
   const startTime = Date.now();
@@ -166,10 +157,11 @@ async function allocateTtydPort(): Promise<number> {
 
 test.describe('ttyd-mux E2E Tests', () => {
   test.beforeAll(async () => {
-    // Clean up state
-    if (existsSync(STATE_DIR)) {
-      rmSync(STATE_DIR, { recursive: true });
+    // Clean up test state directory (not production!)
+    if (existsSync(TEST_STATE_DIR)) {
+      rmSync(TEST_STATE_DIR, { recursive: true });
     }
+    mkdirSync(TEST_STATE_DIR, { recursive: true });
 
     // Create test directory
     if (existsSync(TEST_DIR)) {
@@ -177,23 +169,22 @@ test.describe('ttyd-mux E2E Tests', () => {
     }
     mkdirSync(TEST_DIR, { recursive: true });
 
-    // Kill any existing test tmux sessions
-    const testSessions = ['test-load', 'test-echo', 'test-files', 'test-ctrlc', 'test-persist', 'test-multi-1', 'test-multi-2', 'test-special', 'test-history'];
-    for (const session of testSessions) {
-      try {
-        execSync(`tmux kill-session -t ${session} 2>/dev/null || true`, { stdio: 'ignore' });
-      } catch {
-        // Ignore
-      }
+    // Kill any leftover test tmux sessions from previous runs (test-* pattern)
+    try {
+      execSync('tmux list-sessions -F "#{session_name}" 2>/dev/null | grep "^test-" | xargs -I {} tmux kill-session -t {} 2>/dev/null || true', { stdio: 'ignore' });
+    } catch {
+      // Ignore - no sessions or tmux not running
     }
   });
 
   test.afterAll(async () => {
     cleanupTtydProcesses();
 
-    // Clean up test directory
-    if (existsSync(TEST_DIR)) {
-      rmSync(TEST_DIR, { recursive: true });
+    // Clean up test directories
+    for (const dir of [TEST_DIR, TEST_STATE_DIR]) {
+      if (existsSync(dir)) {
+        rmSync(dir, { recursive: true });
+      }
     }
   });
 
@@ -419,10 +410,11 @@ test.describe('ttyd-mux Daemon E2E', () => {
   let daemonPort: number;
 
   test.beforeAll(async () => {
-    // Clean up state
-    if (existsSync(STATE_DIR)) {
-      rmSync(STATE_DIR, { recursive: true });
+    // Clean up test state directory (not production!)
+    if (existsSync(TEST_STATE_DIR)) {
+      rmSync(TEST_STATE_DIR, { recursive: true });
     }
+    mkdirSync(TEST_STATE_DIR, { recursive: true });
 
     // Ensure test directory exists
     if (!existsSync(TEST_DIR)) {
