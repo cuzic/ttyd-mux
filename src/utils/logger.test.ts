@@ -6,12 +6,18 @@ const TIMESTAMP_REGEX = /^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
 
 describe('logger', () => {
   let originalLogLevel: LogLevel;
+  let originalConsoleLog: typeof console.log;
+  let originalConsoleWarn: typeof console.warn;
+  let originalConsoleError: typeof console.error;
   let consoleLogMock: ReturnType<typeof mock>;
   let consoleWarnMock: ReturnType<typeof mock>;
   let consoleErrorMock: ReturnType<typeof mock>;
 
   beforeEach(() => {
     originalLogLevel = getLogLevel();
+    originalConsoleLog = console.log;
+    originalConsoleWarn = console.warn;
+    originalConsoleError = console.error;
     // biome-ignore lint/suspicious/noEmptyBlockStatements: mock needs empty function
     consoleLogMock = mock(() => {});
     // biome-ignore lint/suspicious/noEmptyBlockStatements: mock needs empty function
@@ -25,6 +31,9 @@ describe('logger', () => {
 
   afterEach(() => {
     setLogLevel(originalLogLevel);
+    console.log = originalConsoleLog;
+    console.warn = originalConsoleWarn;
+    console.error = originalConsoleError;
   });
 
   describe('setLogLevel / getLogLevel', () => {
