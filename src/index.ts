@@ -13,6 +13,7 @@ import { daemonCommand } from './commands/daemon.js';
 import { deployCommand } from './commands/deploy.js';
 import { doctorCommand } from './commands/doctor.js';
 import { downCommand } from './commands/down.js';
+import { reloadCommand } from './commands/reload.js';
 import { shutdownCommand } from './commands/shutdown.js';
 import { startCommand } from './commands/start.js';
 import { statusCommand } from './commands/status.js';
@@ -87,6 +88,12 @@ program
   .option('-c, --config <path>', 'Config file path')
   .option('-s, --stop-sessions', 'Stop all sessions before shutting down')
   .action((options) => shutdownCommand(options));
+
+program
+  .command('reload')
+  .description('Reload daemon configuration without restart')
+  .option('-c, --config <path>', 'Config file path')
+  .action((options) => reloadCommand(options));
 
 program
   .command('doctor')

@@ -189,6 +189,40 @@ export async function ensureDaemon(configPath?: string): Promise<void> {
   }
 }
 
+/**
+ * Send a command to the daemon and get response
+ */
+export async function sendCommand(command: string): Promise<string | null> {
+  const socketPath = currentDeps.stateStore.getSocketPath();
+
+  if (!currentDeps.socketClient.exists(socketPath)) {
+    return null;
+  }
+
+  return new Promise((resolve, reject) => {
+    const socket = currentDeps.socketClient.connect(socketPath);
+
+    socket.on('connect', () => {
+      socket.write(command);
+    });
+
+    socket.on('data', (data) => {
+      const response = data.toString().trim();
+      socket.end();
+      resolve(response);
+    });
+
+    socket.on('error', (err) => {
+      reject(err);
+    });
+
+    socket.setTimeout(5000, () => {
+      socket.destroy();
+      reject(new Error('Command timeout'));
+    });
+  });
+}
+
 export interface ShutdownDaemonOptions {
   /** Stop all sessions before shutting down the daemon */
   stopSessions?: boolean;

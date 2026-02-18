@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import { createServer as createUnixServer } from 'node:net';
-import { loadConfig } from '@/config/config.js';
 import { clearDaemonState, getSocketPath, getStateDir, setDaemonState } from '@/config/state.js';
 import { createLogger } from '@/utils/logger.js';
-import { createDaemonServer } from './server.js';
+import { getCurrentConfig, initConfigManager, reloadConfig } from './config-manager.js';
+import { createDaemonServer, setConfigGetter } from './server.js';
 import { sessionManager } from './session-manager.js';
 
 const log = createLogger('daemon');
@@ -68,8 +68,12 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
     log.error(`Unhandled rejection at: ${promise}, reason: ${reason}`);
   });
 
-  const config = loadConfig(options.configPath);
+  const configManager = initConfigManager(options.configPath);
+  const config = configManager.getConfig();
   log.info(`Config loaded: port=${config.daemon_port}, base_path=${config.base_path}`);
+
+  // Set up config getter for hot-reload support
+  setConfigGetter(getCurrentConfig);
 
   const socketPath = getSocketPath();
 
@@ -160,6 +164,9 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
       } else if (command === 'shutdown-with-sessions') {
         socket.write('ok');
         shutdown(true);
+      } else if (command === 'reload') {
+        const result = reloadConfig();
+        socket.write(JSON.stringify(result));
       }
       socket.end();
     });
