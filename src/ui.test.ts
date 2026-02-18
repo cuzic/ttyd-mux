@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { TmuxSession } from './types.js';
+import type { TmuxSession } from './tmux.js';
 import {
   calculateNewIndex,
   findInitialIndex,

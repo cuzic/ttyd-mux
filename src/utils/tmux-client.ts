@@ -3,8 +3,17 @@
  * Allows mocking in tests without actual tmux commands
  */
 
-import type { TmuxSession } from '@/types.js';
 import { type ProcessRunner, defaultProcessRunner } from './process-runner.js';
+
+/**
+ * Represents a tmux session
+ */
+export interface TmuxSession {
+  name: string;
+  windows: number;
+  created: Date;
+  attached: boolean;
+}
 
 const SESSION_FORMAT = '#{session_name}|#{session_windows}|#{session_created}|#{session_attached}';
 

@@ -1,7 +1,9 @@
 import { spawn } from 'node:child_process';
 import { basename } from 'node:path';
-import type { TmuxSession } from './types.js';
-import { defaultTmuxClient } from './utils/tmux-client.js';
+import { type TmuxSession, defaultTmuxClient } from './utils/tmux-client.js';
+
+// Re-export TmuxSession for convenience
+export type { TmuxSession };
 
 /**
  * Check if currently inside a tmux session

@@ -1,5 +1,5 @@
 import { type Key, emitKeypressEvents } from 'node:readline';
-import type { TmuxSession } from './types.js';
+import type { TmuxSession } from './tmux.js';
 
 // ANSI escape codes
 const ansi = {
