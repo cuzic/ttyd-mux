@@ -8,6 +8,33 @@ import { type ProcessRunner, defaultProcessRunner } from './process-runner.js';
 
 const SESSION_FORMAT = '#{session_name}|#{session_windows}|#{session_created}|#{session_attached}';
 
+/**
+ * Valid session name pattern: alphanumeric, underscore, hyphen, dot (max 64 chars)
+ * Prevents command injection attacks
+ */
+const VALID_SESSION_NAME = /^[a-zA-Z0-9_.-]{1,64}$/;
+
+/**
+ * Validate session name to prevent command injection
+ */
+export function isValidSessionName(name: string): boolean {
+  return VALID_SESSION_NAME.test(name);
+}
+
+/**
+ * Sanitize session name by removing invalid characters
+ */
+export function sanitizeSessionName(name: string): string {
+  // Replace invalid characters with hyphen, then collapse multiple hyphens
+  return (
+    name
+      .replace(/[^a-zA-Z0-9_.-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 64) || 'session'
+  );
+}
+
 function parseSessionLine(line: string): TmuxSession {
   const [name = '', windows = '0', created = '0', attached] = line.split('|');
   return {
@@ -79,20 +106,30 @@ export function createTmuxClient(processRunner: ProcessRunner = defaultProcessRu
     },
 
     sessionExists(sessionName: string): boolean {
-      try {
-        processRunner.execSync(`tmux has-session -t ${sessionName}`, { stdio: 'ignore' });
-        return true;
-      } catch {
+      if (!isValidSessionName(sessionName)) {
         return false;
       }
+      // Use spawnSync with array arguments to prevent command injection
+      const result = processRunner.spawnSync('tmux', ['has-session', '-t', sessionName], {
+        stdio: 'ignore'
+      });
+      return result.status === 0;
     },
 
     ensureSession(sessionName: string, cwd?: string): void {
+      if (!isValidSessionName(sessionName)) {
+        throw new Error(`Invalid session name: ${sessionName}`);
+      }
       if (!this.sessionExists(sessionName)) {
-        const cwdOption = cwd ? ` -c "${cwd}"` : '';
-        processRunner.execSync(`tmux new-session -d -s ${sessionName}${cwdOption}`, {
-          stdio: 'ignore'
-        });
+        // Use spawnSync with array arguments to prevent command injection
+        const args = ['new-session', '-d', '-s', sessionName];
+        if (cwd) {
+          args.push('-c', cwd);
+        }
+        const result = processRunner.spawnSync('tmux', args, { stdio: 'ignore' });
+        if (result.status !== 0) {
+          throw new Error(`Failed to create tmux session: ${sessionName}`);
+        }
       }
     }
   };
