@@ -1,21 +1,20 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { TEST_CONFIG_DIR } from '../test-setup.js';
 import { findSessionDefinition, getFullPath, getSessionPort, loadConfig } from './config.js';
-
-const TEST_DIR = '/tmp/ttyd-mux-test-config';
 
 describe('config', () => {
   beforeEach(() => {
-    if (existsSync(TEST_DIR)) {
-      rmSync(TEST_DIR, { recursive: true });
+    if (existsSync(TEST_CONFIG_DIR)) {
+      rmSync(TEST_CONFIG_DIR, { recursive: true });
     }
-    mkdirSync(TEST_DIR, { recursive: true });
+    mkdirSync(TEST_CONFIG_DIR, { recursive: true });
   });
 
   afterEach(() => {
-    if (existsSync(TEST_DIR)) {
-      rmSync(TEST_DIR, { recursive: true });
+    if (existsSync(TEST_CONFIG_DIR)) {
+      rmSync(TEST_CONFIG_DIR, { recursive: true });
     }
   });
 
@@ -34,7 +33,7 @@ describe('config', () => {
     });
 
     test('loads config from yaml file', () => {
-      const configPath = join(TEST_DIR, 'config.yaml');
+      const configPath = join(TEST_CONFIG_DIR, 'config.yaml');
       const yaml = `
 base_path: /custom-path
 base_port: 8000
@@ -57,7 +56,7 @@ sessions:
     });
 
     test('uses defaults for missing fields', () => {
-      const configPath = join(TEST_DIR, 'partial.yaml');
+      const configPath = join(TEST_CONFIG_DIR, 'partial.yaml');
       writeFileSync(configPath, 'base_port: 9000\n');
 
       const config = loadConfig(configPath);
@@ -68,7 +67,7 @@ sessions:
     });
 
     test('throws on invalid yaml', () => {
-      const configPath = join(TEST_DIR, 'invalid.yaml');
+      const configPath = join(TEST_CONFIG_DIR, 'invalid.yaml');
       writeFileSync(configPath, '{ invalid yaml content');
 
       expect(() => loadConfig(configPath)).toThrow();
