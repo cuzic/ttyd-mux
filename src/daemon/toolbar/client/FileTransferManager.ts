@@ -1,0 +1,413 @@
+/**
+ * File Transfer Manager
+ *
+ * Manages file upload/download operations from the toolbar.
+ * Uses the file transfer API endpoints for secure file operations.
+ */
+
+import type { ToolbarConfig } from './types.js';
+
+export interface FileInfo {
+  name: string;
+  size: number;
+  isDirectory: boolean;
+  modifiedAt: string;
+}
+
+export interface FileTransferElements {
+  downloadBtn: HTMLButtonElement;
+  uploadBtn: HTMLButtonElement;
+  modal: HTMLElement;
+  modalClose: HTMLButtonElement;
+  modalTitle: HTMLElement;
+  fileList: HTMLElement;
+  breadcrumb: HTMLElement;
+  uploadInput: HTMLInputElement;
+  uploadBtn2: HTMLButtonElement;
+}
+
+export class FileTransferManager {
+  private config: ToolbarConfig;
+  private elements: FileTransferElements | null = null;
+  private currentPath = '.';
+  private sessionName = '';
+
+  constructor(config: ToolbarConfig) {
+    this.config = config;
+    this.sessionName = this.extractSessionName();
+  }
+
+  /**
+   * Extract session name from current URL path
+   */
+  private extractSessionName(): string {
+    const path = window.location.pathname;
+    const basePath = this.config.base_path;
+    // Path format: /base_path/session_name
+    const match = path.match(new RegExp(`^${basePath}/([^/]+)`));
+    return match?.[1] ?? '';
+  }
+
+  /**
+   * Bind modal elements and setup event listeners
+   */
+  bindElements(
+    downloadBtn: HTMLButtonElement,
+    uploadBtn: HTMLButtonElement,
+    modal: HTMLElement,
+    modalClose: HTMLButtonElement,
+    modalTitle: HTMLElement,
+    fileList: HTMLElement,
+    breadcrumb: HTMLElement,
+    uploadInput: HTMLInputElement,
+    uploadBtn2: HTMLButtonElement
+  ): void {
+    this.elements = {
+      downloadBtn,
+      uploadBtn,
+      modal,
+      modalClose,
+      modalTitle,
+      fileList,
+      breadcrumb,
+      uploadInput,
+      uploadBtn2
+    };
+
+    this.setupEventListeners();
+  }
+
+  /**
+   * Setup event listeners
+   */
+  private setupEventListeners(): void {
+    if (!this.elements) return;
+
+    // Download button - opens file browser modal
+    this.elements.downloadBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.showDownloadMode();
+    });
+
+    // Upload button - triggers file selection
+    this.elements.uploadBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.elements?.uploadInput.click();
+    });
+
+    // Close modal
+    this.elements.modalClose.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.hide();
+    });
+
+    // Close on backdrop click
+    this.elements.modal.addEventListener('click', (e) => {
+      if (e.target === this.elements?.modal) {
+        this.hide();
+      }
+    });
+
+    // Upload input change
+    this.elements.uploadInput.addEventListener('change', async () => {
+      const files = this.elements?.uploadInput.files;
+      if (files && files.length > 0) {
+        await this.uploadFiles(files);
+        this.elements!.uploadInput.value = '';
+      }
+    });
+
+    // Modal upload button
+    this.elements.uploadBtn2.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.elements?.uploadInput.click();
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.isVisible()) {
+        this.hide();
+      }
+    });
+  }
+
+  /**
+   * Check if modal is visible
+   */
+  isVisible(): boolean {
+    return this.elements?.modal ? !this.elements.modal.classList.contains('hidden') : false;
+  }
+
+  /**
+   * Show download mode (file browser)
+   */
+  async showDownloadMode(): Promise<void> {
+    if (!this.elements) return;
+
+    this.elements.modalTitle.textContent = 'ファイルブラウザ';
+    this.elements.modal.classList.remove('hidden');
+    this.currentPath = '.';
+    await this.loadFileList();
+  }
+
+  /**
+   * Hide the modal
+   */
+  hide(): void {
+    if (!this.elements) return;
+    this.elements.modal.classList.add('hidden');
+  }
+
+  /**
+   * Load and display file list
+   */
+  private async loadFileList(): Promise<void> {
+    if (!this.elements) return;
+
+    const { fileList, breadcrumb } = this.elements;
+
+    // Show loading
+    fileList.innerHTML = '<div class="ttyd-file-loading">読み込み中...</div>';
+
+    try {
+      const response = await fetch(
+        `${this.config.base_path}/api/files/list?session=${encodeURIComponent(this.sessionName)}&path=${encodeURIComponent(this.currentPath)}`
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to load file list');
+      }
+
+      const data = (await response.json()) as { files: FileInfo[] };
+      this.renderFileList(data.files);
+      this.renderBreadcrumb();
+    } catch (error) {
+      console.error('[Toolbar] Failed to load file list:', error);
+      fileList.innerHTML = `<div class="ttyd-file-error">エラー: ${error instanceof Error ? error.message : 'Unknown error'}</div>`;
+    }
+  }
+
+  /**
+   * Render file list
+   */
+  private renderFileList(files: FileInfo[]): void {
+    if (!this.elements) return;
+
+    const { fileList } = this.elements;
+    fileList.innerHTML = '';
+
+    // Sort: directories first, then by name
+    const sorted = [...files].sort((a, b) => {
+      if (a.isDirectory !== b.isDirectory) {
+        return a.isDirectory ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    // Add parent directory link if not at root
+    if (this.currentPath !== '.') {
+      const parentItem = this.createFileItem({
+        name: '..',
+        size: 0,
+        isDirectory: true,
+        modifiedAt: ''
+      });
+      fileList.appendChild(parentItem);
+    }
+
+    if (sorted.length === 0) {
+      fileList.innerHTML = '<div class="ttyd-file-empty">ファイルがありません</div>';
+      return;
+    }
+
+    for (const file of sorted) {
+      const item = this.createFileItem(file);
+      fileList.appendChild(item);
+    }
+  }
+
+  /**
+   * Create a file item element
+   */
+  private createFileItem(file: FileInfo): HTMLElement {
+    const item = document.createElement('div');
+    item.className = 'ttyd-file-item';
+    if (file.isDirectory) {
+      item.classList.add('directory');
+    }
+
+    const icon = document.createElement('span');
+    icon.className = 'ttyd-file-icon';
+    icon.textContent = file.isDirectory ? '\uD83D\uDCC1' : '\uD83D\uDCC4'; // 📁 : 📄
+
+    const name = document.createElement('span');
+    name.className = 'ttyd-file-name';
+    name.textContent = file.name;
+
+    const size = document.createElement('span');
+    size.className = 'ttyd-file-size';
+    size.textContent = file.isDirectory ? '' : this.formatSize(file.size);
+
+    item.appendChild(icon);
+    item.appendChild(name);
+    item.appendChild(size);
+
+    // Click handler
+    item.addEventListener('click', () => {
+      if (file.isDirectory) {
+        this.navigateTo(file.name);
+      } else {
+        this.downloadFile(file.name);
+      }
+    });
+
+    return item;
+  }
+
+  /**
+   * Navigate to a directory
+   */
+  private async navigateTo(dirName: string): Promise<void> {
+    if (dirName === '..') {
+      // Go to parent directory
+      const parts = this.currentPath.split('/');
+      parts.pop();
+      this.currentPath = parts.length > 0 ? parts.join('/') : '.';
+    } else {
+      // Go to child directory
+      this.currentPath = this.currentPath === '.' ? dirName : `${this.currentPath}/${dirName}`;
+    }
+    await this.loadFileList();
+  }
+
+  /**
+   * Render breadcrumb navigation
+   */
+  private renderBreadcrumb(): void {
+    if (!this.elements) return;
+
+    const { breadcrumb } = this.elements;
+    breadcrumb.innerHTML = '';
+
+    // Root
+    const root = document.createElement('span');
+    root.className = 'ttyd-breadcrumb-item';
+    root.textContent = '\uD83C\uDFE0'; // 🏠
+    root.addEventListener('click', async () => {
+      this.currentPath = '.';
+      await this.loadFileList();
+    });
+    breadcrumb.appendChild(root);
+
+    if (this.currentPath === '.') {
+      return;
+    }
+
+    // Path parts
+    const parts = this.currentPath.split('/');
+    let path = '';
+    for (const part of parts) {
+      const separator = document.createElement('span');
+      separator.className = 'ttyd-breadcrumb-separator';
+      separator.textContent = ' / ';
+      breadcrumb.appendChild(separator);
+
+      path = path ? `${path}/${part}` : part;
+      const item = document.createElement('span');
+      item.className = 'ttyd-breadcrumb-item';
+      item.textContent = part;
+      const currentPath = path;
+      item.addEventListener('click', async () => {
+        this.currentPath = currentPath;
+        await this.loadFileList();
+      });
+      breadcrumb.appendChild(item);
+    }
+  }
+
+  /**
+   * Download a file
+   */
+  private async downloadFile(fileName: string): Promise<void> {
+    const path = this.currentPath === '.' ? fileName : `${this.currentPath}/${fileName}`;
+    const url = `${this.config.base_path}/api/files/download?session=${encodeURIComponent(this.sessionName)}&path=${encodeURIComponent(path)}`;
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Download failed');
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(downloadUrl);
+
+      console.log('[Toolbar] Downloaded file:', fileName);
+    } catch (error) {
+      console.error('[Toolbar] Failed to download file:', error);
+      alert(
+        `ダウンロードに失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  /**
+   * Upload files
+   */
+  private async uploadFiles(files: FileList): Promise<void> {
+    for (const file of files) {
+      await this.uploadFile(file);
+    }
+    // Refresh file list if modal is open
+    if (this.isVisible()) {
+      await this.loadFileList();
+    }
+  }
+
+  /**
+   * Upload a single file
+   */
+  private async uploadFile(file: File): Promise<void> {
+    const path = this.currentPath === '.' ? '' : this.currentPath;
+    const url = `${this.config.base_path}/api/files/upload?session=${encodeURIComponent(this.sessionName)}&path=${encodeURIComponent(path)}`;
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Upload failed');
+      }
+
+      console.log('[Toolbar] Uploaded file:', file.name);
+    } catch (error) {
+      console.error('[Toolbar] Failed to upload file:', error);
+      alert(
+        `アップロードに失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  /**
+   * Format file size for display
+   */
+  private formatSize(bytes: number): string {
+    if (bytes === 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    const size = bytes / Math.pow(1024, i);
+    return `${size.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+  }
+}

@@ -33,6 +33,25 @@ export const DEFAULT_TOOLBAR_CONFIG: ToolbarConfig = {
   double_tap_delay: 300
 };
 
+export const FileTransferConfigSchema = z.object({
+  enabled: z.boolean().default(true),
+  max_file_size: z
+    .number()
+    .int()
+    .min(1024)
+    .default(100 * 1024 * 1024), // 100MB
+  allowed_extensions: z.array(z.string()).default([])
+});
+
+export type FileTransferConfig = z.infer<typeof FileTransferConfigSchema>;
+
+/** Default file transfer configuration */
+export const DEFAULT_FILE_TRANSFER_CONFIG: FileTransferConfig = {
+  enabled: true,
+  max_file_size: 100 * 1024 * 1024, // 100MB
+  allowed_extensions: []
+};
+
 export const NotificationPatternSchema = z.object({
   regex: z.string().min(1),
   message: z.string().min(1),
@@ -74,7 +93,8 @@ export const ConfigSchema = z.object({
   caddy_admin_api: z.string().default('http://localhost:2019'),
   tmux_mode: TmuxModeSchema.default('auto'),
   toolbar: ToolbarConfigSchema.default(DEFAULT_TOOLBAR_CONFIG),
-  notifications: NotificationConfigSchema.default(DEFAULT_NOTIFICATION_CONFIG)
+  notifications: NotificationConfigSchema.default(DEFAULT_NOTIFICATION_CONFIG),
+  file_transfer: FileTransferConfigSchema.default(DEFAULT_FILE_TRANSFER_CONFIG)
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

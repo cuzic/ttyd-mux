@@ -1,13 +1,8 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import type { IncomingMessage, ServerResponse } from 'node:http';
 import { EventEmitter } from 'node:events';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { loadConfig } from '@/config/config.js';
-import {
-  generateEtag,
-  handleRequest,
-  resetToolbarCache,
-  setSecurityHeaders
-} from './router.js';
+import { generateEtag, handleRequest, resetToolbarCache, setSecurityHeaders } from './router.js';
 
 // Get default config for tests
 const defaultConfig = loadConfig();
