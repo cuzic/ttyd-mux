@@ -77,6 +77,7 @@ export interface ToolbarElements {
   downBtn: HTMLButtonElement;
   copyBtn: HTMLButtonElement;
   copyAllBtn: HTMLButtonElement;
+  pasteBtn: HTMLButtonElement;
   autoBtn: HTMLButtonElement;
   minimizeBtn: HTMLButtonElement;
   scrollBtn: HTMLButtonElement;
@@ -84,6 +85,7 @@ export interface ToolbarElements {
   pageDownBtn: HTMLButtonElement;
   notifyBtn: HTMLButtonElement;
   shareBtn: HTMLButtonElement;
+  snippetBtn: HTMLButtonElement;
   // Share modal elements
   shareModal: HTMLElement;
   shareModalClose: HTMLButtonElement;
@@ -110,7 +112,53 @@ export const STORAGE_KEYS = {
   ONBOARDING_SHOWN: 'ttyd-toolbar-onboarding-shown',
   AUTO_RUN: 'ttyd-toolbar-auto-run',
   NOTIFY_SUBSCRIPTION: 'ttyd-mux-notify-subscription',
+  SNIPPETS: 'ttyd-mux-snippets',
+  CLIPBOARD_HISTORY: 'ttyd-mux-clipboard-history',
 } as const;
+
+/** Snippet definition */
+export interface Snippet {
+  id: string;
+  name: string;
+  command: string;
+  createdAt: string;
+}
+
+/** Snippet storage format */
+export interface SnippetStorage {
+  version: number;
+  snippets: Snippet[];
+}
+
+/** Snippet modal elements */
+export interface SnippetElements {
+  snippetBtn: HTMLButtonElement;
+  modal: HTMLElement;
+  modalClose: HTMLButtonElement;
+  addBtn: HTMLButtonElement;
+  importBtn: HTMLButtonElement;
+  exportBtn: HTMLButtonElement;
+  searchInput: HTMLInputElement;
+  list: HTMLElement;
+  addForm: HTMLElement;
+  addNameInput: HTMLInputElement;
+  addCommandInput: HTMLTextAreaElement;
+  addSaveBtn: HTMLButtonElement;
+  addCancelBtn: HTMLButtonElement;
+}
+
+/** Clipboard history item */
+export interface ClipboardHistoryItem {
+  id: string;
+  text: string;
+  timestamp: string;
+}
+
+/** Clipboard history storage format */
+export interface ClipboardHistoryStorage {
+  version: number;
+  items: ClipboardHistoryItem[];
+}
 
 /** Declare global window extensions */
 declare global {

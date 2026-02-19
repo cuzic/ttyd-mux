@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import {
   AUTO_RUN_KEY,
+  CLIPBOARD_HISTORY_KEY,
   DEFAULT_TOOLBAR_CONFIG,
   ONBOARDING_SHOWN_KEY,
+  SNIPPETS_KEY,
   STORAGE_KEY,
   injectToolbar,
   onboardingHtml,
@@ -41,6 +43,14 @@ describe('toolbar/config', () => {
 
   test('AUTO_RUN_KEY is defined', () => {
     expect(AUTO_RUN_KEY).toBe('ttyd-toolbar-auto-run');
+  });
+
+  test('SNIPPETS_KEY is defined', () => {
+    expect(SNIPPETS_KEY).toBe('ttyd-mux-snippets');
+  });
+
+  test('CLIPBOARD_HISTORY_KEY is defined', () => {
+    expect(CLIPBOARD_HISTORY_KEY).toBe('ttyd-mux-clipboard-history');
   });
 });
 
@@ -287,5 +297,197 @@ describe('toolbar/search - styles', () => {
 
   test('contains search bar hidden state', () => {
     expect(toolbarStyles).toContain('#ttyd-search-bar.hidden');
+  });
+});
+
+// =============================================================================
+// Paste button tests (Issue #11)
+// =============================================================================
+
+describe('toolbar/paste - template', () => {
+  test('contains paste button in toolbar', () => {
+    expect(toolbarHtml).toContain('id="ttyd-toolbar-paste"');
+  });
+
+  test('paste button has correct title', () => {
+    expect(toolbarHtml).toContain('title="ペースト"');
+  });
+
+  test('paste button uses clipboard emoji', () => {
+    expect(toolbarHtml).toContain('📋');
+  });
+});
+
+// =============================================================================
+// Snippet functionality tests (Issue #11)
+// =============================================================================
+
+describe('toolbar/snippet - template', () => {
+  test('contains snippet button in toolbar', () => {
+    expect(toolbarHtml).toContain('id="ttyd-toolbar-snippet"');
+  });
+
+  test('snippet button has correct title', () => {
+    expect(toolbarHtml).toContain('title="スニペット"');
+  });
+
+  test('snippet button uses pin emoji', () => {
+    expect(toolbarHtml).toContain('📌');
+  });
+
+  test('contains snippet modal container', () => {
+    expect(toolbarHtml).toContain('id="ttyd-snippet-modal"');
+  });
+
+  test('snippet modal is hidden by default', () => {
+    expect(toolbarHtml).toContain('id="ttyd-snippet-modal" class="hidden"');
+  });
+
+  test('contains snippet modal header', () => {
+    expect(toolbarHtml).toContain('id="ttyd-snippet-modal-header"');
+  });
+
+  test('contains snippet add button', () => {
+    expect(toolbarHtml).toContain('id="ttyd-snippet-add"');
+  });
+
+  test('contains snippet import button', () => {
+    expect(toolbarHtml).toContain('id="ttyd-snippet-import"');
+  });
+
+  test('contains snippet export button', () => {
+    expect(toolbarHtml).toContain('id="ttyd-snippet-export"');
+  });
+
+  test('contains snippet search input', () => {
+    expect(toolbarHtml).toContain('id="ttyd-snippet-search"');
+  });
+
+  test('contains snippet list container', () => {
+    expect(toolbarHtml).toContain('id="ttyd-snippet-list"');
+  });
+
+  test('contains snippet add form', () => {
+    expect(toolbarHtml).toContain('id="ttyd-snippet-add-form"');
+  });
+
+  test('contains snippet name input', () => {
+    expect(toolbarHtml).toContain('id="ttyd-snippet-add-name"');
+  });
+
+  test('contains snippet command input', () => {
+    expect(toolbarHtml).toContain('id="ttyd-snippet-add-command"');
+  });
+
+  test('contains snippet save button', () => {
+    expect(toolbarHtml).toContain('id="ttyd-snippet-add-save"');
+  });
+
+  test('contains snippet cancel button', () => {
+    expect(toolbarHtml).toContain('id="ttyd-snippet-add-cancel"');
+  });
+
+  test('contains snippet empty state', () => {
+    expect(toolbarHtml).toContain('id="ttyd-snippet-empty"');
+  });
+});
+
+describe('toolbar/snippet - styles', () => {
+  test('contains snippet modal styles', () => {
+    expect(toolbarStyles).toContain('#ttyd-snippet-modal');
+  });
+
+  test('contains snippet modal content styles', () => {
+    expect(toolbarStyles).toContain('#ttyd-snippet-modal-content');
+  });
+
+  test('contains snippet modal hidden state', () => {
+    expect(toolbarStyles).toContain('#ttyd-snippet-modal.hidden');
+  });
+
+  test('contains snippet search input styles', () => {
+    expect(toolbarStyles).toContain('#ttyd-snippet-search');
+  });
+
+  test('contains snippet add form styles', () => {
+    expect(toolbarStyles).toContain('#ttyd-snippet-add-form');
+  });
+
+  test('contains snippet list styles', () => {
+    expect(toolbarStyles).toContain('#ttyd-snippet-list');
+  });
+
+  test('contains snippet item styles', () => {
+    expect(toolbarStyles).toContain('.ttyd-snippet-item');
+  });
+
+  test('contains snippet item header styles', () => {
+    expect(toolbarStyles).toContain('.ttyd-snippet-item-header');
+  });
+
+  test('contains snippet item name styles', () => {
+    expect(toolbarStyles).toContain('.ttyd-snippet-item-name');
+  });
+
+  test('contains snippet item command styles', () => {
+    expect(toolbarStyles).toContain('.ttyd-snippet-item-command');
+  });
+
+  test('contains snippet item run button styles', () => {
+    expect(toolbarStyles).toContain('.ttyd-snippet-item-run');
+  });
+
+  test('contains snippet item edit button styles', () => {
+    expect(toolbarStyles).toContain('.ttyd-snippet-item-edit');
+  });
+
+  test('contains snippet item delete button styles', () => {
+    expect(toolbarStyles).toContain('.ttyd-snippet-item-delete');
+  });
+
+  test('contains snippet edit form styles', () => {
+    expect(toolbarStyles).toContain('.ttyd-snippet-item-edit-form');
+  });
+
+  test('contains snippet editing state styles', () => {
+    expect(toolbarStyles).toContain('.ttyd-snippet-item.editing');
+  });
+
+  test('contains mobile adjustments for snippet modal', () => {
+    expect(toolbarStyles).toContain('#ttyd-snippet-modal-content');
+  });
+});
+
+// =============================================================================
+// Clipboard history tests (Issue #11)
+// =============================================================================
+
+describe('toolbar/clipboard-history - styles', () => {
+  test('contains clipboard history popup styles', () => {
+    expect(toolbarStyles).toContain('#ttyd-clipboard-history');
+  });
+
+  test('contains clipboard history hidden state', () => {
+    expect(toolbarStyles).toContain('#ttyd-clipboard-history.hidden');
+  });
+
+  test('contains clipboard history header styles', () => {
+    expect(toolbarStyles).toContain('#ttyd-clipboard-history-header');
+  });
+
+  test('contains clipboard history list styles', () => {
+    expect(toolbarStyles).toContain('#ttyd-clipboard-history-list');
+  });
+
+  test('contains clipboard history item styles', () => {
+    expect(toolbarStyles).toContain('.ttyd-clipboard-history-item');
+  });
+
+  test('contains clipboard history empty state', () => {
+    expect(toolbarStyles).toContain('#ttyd-clipboard-history-empty');
+  });
+
+  test('contains mobile adjustments for clipboard history', () => {
+    expect(toolbarStyles).toContain('#ttyd-clipboard-history');
   });
 });

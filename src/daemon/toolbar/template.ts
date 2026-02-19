@@ -20,9 +20,11 @@ export const toolbarHtml = `
     <button id="ttyd-toolbar-zoomin">A+</button>
     <button id="ttyd-toolbar-copy">Copy</button>
     <button id="ttyd-toolbar-copyall">All</button>
+    <button id="ttyd-toolbar-paste" title="ペースト">📋</button>
     <button id="ttyd-toolbar-search">🔍</button>
     <button id="ttyd-toolbar-notify" title="Push通知">🔔</button>
     <button id="ttyd-toolbar-share" title="共有リンク">🔗</button>
+    <button id="ttyd-toolbar-snippet" title="スニペット">📌</button>
     <button id="ttyd-toolbar-send">Send</button>
     <button id="ttyd-toolbar-run">Run</button>
     <button id="ttyd-toolbar-auto" class="modifier">Auto</button>
@@ -67,6 +69,35 @@ export const toolbarHtml = `
         <div id="ttyd-share-warning">
           ⚠ このリンクを知っている人は誰でもこの端末を閲覧できます
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="ttyd-snippet-modal" class="hidden">
+  <div id="ttyd-snippet-modal-content">
+    <div id="ttyd-snippet-modal-header">
+      <span>📌 スニペット</span>
+      <div id="ttyd-snippet-modal-actions">
+        <button id="ttyd-snippet-import" title="インポート">📥</button>
+        <button id="ttyd-snippet-export" title="エクスポート">📤</button>
+        <button id="ttyd-snippet-add" title="追加">+</button>
+        <button id="ttyd-snippet-modal-close">×</button>
+      </div>
+    </div>
+    <div id="ttyd-snippet-modal-body">
+      <input id="ttyd-snippet-search" type="text" placeholder="スニペットを検索..." />
+      <div id="ttyd-snippet-add-form" class="hidden">
+        <input id="ttyd-snippet-add-name" type="text" placeholder="名前（例: Docker Node）" />
+        <textarea id="ttyd-snippet-add-command" rows="2" placeholder="コマンド（例: docker run -it node:latest bash）"></textarea>
+        <div id="ttyd-snippet-add-buttons">
+          <button id="ttyd-snippet-add-save">保存</button>
+          <button id="ttyd-snippet-add-cancel">キャンセル</button>
+        </div>
+      </div>
+      <div id="ttyd-snippet-list"></div>
+      <div id="ttyd-snippet-empty">
+        スニペットがありません。<br>
+        「+」ボタンで追加できます。
       </div>
     </div>
   </div>

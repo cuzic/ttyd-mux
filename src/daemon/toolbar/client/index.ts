@@ -6,12 +6,14 @@
  */
 
 import { AutoRunManager } from './AutoRunManager.js';
+import { ClipboardHistoryManager } from './ClipboardHistoryManager.js';
 import { FontSizeManager } from './FontSizeManager.js';
 import { InputHandler } from './InputHandler.js';
 import { ModifierKeyState } from './ModifierKeyState.js';
 import { NotificationManager } from './NotificationManager.js';
 import { SearchManager } from './SearchManager.js';
 import { ShareManager } from './ShareManager.js';
+import { SnippetManager } from './SnippetManager.js';
 import { TerminalController } from './TerminalController.js';
 import { TouchGestureHandler } from './TouchGestureHandler.js';
 import type { ToolbarConfig, ToolbarElements } from './types.js';
@@ -29,6 +31,8 @@ class ToolbarApp {
   private search: SearchManager;
   private notifications: NotificationManager;
   private share: ShareManager;
+  private snippet: SnippetManager;
+  private clipboardHistory: ClipboardHistoryManager;
   private touch: TouchGestureHandler;
   private fontSizeManager: FontSizeManager;
   private autoRun: AutoRunManager;
@@ -51,6 +55,8 @@ class ToolbarApp {
     this.input = new InputHandler(this.ws, this.modifiers);
     this.search = new SearchManager(() => this.terminal.findTerminal());
     this.notifications = new NotificationManager(config);
+    this.snippet = new SnippetManager(this.input);
+    this.clipboardHistory = new ClipboardHistoryManager(this.input);
     this.touch = new TouchGestureHandler(config, this.terminal, this.input, this.modifiers);
     this.fontSizeManager = new FontSizeManager(config);
     this.autoRun = new AutoRunManager();
@@ -78,6 +84,7 @@ class ToolbarApp {
       downBtn: document.getElementById('ttyd-toolbar-down') as HTMLButtonElement,
       copyBtn: document.getElementById('ttyd-toolbar-copy') as HTMLButtonElement,
       copyAllBtn: document.getElementById('ttyd-toolbar-copyall') as HTMLButtonElement,
+      pasteBtn: document.getElementById('ttyd-toolbar-paste') as HTMLButtonElement,
       autoBtn: document.getElementById('ttyd-toolbar-auto') as HTMLButtonElement,
       minimizeBtn: document.getElementById('ttyd-toolbar-minimize') as HTMLButtonElement,
       scrollBtn: document.getElementById('ttyd-toolbar-scroll') as HTMLButtonElement,
@@ -85,6 +92,7 @@ class ToolbarApp {
       pageDownBtn: document.getElementById('ttyd-toolbar-pagedown') as HTMLButtonElement,
       notifyBtn: document.getElementById('ttyd-toolbar-notify') as HTMLButtonElement,
       shareBtn: document.getElementById('ttyd-toolbar-share') as HTMLButtonElement,
+      snippetBtn: document.getElementById('ttyd-toolbar-snippet') as HTMLButtonElement,
       // Share modal elements
       shareModal: document.getElementById('ttyd-share-modal') as HTMLElement,
       shareModalClose: document.getElementById('ttyd-share-modal-close') as HTMLButtonElement,
@@ -139,8 +147,25 @@ class ToolbarApp {
       this.elements.shareQr
     );
 
+    this.snippet.bindElements(
+      this.elements.snippetBtn,
+      document.getElementById('ttyd-snippet-modal') as HTMLElement,
+      document.getElementById('ttyd-snippet-modal-close') as HTMLButtonElement,
+      document.getElementById('ttyd-snippet-add') as HTMLButtonElement,
+      document.getElementById('ttyd-snippet-import') as HTMLButtonElement,
+      document.getElementById('ttyd-snippet-export') as HTMLButtonElement,
+      document.getElementById('ttyd-snippet-search') as HTMLInputElement,
+      document.getElementById('ttyd-snippet-list') as HTMLElement,
+      document.getElementById('ttyd-snippet-add-form') as HTMLElement,
+      document.getElementById('ttyd-snippet-add-name') as HTMLInputElement,
+      document.getElementById('ttyd-snippet-add-command') as HTMLTextAreaElement,
+      document.getElementById('ttyd-snippet-add-save') as HTMLButtonElement,
+      document.getElementById('ttyd-snippet-add-cancel') as HTMLButtonElement
+    );
+
     this.touch.bindScrollButton(this.elements.scrollBtn);
     this.autoRun.bindElement(this.elements.autoBtn);
+    this.clipboardHistory.bindPasteButton(this.elements.pasteBtn);
 
     // Setup event listeners
     this.setupEventListeners();
@@ -272,6 +297,16 @@ class ToolbarApp {
     elements.copyAllBtn.addEventListener('click', (e) => {
       e.preventDefault();
       this.terminal.copyAll();
+    });
+
+    // Paste button
+    elements.pasteBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      // Don't paste if this was a long press (history popup shown)
+      if (this.clipboardHistory.isLongPressInProgress()) {
+        return;
+      }
+      this.terminal.paste(this.input, this.clipboardHistory);
     });
 
     // Scroll button

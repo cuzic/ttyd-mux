@@ -8,6 +8,8 @@
  * - Copy operations
  */
 
+import type { ClipboardHistoryManager } from './ClipboardHistoryManager.js';
+import type { InputHandler } from './InputHandler.js';
 import type { Terminal, ToolbarConfig } from './types.js';
 
 export class TerminalController {
@@ -133,6 +135,24 @@ export class TerminalController {
         console.error('[Toolbar] Failed to copy:', err);
         return false;
       });
+  }
+
+  /**
+   * Paste from clipboard to terminal
+   */
+  async paste(inputHandler: InputHandler, historyManager?: ClipboardHistoryManager): Promise<boolean> {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) return false;
+      const result = inputHandler.sendText(text);
+      if (result && historyManager) {
+        historyManager.addToHistory(text);
+      }
+      return result;
+    } catch (err) {
+      console.error('[Toolbar] Failed to read clipboard:', err);
+      return false;
+    }
   }
 
   /**

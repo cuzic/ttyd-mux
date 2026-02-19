@@ -10,12 +10,18 @@
  */
 
 import { DEFAULT_TOOLBAR_CONFIG, type ToolbarConfig } from '@/config/types.js';
-import { AUTO_RUN_KEY, ONBOARDING_SHOWN_KEY, STORAGE_KEY } from './config.js';
+import {
+  AUTO_RUN_KEY,
+  CLIPBOARD_HISTORY_KEY,
+  ONBOARDING_SHOWN_KEY,
+  SNIPPETS_KEY,
+  STORAGE_KEY,
+} from './config.js';
 import { toolbarStyles } from './styles.js';
 import { onboardingHtml, toolbarHtml } from './template.js';
 
 // Re-export config constants (localStorage keys only)
-export { AUTO_RUN_KEY, ONBOARDING_SHOWN_KEY, STORAGE_KEY };
+export { AUTO_RUN_KEY, CLIPBOARD_HISTORY_KEY, ONBOARDING_SHOWN_KEY, SNIPPETS_KEY, STORAGE_KEY };
 
 // Re-export for direct access
 export { onboardingHtml, toolbarHtml, toolbarStyles };
