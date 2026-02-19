@@ -1406,4 +1406,138 @@ body:has(#ttyd-toolbar:not(.hidden)) .xterm {
     margin: 16px;
   }
 }
+
+/* ============================================
+   Preview Pane
+   ============================================ */
+
+#ttyd-preview-pane {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--preview-width, 400px);
+  background: #fff;
+  border-left: 2px solid #007acc;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -2px 0 10px rgba(0,0,0,0.3);
+}
+
+#ttyd-preview-pane.hidden {
+  display: none;
+}
+
+#ttyd-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #1e1e1e;
+  color: #fff;
+  font-size: 14px;
+  border-bottom: 1px solid #333;
+}
+
+#ttyd-preview-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+#ttyd-preview-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+#ttyd-preview-actions button {
+  background: transparent;
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+  min-width: 32px;
+  min-height: 32px;
+  transition: background 0.2s;
+}
+
+#ttyd-preview-actions button:hover {
+  background: #333;
+}
+
+#ttyd-preview-close:hover {
+  color: #f44336;
+}
+
+#ttyd-preview-iframe {
+  flex: 1;
+  border: none;
+  background: #fff;
+  width: 100%;
+}
+
+#ttyd-preview-resizer {
+  position: absolute;
+  left: -3px;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+  background: transparent;
+  z-index: 10000;
+}
+
+#ttyd-preview-resizer:hover {
+  background: rgba(0, 122, 204, 0.5);
+}
+
+/* Terminal width adjustment when preview is open */
+body.preview-open .terminal,
+body.preview-open .xterm {
+  width: calc(100% - var(--preview-width, 400px)) !important;
+}
+
+body.preview-open .xterm-viewport,
+body.preview-open .xterm-screen {
+  width: calc(100vw - var(--preview-width, 400px)) !important;
+}
+
+/* Preview button active state */
+#ttyd-toolbar-preview.active {
+  background: #007acc !important;
+  border-color: #005a9e !important;
+}
+
+/* Mobile adjustments for preview pane */
+@media (max-width: 768px) {
+  #ttyd-preview-pane {
+    width: 100% !important;
+    left: 0;
+    border-left: none;
+    border-top: 2px solid #007acc;
+    height: 50vh;
+    top: auto;
+  }
+
+  #ttyd-preview-resizer {
+    display: none;
+  }
+
+  body.preview-open .terminal,
+  body.preview-open .xterm {
+    width: 100% !important;
+    height: 50vh !important;
+  }
+
+  body.preview-open .xterm-viewport,
+  body.preview-open .xterm-screen {
+    width: 100vw !important;
+  }
+}
 `;

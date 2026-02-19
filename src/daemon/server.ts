@@ -1,7 +1,9 @@
 import { type Server, createServer } from 'node:http';
 import type { IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
+import { normalizeBasePath } from '@/config/config.js';
 import type { Config } from '@/config/types.js';
+import { handlePreviewUpgrade } from './preview/index.js';
 import { handleRequest } from './router.js';
 import { handleUpgrade } from './ws-proxy.js';
 
@@ -35,6 +37,16 @@ export function createDaemonServer(initialConfig: Config): Server {
   server.on('upgrade', (req: IncomingMessage, socket: Socket, head: Buffer) => {
     // Use dynamic config if available, otherwise fall back to initialConfig
     const config = getConfigFunc ? getConfigFunc() : initialConfig;
+    const url = req.url ?? '/';
+    const basePath = normalizeBasePath(config.base_path);
+
+    // Check for preview WebSocket endpoint
+    if (url === `${basePath}/api/preview/ws` && config.preview.enabled) {
+      handlePreviewUpgrade(req, socket, head);
+      return;
+    }
+
+    // Handle regular ttyd WebSocket proxying
     handleUpgrade(config, req, socket, head);
   });
 

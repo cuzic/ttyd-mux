@@ -32,6 +32,8 @@ export class FileTransferManager {
   private elements: FileTransferElements | null = null;
   private currentPath = '.';
   private sessionName = '';
+  private previewMode = false;
+  private previewCallback: ((path: string) => void) | null = null;
 
   constructor(config: ToolbarConfig) {
     this.config = config;
@@ -134,7 +136,23 @@ export class FileTransferManager {
   async showDownloadMode(): Promise<void> {
     if (!this.elements) return;
 
+    this.previewMode = false;
+    this.previewCallback = null;
     this.elements.modalTitle.textContent = 'ファイルブラウザ';
+    this.elements.modal.classList.remove('hidden');
+    this.currentPath = '.';
+    await this.loadFileList();
+  }
+
+  /**
+   * Open file browser for preview file selection
+   */
+  async openForPreview(callback: (path: string) => void): Promise<void> {
+    if (!this.elements) return;
+
+    this.previewMode = true;
+    this.previewCallback = callback;
+    this.elements.modalTitle.textContent = 'プレビューするHTMLファイルを選択';
     this.elements.modal.classList.remove('hidden');
     this.currentPath = '.';
     await this.loadFileList();
@@ -187,8 +205,14 @@ export class FileTransferManager {
     const { fileList } = this.elements;
     fileList.innerHTML = '';
 
+    // Filter files in preview mode (only show HTML files and directories)
+    let filteredFiles = files;
+    if (this.previewMode) {
+      filteredFiles = files.filter((f) => f.isDirectory || this.isPreviewable(f.name));
+    }
+
     // Sort: directories first, then by name
-    const sorted = [...files].sort((a, b) => {
+    const sorted = [...filteredFiles].sort((a, b) => {
       if (a.isDirectory !== b.isDirectory) {
         return a.isDirectory ? -1 : 1;
       }
@@ -207,7 +231,8 @@ export class FileTransferManager {
     }
 
     if (sorted.length === 0) {
-      fileList.innerHTML = '<div class="ttyd-file-empty">ファイルがありません</div>';
+      const message = this.previewMode ? 'HTMLファイルがありません' : 'ファイルがありません';
+      fileList.innerHTML = `<div class="ttyd-file-empty">${message}</div>`;
       return;
     }
 
@@ -247,12 +272,29 @@ export class FileTransferManager {
     item.addEventListener('click', () => {
       if (file.isDirectory) {
         this.navigateTo(file.name);
+      } else if (this.previewMode) {
+        // In preview mode, select the file for preview
+        const fullPath = this.currentPath === '.' ? file.name : `${this.currentPath}/${file.name}`;
+        if (this.previewCallback) {
+          this.previewCallback(fullPath);
+        }
+        this.hide();
+        this.previewMode = false;
+        this.previewCallback = null;
       } else {
         this.downloadFile(file.name);
       }
     });
 
     return item;
+  }
+
+  /**
+   * Check if file is previewable (HTML)
+   */
+  private isPreviewable(filename: string): boolean {
+    const lowerName = filename.toLowerCase();
+    return lowerName.endsWith('.html') || lowerName.endsWith('.htm');
   }
 
   /**

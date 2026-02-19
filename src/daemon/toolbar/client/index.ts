@@ -8,10 +8,13 @@
 import { AutoRunManager } from './AutoRunManager.js';
 import { ClipboardHistoryManager } from './ClipboardHistoryManager.js';
 import { FileTransferManager } from './FileTransferManager.js';
+import { FileWatcherClient } from './FileWatcherClient.js';
 import { FontSizeManager } from './FontSizeManager.js';
 import { InputHandler } from './InputHandler.js';
 import { ModifierKeyState } from './ModifierKeyState.js';
 import { NotificationManager } from './NotificationManager.js';
+import { PreviewManager } from './PreviewManager.js';
+import { PreviewPane } from './PreviewPane.js';
 import { SearchManager } from './SearchManager.js';
 import { ShareManager } from './ShareManager.js';
 import { SmartPasteManager } from './SmartPasteManager.js';
@@ -42,6 +45,9 @@ class ToolbarApp {
   private touch: TouchGestureHandler;
   private fontSizeManager: FontSizeManager;
   private autoRun: AutoRunManager;
+  private previewPane: PreviewPane;
+  private fileWatcher: FileWatcherClient;
+  private preview: PreviewManager;
 
   private isMobile: boolean;
 
@@ -66,6 +72,12 @@ class ToolbarApp {
     this.touch = new TouchGestureHandler(config, this.terminal, this.input, this.modifiers);
     this.fontSizeManager = new FontSizeManager(config);
     this.autoRun = new AutoRunManager();
+    this.previewPane = new PreviewPane();
+    this.fileWatcher = new FileWatcherClient(config);
+    this.preview = new PreviewManager(config, {
+      pane: this.previewPane,
+      watcher: this.fileWatcher
+    });
   }
 
   /**
@@ -101,6 +113,7 @@ class ToolbarApp {
       snippetBtn: document.getElementById('ttyd-toolbar-snippet') as HTMLButtonElement,
       downloadBtn: document.getElementById('ttyd-toolbar-download') as HTMLButtonElement,
       uploadBtn: document.getElementById('ttyd-toolbar-upload') as HTMLButtonElement,
+      previewBtn: document.getElementById('ttyd-toolbar-preview') as HTMLButtonElement,
       // Share modal elements
       shareModal: document.getElementById('ttyd-share-modal') as HTMLElement,
       shareModalClose: document.getElementById('ttyd-share-modal-close') as HTMLButtonElement,
@@ -186,6 +199,18 @@ class ToolbarApp {
     this.touch.bindScrollButton(this.elements.scrollBtn);
     this.autoRun.bindElement(this.elements.autoBtn);
     this.clipboardHistory.bindPasteButton(this.elements.pasteBtn);
+
+    // Preview elements
+    this.preview.bindElements(this.elements.previewBtn, {
+      pane: document.getElementById('ttyd-preview-pane') as HTMLElement,
+      header: document.getElementById('ttyd-preview-header') as HTMLElement,
+      titleSpan: document.getElementById('ttyd-preview-title') as HTMLElement,
+      refreshBtn: document.getElementById('ttyd-preview-refresh') as HTMLButtonElement,
+      selectBtn: document.getElementById('ttyd-preview-select') as HTMLButtonElement,
+      closeBtn: document.getElementById('ttyd-preview-close') as HTMLButtonElement,
+      iframe: document.getElementById('ttyd-preview-iframe') as HTMLIFrameElement,
+      resizer: document.getElementById('ttyd-preview-resizer') as HTMLElement
+    });
 
     // Smart paste elements
     const smartPasteElements: SmartPasteElements = {
@@ -508,6 +533,14 @@ class ToolbarApp {
     toolbarEvents.on('error', (error) => {
       console.error('[Toolbar] Error event:', error.message);
     });
+
+    // Listen for preview file select events
+    document.addEventListener('ttyd-preview-select', ((e: CustomEvent) => {
+      const callback = e.detail?.callback as ((path: string) => void) | undefined;
+      if (callback) {
+        this.fileTransfer.openForPreview(callback);
+      }
+    }) as EventListener);
   }
 
   /**

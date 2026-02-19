@@ -470,6 +470,68 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
     return;
   }
 
+  // === Preview API ===
+
+  // GET /api/preview/file?session=<name>&path=<path> - Serve preview file
+  if (path.startsWith('/api/preview/file') && method === 'GET') {
+    const queryStart = path.indexOf('?');
+    const params = new URLSearchParams(queryStart >= 0 ? path.slice(queryStart + 1) : '');
+    const sessionName = params.get('session');
+    const filePath = params.get('path');
+
+    if (!sessionName || !filePath) {
+      sendJson(res, 400, { error: 'session and path parameters are required' });
+      return;
+    }
+
+    // Check if preview is enabled
+    if (!config.preview.enabled) {
+      sendJson(res, 403, { error: 'Preview is disabled' });
+      return;
+    }
+
+    // Check extension
+    const lowerPath = filePath.toLowerCase();
+    const isAllowed = config.preview.allowed_extensions.some((ext) =>
+      lowerPath.endsWith(ext.toLowerCase())
+    );
+    if (!isAllowed) {
+      sendJson(res, 403, { error: 'File extension not allowed for preview' });
+      return;
+    }
+
+    // Find session
+    const session = sessionManager.listSessions().find((s) => s.name === sessionName);
+    if (!session) {
+      sendJson(res, 404, { error: `Session "${sessionName}" not found` });
+      return;
+    }
+
+    const manager = createFileTransferManager({
+      baseDir: session.dir,
+      config: config.file_transfer
+    });
+
+    // Use download handler but set HTML content type
+    void (async () => {
+      const result = await manager.downloadFile(filePath);
+      if (!result.success || !result.data) {
+        sendJson(res, 404, { error: result.error || 'File not found' });
+        return;
+      }
+
+      // Serve with HTML content type and cache control
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Content-Length': result.data.length,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'X-Frame-Options': 'SAMEORIGIN'
+      });
+      res.end(result.data);
+    })();
+    return;
+  }
+
   // === Clipboard Image API ===
 
   // POST /api/clipboard-image?session=<name> - Upload clipboard images
@@ -526,7 +588,9 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
           return;
         }
 
-        log.info(`Saved ${result.paths?.length || 0} clipboard image(s) for session: ${sessionName}`);
+        log.info(
+          `Saved ${result.paths?.length || 0} clipboard image(s) for session: ${sessionName}`
+        );
         sendJson(res, 200, { success: true, paths: result.paths });
       } catch (error) {
         sendJson(res, 400, { error: getErrorMessage(error) });

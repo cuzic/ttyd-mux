@@ -111,6 +111,25 @@ export const DEFAULT_TABS_CONFIG: TabsConfig = {
   show_session_info: true
 };
 
+export const PreviewConfigSchema = z.object({
+  enabled: z.boolean().default(true),
+  default_width: z.number().int().min(200).max(1200).default(400),
+  debounce_ms: z.number().int().min(50).max(2000).default(300),
+  auto_refresh: z.boolean().default(true),
+  allowed_extensions: z.array(z.string()).default(['.html', '.htm'])
+});
+
+export type PreviewConfig = z.infer<typeof PreviewConfigSchema>;
+
+/** Default preview configuration */
+export const DEFAULT_PREVIEW_CONFIG: PreviewConfig = {
+  enabled: true,
+  default_width: 400,
+  debounce_ms: 300,
+  auto_refresh: true,
+  allowed_extensions: ['.html', '.htm']
+};
+
 export const ConfigSchema = z.object({
   base_path: z.string().startsWith('/').default('/ttyd-mux'),
   base_port: z.number().int().min(1024).max(65535).default(7600),
@@ -126,7 +145,8 @@ export const ConfigSchema = z.object({
   toolbar: ToolbarConfigSchema.default(DEFAULT_TOOLBAR_CONFIG),
   notifications: NotificationConfigSchema.default(DEFAULT_NOTIFICATION_CONFIG),
   file_transfer: FileTransferConfigSchema.default(DEFAULT_FILE_TRANSFER_CONFIG),
-  tabs: TabsConfigSchema.default(DEFAULT_TABS_CONFIG)
+  tabs: TabsConfigSchema.default(DEFAULT_TABS_CONFIG),
+  preview: PreviewConfigSchema.default(DEFAULT_PREVIEW_CONFIG)
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

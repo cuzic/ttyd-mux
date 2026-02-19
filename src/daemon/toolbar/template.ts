@@ -27,6 +27,7 @@ export const toolbarHtml = `
     <button id="ttyd-toolbar-snippet" title="スニペット">📌</button>
     <button id="ttyd-toolbar-download" title="ダウンロード">📥</button>
     <button id="ttyd-toolbar-upload" title="アップロード">📤</button>
+    <button id="ttyd-toolbar-preview" title="HTMLプレビュー">👁</button>
     <button id="ttyd-toolbar-send">Send</button>
     <button id="ttyd-toolbar-run">Run</button>
     <button id="ttyd-toolbar-auto" class="modifier">Auto</button>
@@ -146,6 +147,18 @@ export const toolbarHtml = `
   <div id="ttyd-drop-zone-content">
     📁 ここに画像をドロップ
   </div>
+</div>
+<div id="ttyd-preview-pane" class="hidden">
+  <div id="ttyd-preview-header">
+    <span id="ttyd-preview-title">プレビュー</span>
+    <div id="ttyd-preview-actions">
+      <button id="ttyd-preview-refresh" title="更新">🔄</button>
+      <button id="ttyd-preview-select" title="ファイル選択">📁</button>
+      <button id="ttyd-preview-close" title="閉じる">×</button>
+    </div>
+  </div>
+  <iframe id="ttyd-preview-iframe" sandbox="allow-scripts allow-same-origin"></iframe>
+  <div id="ttyd-preview-resizer"></div>
 </div>
 `;
 

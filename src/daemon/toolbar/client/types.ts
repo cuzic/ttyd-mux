@@ -88,6 +88,7 @@ export interface ToolbarElements {
   snippetBtn: HTMLButtonElement;
   downloadBtn: HTMLButtonElement;
   uploadBtn: HTMLButtonElement;
+  previewBtn: HTMLButtonElement;
   // Share modal elements
   shareModal: HTMLElement;
   shareModalClose: HTMLButtonElement;
