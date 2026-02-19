@@ -106,11 +106,14 @@ sessions:
 ```
 
 ```bash
-# Start all predefined sessions / 全セッションを起動
-ttyd-mux up --all
+# Start daemon + all predefined sessions / デーモンと全セッションを起動
+ttyd-mux daemon start --sessions
 
-# Stop all sessions / 全セッションを停止
-ttyd-mux down --all
+# Or select sessions interactively / またはインタラクティブに選択
+ttyd-mux daemon start -s
+
+# Stop daemon + all sessions / デーモンと全セッションを停止
+ttyd-mux daemon stop --stop-sessions
 ```
 
 ## Commands / コマンド
@@ -118,15 +121,8 @@ ttyd-mux down --all
 ### Session Commands / セッションコマンド
 
 ```bash
-# Dynamic usage / 動的利用
 ttyd-mux up                     # Start session for current directory
 ttyd-mux down                   # Stop session for current directory
-
-# Static usage / 静的利用
-ttyd-mux up --all               # Start all predefined sessions
-ttyd-mux down --all             # Stop all sessions
-
-# Common / 共通
 ttyd-mux status                 # Show status
 ttyd-mux attach [name]          # Attach to tmux session directly
 ```
@@ -134,9 +130,12 @@ ttyd-mux attach [name]          # Attach to tmux session directly
 ### Daemon Control / デーモン制御
 
 ```bash
-ttyd-mux daemon start           # Start daemon
+ttyd-mux daemon start           # Start daemon only
+ttyd-mux daemon start --sessions  # Start daemon + all predefined sessions
+ttyd-mux daemon start -s        # Start daemon + select sessions interactively
 ttyd-mux daemon start -f        # Start in foreground (debug)
 ttyd-mux daemon stop            # Stop daemon
+ttyd-mux daemon stop --stop-sessions  # Stop all sessions + daemon
 ttyd-mux daemon reload          # Reload config (hot-reload)
 ttyd-mux daemon restart         # Restart daemon (apply code updates)
 ```

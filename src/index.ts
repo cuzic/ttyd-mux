@@ -29,34 +29,33 @@ program
     `
 Usage Patterns:
 
-  Dynamic (ad-hoc sessions):
-    $ cd ~/my-project && ttyd-mux up    # Start session for current directory
-    $ ttyd-mux down                     # Stop it
+  Dynamic (ad-hoc sessions for development):
+    $ cd ~/my-project && ttyd-mux up
+    $ ttyd-mux down
 
-  Static (predefined sessions in config.yaml):
-    $ ttyd-mux up --all                 # Start all predefined sessions
-    $ ttyd-mux down --all               # Stop all sessions
+  Static (server deployment with predefined sessions):
+    $ ttyd-mux daemon start --sessions    # Start daemon + all sessions
+    $ ttyd-mux daemon start -s            # Start daemon + select sessions
+    $ ttyd-mux daemon stop --stop-sessions
 `
   );
 
-// === Session commands ===
+// === Session commands (dynamic usage) ===
 
 program
-  .command('up [name]')
-  .description('Start session (current dir, or named/all from config)')
+  .command('up')
+  .description('Start session for current directory')
   .option('-n, --name <name>', 'Override session name')
   .option('-c, --config <path>', 'Config file path')
   .option('-a, --attach', 'Attach to tmux session after starting')
   .option('-d, --detach', 'Do not attach to tmux session')
-  .option('--all', 'Start all sessions defined in config.yaml')
-  .action((name, options) => upCommand(name, options));
+  .action((options) => upCommand(options));
 
 program
-  .command('down [name]')
-  .description('Stop session (current dir, or named/all)')
+  .command('down')
+  .description('Stop session for current directory')
   .option('-c, --config <path>', 'Config file path')
-  .option('--all', 'Stop all sessions')
-  .action((name, options) => downCommand(name, options));
+  .action((options) => downCommand(options));
 
 program
   .command('status')
@@ -79,6 +78,8 @@ daemon
   .description('Start the daemon')
   .option('-f, --foreground', 'Run in foreground')
   .option('-c, --config <path>', 'Config file path')
+  .option('--sessions', 'Start all predefined sessions after daemon starts')
+  .option('-s, --select', 'Interactively select sessions to start')
   .action((options) => daemonCommand(options));
 
 daemon
