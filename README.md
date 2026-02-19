@@ -63,11 +63,20 @@ sudo apt install ttyd tmux
 brew install ttyd tmux
 ```
 
-## Quick Start / クイックスタート
+## Usage Patterns / 使い方
+
+ttyd-mux has two main usage patterns:
+
+ttyd-mux には2つの利用パターンがあります：
+
+### Dynamic Usage (Ad-hoc Sessions) / 動的利用
+
+Start sessions on-demand in any directory. No configuration needed.
+
+設定不要で、任意のディレクトリでその場でセッションを起動。
 
 ```bash
-# Start in your project directory
-# プロジェクトディレクトリで起動
+# Start in your project directory / プロジェクトディレクトリで起動
 cd ~/my-project
 ttyd-mux up
 
@@ -81,55 +90,62 @@ ttyd-mux status
 ttyd-mux down
 ```
 
+### Static Usage (Predefined Sessions) / 静的利用
+
+Define sessions in config.yaml and start them all at once. Ideal for servers.
+
+config.yaml にセッションを定義し、一括起動。サーバー運用に最適。
+
+```yaml
+# ~/.config/ttyd-mux/config.yaml
+sessions:
+  - name: project-a
+    dir: /home/user/project-a
+  - name: project-b
+    dir: /home/user/project-b
+```
+
+```bash
+# Start all predefined sessions / 全セッションを起動
+ttyd-mux up --all
+
+# Stop all sessions / 全セッションを停止
+ttyd-mux down --all
+```
+
 ## Commands / コマンド
 
 ### Session Commands / セッションコマンド
 
 ```bash
-ttyd-mux up                     # Start session for current directory / カレントディレクトリでセッション起動
-ttyd-mux up <name>              # Start predefined session / 事前定義セッションを起動
-ttyd-mux up --all               # Start all predefined sessions / 全ての事前定義セッションを起動
-ttyd-mux up --detach            # Start without attaching / セッション起動のみ（アタッチしない）
+# Dynamic usage / 動的利用
+ttyd-mux up                     # Start session for current directory
+ttyd-mux down                   # Stop session for current directory
 
-ttyd-mux down                   # Stop session for current directory / カレントディレクトリのセッション停止
-ttyd-mux down <name>            # Stop named session / 名前指定でセッション停止
-ttyd-mux down --all             # Stop all sessions / 全セッション停止
+# Static usage / 静的利用
+ttyd-mux up --all               # Start all predefined sessions
+ttyd-mux down --all             # Stop all sessions
 
-ttyd-mux status                 # Show status / 状態表示
-ttyd-mux attach [name]          # Attach directly to tmux session / tmuxセッションに直接アタッチ
+# Common / 共通
+ttyd-mux status                 # Show status
+ttyd-mux attach [name]          # Attach to tmux session directly
 ```
 
 ### Daemon Control / デーモン制御
 
 ```bash
-ttyd-mux daemon start           # Start daemon / デーモン起動
-ttyd-mux daemon start -f        # Start in foreground (debug) / フォアグラウンドで起動（デバッグ用）
-ttyd-mux daemon stop            # Stop daemon / デーモン終了
-ttyd-mux daemon reload          # Reload config without restart / 再起動なしで設定再読込
-ttyd-mux daemon restart         # Restart daemon / デーモン再起動
+ttyd-mux daemon start           # Start daemon
+ttyd-mux daemon start -f        # Start in foreground (debug)
+ttyd-mux daemon stop            # Stop daemon
+ttyd-mux daemon reload          # Reload config (hot-reload)
+ttyd-mux daemon restart         # Restart daemon (apply code updates)
 ```
 
 ### Diagnostics / 診断
 
 ```bash
-ttyd-mux doctor                 # Check dependencies and configuration / 依存関係と設定をチェック
+ttyd-mux doctor                 # Check dependencies and configuration
 ```
-
-The `doctor` command checks:
-- ttyd installation
-- tmux installation
-- Bun version (requires 1.0+)
-- Configuration file validity
-- Daemon status
-- Port availability
-
-`doctor` コマンドは以下をチェックします：
-- ttyd のインストール
-- tmux のインストール
-- Bun のバージョン（1.0以上が必要）
-- 設定ファイルの妥当性
-- デーモンの状態
-- ポートの空き状況
 
 ## Configuration / 設定
 
@@ -156,45 +172,24 @@ base_port: 7600
 daemon_port: 7680
 
 # Listen addresses (default: IPv4 + IPv6 localhost)
-# リッスンアドレス（デフォルト: IPv4 + IPv6 localhost）
 listen_addresses:
   - "127.0.0.1"
   - "::1"
-  # - "0.0.0.0"  # Allow external access / 外部からのアクセスを許可する場合
-
-# Unix socket listeners (optional, for reverse proxy integration)
-# Unix ソケットリスナー（オプション、リバースプロキシ連携用）
-listen_sockets:
-  # - /run/ttyd-mux.sock  # Caddy: reverse_proxy unix//run/ttyd-mux.sock
-
-# Auto-attach to tmux on session start (default: true)
-# セッション起動時に自動でtmuxにアタッチ（デフォルト: true）
-auto_attach: true
 
 # Proxy mode: "proxy" (default) or "static"
-# プロキシモード: "proxy"（デフォルト）または "static"
-# - proxy: All traffic goes through ttyd-mux daemon (supports IME helper)
-# - static: Sessions are accessed directly via Caddy (lower latency)
+# - proxy: All traffic goes through daemon (supports toolbar)
+# - static: Sessions accessed directly via Caddy (lower latency)
 proxy_mode: proxy
 
-# Hostname for Caddy integration (used by caddy/deploy commands)
-# Caddy連携用のホスト名（caddy/deployコマンドで使用）
+# Hostname for Caddy integration
 hostname: example.com
 
-# Caddy Admin API URL
-caddy_admin_api: http://localhost:2019
-
-# Predefined sessions (optional) / 事前定義セッション（オプション）
+# Predefined sessions for static usage / 静的利用のためのセッション定義
 sessions:
   - name: project-a
     dir: /home/user/project-a
-    path: /project-a
-    port_offset: 1
-
   - name: project-b
     dir: /home/user/project-b
-    path: /project-b
-    port_offset: 2
 ```
 
 ## Architecture / アーキテクチャ
@@ -234,7 +229,7 @@ sessions:
 
 - Lower latency (no intermediate proxy) / 低レイテンシ（中間プロキシなし）
 - Static portal (no daemon needed at runtime) / 静的ポータル（実行時デーモン不要）
-- No IME helper support / IME ヘルパー非対応
+- No toolbar support / ツールバー非対応
 
 ## Toolbar Features / ツールバー機能
 
@@ -244,18 +239,16 @@ In proxy mode, ttyd-mux injects a toolbar for improved input experience:
 
 ### Mobile Support / モバイル対応
 
-- **IME Input**: Virtual keyboard with Japanese IME support / 日本語 IME 対応の仮想キーボード
-- **Touch Pinch Zoom**: Two-finger pinch to resize terminal font (requires Ctrl/Shift button) / 2本指ピンチでフォントサイズ変更（Ctrl/Shift ボタン押下時）
-- **Double-tap Enter**: Double-tap to send Enter key / ダブルタップで Enter キー送信
-- **Minimize Mode**: Compact toolbar showing only input field / コンパクト表示（入力フィールドのみ）
-- **Onboarding Tips**: First-time usage hints / 初回利用時のヒント表示
+- **IME Input**: Virtual keyboard with Japanese IME support / 日本語 IME 対応
+- **Touch Pinch Zoom**: Two-finger pinch to resize font / 2本指ピンチでフォントサイズ変更
+- **Double-tap Enter**: Double-tap to send Enter key / ダブルタップで Enter 送信
+- **Scroll Buttons**: PgUp/PgDn for scrolling / スクロール用ボタン
 
 ### PC Browser Support / PC ブラウザ対応
 
-- **Ctrl+Scroll Zoom**: Mouse wheel with Ctrl key to resize terminal font / Ctrl+マウスホイールでフォントサイズ変更
-- **Trackpad Pinch Zoom** (Mac): Two-finger pinch gesture on trackpad / トラックパッドの2本指ピンチでフォントサイズ変更
-- **A-/A+ Buttons**: Click buttons in the toolbar / ツールバーのボタンでサイズ変更
-- **Ctrl+J Toggle**: Keyboard shortcut to show/hide toolbar / Ctrl+J でツールバー表示/非表示
+- **Ctrl+Scroll Zoom**: Mouse wheel with Ctrl key / Ctrl+マウスホイールでサイズ変更
+- **Trackpad Pinch Zoom** (Mac): Two-finger pinch gesture / トラックパッドピンチ
+- **Ctrl+J Toggle**: Show/hide toolbar / ツールバー表示切替
 
 ## Caddy Integration / Caddy との連携
 
@@ -285,29 +278,7 @@ handle /ttyd-mux/* {
 }
 ```
 
-### Static Mode / スタティックモード
-
-For lower latency, use static mode where Caddy routes directly to ttyd:
-
-低レイテンシのために、Caddy から ttyd に直接ルーティングするスタティックモード：
-
-```yaml
-# config.yaml
-proxy_mode: static
-hostname: example.com
-```
-
-```bash
-# Generate static portal and Caddyfile snippet
-# 静的ポータルと Caddyfile スニペットを生成
-ttyd-mux deploy
-
-# Sync routes after starting/stopping sessions
-# セッション開始/停止後にルートを同期
-ttyd-mux caddy sync
-```
-
-See [docs/caddy-setup.md](docs/caddy-setup.md) for details, including authentication setup (Basic, OAuth, mTLS, Authelia/Authentik) for external access.
+See [docs/caddy-setup.md](docs/caddy-setup.md) for details, including authentication setup.
 
 ## File Structure / ファイル構成
 

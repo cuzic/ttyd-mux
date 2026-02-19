@@ -23,23 +23,37 @@ import { NAME, VERSION } from './version.js';
 program
   .name(NAME)
   .description('ttyd session multiplexer - manage multiple ttyd+tmux sessions')
-  .version(VERSION);
+  .version(VERSION)
+  .addHelpText(
+    'after',
+    `
+Usage Patterns:
+
+  Dynamic (ad-hoc sessions):
+    $ cd ~/my-project && ttyd-mux up    # Start session for current directory
+    $ ttyd-mux down                     # Stop it
+
+  Static (predefined sessions in config.yaml):
+    $ ttyd-mux up --all                 # Start all predefined sessions
+    $ ttyd-mux down --all               # Stop all sessions
+`
+  );
 
 // === Session commands ===
 
 program
   .command('up [name]')
-  .description('Start a ttyd+tmux session')
-  .option('-n, --name <name>', 'Session name (for current directory)')
+  .description('Start session (current dir, or named/all from config)')
+  .option('-n, --name <name>', 'Override session name')
   .option('-c, --config <path>', 'Config file path')
   .option('-a, --attach', 'Attach to tmux session after starting')
   .option('-d, --detach', 'Do not attach to tmux session')
-  .option('--all', 'Start all predefined sessions')
+  .option('--all', 'Start all sessions defined in config.yaml')
   .action((name, options) => upCommand(name, options));
 
 program
   .command('down [name]')
-  .description('Stop a ttyd session')
+  .description('Stop session (current dir, or named/all)')
   .option('-c, --config <path>', 'Config file path')
   .option('--all', 'Stop all sessions')
   .action((name, options) => downCommand(name, options));
@@ -82,7 +96,7 @@ daemon
 
 daemon
   .command('restart')
-  .description('Restart the daemon (stop and start)')
+  .description('Restart the daemon (apply code updates)')
   .option('-c, --config <path>', 'Config file path')
   .action((options) => restartCommand(options));
 
@@ -96,7 +110,7 @@ program
 
 program
   .command('deploy')
-  .description('Generate static files for static mode deployment')
+  .description('Generate static files for static proxy mode')
   .option('--hostname <hostname>', 'Server hostname (or set in config.yaml)')
   .option('-o, --output <dir>', 'Output directory')
   .option('-c, --config <path>', 'Config file path')
@@ -130,7 +144,7 @@ caddy
 
 caddy
   .command('sync')
-  .description('Sync session routes with Caddy (static mode only)')
+  .description('Sync session routes with Caddy (static proxy mode)')
   .option('--hostname <hostname>', 'Server hostname (or set in config.yaml)')
   .option('--admin-api <url>', 'Caddy Admin API URL')
   .option('-c, --config <path>', 'Config file path')
