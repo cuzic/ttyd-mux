@@ -14,6 +14,11 @@ import { deployCommand } from './commands/deploy.js';
 import { doctorCommand } from './commands/doctor.js';
 import { downCommand } from './commands/down.js';
 import { listCommand } from './commands/list.js';
+import {
+  shareCommand,
+  shareListCommand,
+  shareRevokeCommand
+} from './commands/share.js';
 import { reloadCommand } from './commands/reload.js';
 import { restartCommand } from './commands/restart.js';
 import { shutdownCommand } from './commands/shutdown.js';
@@ -169,6 +174,28 @@ caddy
   .option('--admin-api <url>', 'Caddy Admin API URL')
   .option('-c, --config <path>', 'Config file path')
   .action((options) => caddyStatusCommand(options));
+
+// === Session sharing ===
+
+const share = program.command('share').description('Session sharing (read-only)');
+
+share
+  .command('create <session>')
+  .description('Create a read-only share link for a session')
+  .option('-e, --expires <duration>', 'Expiration time (e.g., 1h, 30m, 7d)', '1h')
+  .action((session, options) => shareCommand(session, { expires: options.expires }));
+
+share
+  .command('list')
+  .alias('ls')
+  .description('List active share links')
+  .option('--json', 'Output as JSON')
+  .action((options) => shareListCommand(options));
+
+share
+  .command('revoke <token>')
+  .description('Revoke a share link')
+  .action((token, options) => shareRevokeCommand(token, options));
 
 // Parse arguments
 program.parse();

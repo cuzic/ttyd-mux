@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { normalizeBasePath } from '@/config/config.js';
+import { addShare, getAllShares, getShare, removeShare } from '@/config/state.js';
 import type { Config, SessionState } from '@/config/types.js';
 import { createLogger } from '@/utils/logger.js';
 import { handleApiRequest } from './api-handler.js';
@@ -7,7 +8,19 @@ import { proxyToSession } from './http-proxy.js';
 import { generatePortalHtml } from './portal.js';
 import { getIconPng, getIconSvg, getManifestJson, getServiceWorker } from './pwa.js';
 import { sessionManager } from './session-manager.js';
+import { createShareManager } from './share-manager.js';
 import { getToolbarJs } from './toolbar/index.js';
+
+// Share manager for validating share tokens
+const shareManager = createShareManager({
+  getShares: getAllShares,
+  addShare: addShare,
+  removeShare: removeShare,
+  getShare: (token: string) => getShare(token)
+});
+
+/** Regex to extract share token from path */
+const SHARE_PATH_REGEX = /^\/share\/([a-f0-9]+)(\/.*)?$/;
 
 const log = createLogger('router');
 
@@ -169,6 +182,50 @@ export function handleRequest(config: Config, req: IncomingMessage, res: ServerR
       servePortal(config, res);
       return;
     }
+  }
+
+  // Share links: /ttyd-mux/share/:token
+  const sharePath = url.slice(basePath.length);
+  const shareMatch = sharePath.match(SHARE_PATH_REGEX);
+  if (shareMatch?.[1]) {
+    const token = shareMatch[1];
+    const share = shareManager.validateShare(token);
+
+    if (!share) {
+      log.debug(`Share not found or expired: ${token}`);
+      res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(`<!DOCTYPE html>
+<html>
+<head><title>Share Link Expired</title></head>
+<body style="font-family: sans-serif; padding: 2rem; text-align: center;">
+  <h1>Share Link Expired</h1>
+  <p>This share link has expired or been revoked.</p>
+</body>
+</html>`);
+      return;
+    }
+
+    // Find the session
+    const session = sessionManager.listSessions().find((s) => s.name === share.sessionName);
+    if (!session) {
+      log.debug(`Session not found for share: ${share.sessionName}`);
+      res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(`<!DOCTYPE html>
+<html>
+<head><title>Session Not Found</title></head>
+<body style="font-family: sans-serif; padding: 2rem; text-align: center;">
+  <h1>Session Not Found</h1>
+  <p>The shared session is no longer running.</p>
+</body>
+</html>`);
+      return;
+    }
+
+    // Proxy to the session in read-only mode
+    // Set a header to indicate read-only mode for WebSocket proxy
+    req.headers['x-ttyd-mux-readonly'] = 'true';
+    proxyToSession(req, res, session.port, basePath);
+    return;
   }
 
   // Try to proxy to a session

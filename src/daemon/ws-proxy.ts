@@ -22,10 +22,38 @@ export function closeWebSocket(ws: WebSocket, code: number, reason: string): voi
 }
 
 /**
+ * Options for WebSocket forwarding
+ */
+export interface ForwardingOptions {
+  /** If true, block input messages from client to backend (read-only mode) */
+  readOnly?: boolean;
+}
+
+/**
+ * Check if data is a ttyd input message (command byte '0')
+ * ttyd protocol: first byte is command type, '0' = input
+ */
+function isInputMessage(data: Buffer | ArrayBuffer | Buffer[]): boolean {
+  if (Buffer.isBuffer(data) && data.length > 0) {
+    // ttyd input command is '0' (0x30)
+    return data[0] === 0x30;
+  }
+  if (data instanceof ArrayBuffer && data.byteLength > 0) {
+    return new Uint8Array(data)[0] === 0x30;
+  }
+  return false;
+}
+
+/**
  * Setup bidirectional WebSocket forwarding
  */
-export function setupWebSocketForwarding(clientWs: WebSocket, backendWs: WebSocket): void {
+export function setupWebSocketForwarding(
+  clientWs: WebSocket,
+  backendWs: WebSocket,
+  options: ForwardingOptions = {}
+): void {
   let closed = false;
+  const { readOnly = false } = options;
 
   const cleanup = (initiator: 'client' | 'backend', code?: number, reason?: Buffer) => {
     if (closed) {
@@ -42,6 +70,11 @@ export function setupWebSocketForwarding(clientWs: WebSocket, backendWs: WebSock
 
   // Forward messages bidirectionally
   clientWs.on('message', (data, isBinary) => {
+    // In read-only mode, block input messages
+    if (readOnly && isBinary && isInputMessage(data as Buffer)) {
+      log.debug('Blocked input message in read-only mode');
+      return;
+    }
     if (backendWs.readyState === WebSocket.OPEN) {
       backendWs.send(data, { binary: isBinary });
     }
@@ -79,10 +112,11 @@ function connectToBackend(
   protocol: string | undefined,
   req: IncomingMessage,
   socket: Socket,
-  head: Buffer
+  head: Buffer,
+  options: ForwardingOptions = {}
 ): void {
   const backendUrl = `ws://127.0.0.1:${session.port}${url}`;
-  log.debug(`Connecting to backend WebSocket: ${backendUrl}`);
+  log.debug(`Connecting to backend WebSocket: ${backendUrl}${options.readOnly ? ' (read-only)' : ''}`);
 
   const backendWs = new WebSocket(
     backendUrl,
@@ -93,7 +127,7 @@ function connectToBackend(
     log.debug(`Backend WebSocket connected: ${backendUrl}`);
     // Upgrade client connection once backend is ready
     wss.handleUpgrade(req, socket, head, (clientWs) => {
-      setupWebSocketForwarding(clientWs, backendWs);
+      setupWebSocketForwarding(clientWs, backendWs, options);
     });
   });
 
@@ -116,6 +150,9 @@ export function handleUpgrade(
   const url = req.url ?? '/';
   log.debug(`WebSocket upgrade request: ${url}`);
 
+  // Check for read-only header (set by router for share links)
+  const readOnly = req.headers['x-ttyd-mux-readonly'] === 'true';
+
   const session = findSessionForPath(config, url);
   if (!session) {
     log.warn(`WebSocket upgrade rejected - no session for: ${url}`);
@@ -124,5 +161,5 @@ export function handleUpgrade(
   }
 
   const protocol = req.headers['sec-websocket-protocol'];
-  connectToBackend(session, url, protocol, req, socket, head);
+  connectToBackend(session, url, protocol, req, socket, head, { readOnly });
 }

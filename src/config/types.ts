@@ -67,9 +67,18 @@ export interface SessionState {
   started_at: string;
 }
 
+export interface ShareState {
+  token: string;
+  sessionName: string;
+  createdAt: string;
+  expiresAt: string;
+  password?: string;
+}
+
 export interface State {
   daemon: DaemonState | null;
   sessions: SessionState[];
+  shares?: ShareState[];
 }
 
 // === 解決済みセッション（設定 + 状態を統合）===

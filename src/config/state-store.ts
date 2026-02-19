@@ -3,7 +3,7 @@
  * Allows in-memory state store for testing without file system access
  */
 
-import type { DaemonState, SessionState, State } from './types.js';
+import type { DaemonState, SessionState, ShareState, State } from './types.js';
 
 // Re-export defaultStateStore from state.ts for convenience
 export { defaultStateStore } from './state.js';
@@ -32,6 +32,12 @@ export interface StateStore {
   // Utilities
   getNextPort(basePort: number): number;
   getNextPath(basePath: string, name: string): string;
+
+  // Share state
+  addShare(share: ShareState): void;
+  removeShare(token: string): void;
+  getShare(token: string): ShareState | undefined;
+  getAllShares(): ShareState[];
 }
 
 /**
@@ -40,7 +46,8 @@ export interface StateStore {
 export function createInMemoryStateStore(initialState?: Partial<State>): StateStore {
   let state: State = {
     daemon: initialState?.daemon ?? null,
-    sessions: initialState?.sessions ?? []
+    sessions: initialState?.sessions ?? [],
+    shares: initialState?.shares ?? []
   };
 
   return {
@@ -85,6 +92,19 @@ export function createInMemoryStateStore(initialState?: Partial<State>): StateSt
 
     getNextPath: (basePath: string, name: string) => {
       return `${basePath}/${name}`.replace(/\/+/g, '/');
-    }
+    },
+
+    addShare: (share: ShareState) => {
+      if (!state.shares) state.shares = [];
+      state.shares = state.shares.filter((s) => s.token !== share.token);
+      state.shares.push(share);
+    },
+    removeShare: (token: string) => {
+      if (state.shares) {
+        state.shares = state.shares.filter((s) => s.token !== token);
+      }
+    },
+    getShare: (token: string) => state.shares?.find((s) => s.token === token),
+    getAllShares: () => [...(state.shares ?? [])]
   };
 }

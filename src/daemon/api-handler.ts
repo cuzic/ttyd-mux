@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { getFullPath, normalizeBasePath } from '@/config/config.js';
-import { getDaemonState } from '@/config/state.js';
+import { addShare, getAllShares, getDaemonState, getShare, removeShare } from '@/config/state.js';
 import type { Config } from '@/config/types.js';
 import { getErrorMessage } from '@/utils/errors.js';
 import { isValidSessionName, sanitizeSessionName } from '@/utils/tmux-client.js';
@@ -11,9 +11,21 @@ import {
   sessionManager,
   sessionNameFromDir
 } from './session-manager.js';
+import { createShareManager } from './share-manager.js';
 
 /** Regex to match DELETE /api/sessions/:name */
 const DELETE_SESSION_REGEX = /^\/api\/sessions\/(.+)$/;
+
+/** Regex to match share API endpoints */
+const SHARE_TOKEN_REGEX = /^\/api\/shares\/(.+)$/;
+
+// Create ShareManager with file-system backed store
+const shareManager = createShareManager({
+  getShares: getAllShares,
+  addShare: addShare,
+  removeShare: removeShare,
+  getShare: (token: string) => getShare(token)
+});
 
 export function sendJson(res: ServerResponse, status: number, data: unknown): void {
   const body = generateJsonResponse(data);
@@ -112,7 +124,9 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
       body += chunk.toString();
     });
     req.on('end', () => {
-      const options = body ? (JSON.parse(body) as { stopSessions?: boolean; killTmux?: boolean }) : {};
+      const options = body
+        ? (JSON.parse(body) as { stopSessions?: boolean; killTmux?: boolean })
+        : {};
       if (options.stopSessions) {
         sessionManager.stopAllSessions({ killTmux: options.killTmux });
       }
@@ -121,6 +135,72 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
         process.exit(0);
       }, 100);
     });
+    return;
+  }
+
+  // === Share API ===
+
+  // GET /api/shares - List all shares
+  if (path === '/api/shares' && method === 'GET') {
+    const shares = shareManager.listShares();
+    sendJson(res, 200, shares);
+    return;
+  }
+
+  // POST /api/shares - Create a share
+  if (path === '/api/shares' && method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+    req.on('end', () => {
+      try {
+        const parsed = JSON.parse(body) as {
+          sessionName: string;
+          expiresIn?: string;
+        };
+
+        // Check if session exists
+        const session = sessionManager.listSessions().find((s) => s.name === parsed.sessionName);
+        if (!session) {
+          sendJson(res, 404, { error: `Session "${parsed.sessionName}" not found` });
+          return;
+        }
+
+        const share = shareManager.createShare(parsed.sessionName, {
+          expiresIn: parsed.expiresIn ?? '1h'
+        });
+        sendJson(res, 201, share);
+      } catch (error) {
+        sendJson(res, 400, { error: getErrorMessage(error) });
+      }
+    });
+    return;
+  }
+
+  // GET /api/shares/:token - Validate a share
+  const shareGetMatch = path.match(SHARE_TOKEN_REGEX);
+  if (shareGetMatch?.[1] && method === 'GET') {
+    const token = decodeURIComponent(shareGetMatch[1]);
+    const share = shareManager.validateShare(token);
+    if (share) {
+      sendJson(res, 200, share);
+    } else {
+      sendJson(res, 404, { error: 'Share not found or expired' });
+    }
+    return;
+  }
+
+  // DELETE /api/shares/:token - Revoke a share
+  const shareDeleteMatch = path.match(SHARE_TOKEN_REGEX);
+  if (shareDeleteMatch?.[1] && method === 'DELETE') {
+    const token = decodeURIComponent(shareDeleteMatch[1]);
+    const success = shareManager.revokeShare(token);
+    if (success) {
+      sendJson(res, 200, { success: true });
+    } else {
+      sendJson(res, 404, { error: 'Share not found' });
+    }
     return;
   }
 

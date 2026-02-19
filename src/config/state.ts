@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { lockSync, unlockSync } from 'proper-lockfile';
 import type { StateStore } from './state-store.js';
-import type { DaemonState, SessionState, State } from './types.js';
+import type { DaemonState, SessionState, ShareState, State } from './types.js';
 
 /**
  * Get state directory path.
@@ -157,6 +157,40 @@ export function getNextPath(basePath: string, name: string): string {
   return `${basePath}/${name}`.replace(/\/+/g, '/');
 }
 
+// === Share State ===
+
+export function addShare(share: ShareState): void {
+  withStateLock(() => {
+    const state = loadState();
+    if (!state.shares) {
+      state.shares = [];
+    }
+    // Remove existing share with same token
+    state.shares = state.shares.filter((s) => s.token !== share.token);
+    state.shares.push(share);
+    saveState(state);
+  });
+}
+
+export function removeShare(token: string): void {
+  withStateLock(() => {
+    const state = loadState();
+    if (state.shares) {
+      state.shares = state.shares.filter((s) => s.token !== token);
+      saveState(state);
+    }
+  });
+}
+
+export function getShare(token: string): ShareState | undefined {
+  const state = loadState();
+  return state.shares?.find((s) => s.token === token);
+}
+
+export function getAllShares(): ShareState[] {
+  return loadState().shares ?? [];
+}
+
 /**
  * Default StateStore implementation using file system
  * Can be replaced with in-memory store for testing
@@ -175,5 +209,9 @@ export const defaultStateStore: StateStore = {
   getSessionByDir,
   getAllSessions,
   getNextPort,
-  getNextPath
+  getNextPath,
+  addShare,
+  removeShare,
+  getShare,
+  getAllShares
 };
