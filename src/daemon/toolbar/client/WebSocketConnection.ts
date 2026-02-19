@@ -18,13 +18,11 @@ export class WebSocketConnection {
    * Intercept WebSocket creation to capture ttyd connection
    */
   private interceptWebSocketCreation(): void {
-    const self = this;
-
     // biome-ignore lint/suspicious/noExplicitAny: WebSocket constructor override
-    (window as any).WebSocket = function(url: string, protocols?: string | string[]) {
+    (window as any).WebSocket = (url: string, protocols?: string | string[]) => {
       const socket = new OriginalWebSocket(url, protocols);
       if (url.includes('/ws')) {
-        self.ws = socket;
+        this.ws = socket;
       }
       return socket;
     };
