@@ -53,7 +53,7 @@ export class SnippetManager {
       addNameInput,
       addCommandInput,
       addSaveBtn,
-      addCancelBtn,
+      addCancelBtn
     };
 
     this.setupEventListeners();
@@ -148,9 +148,7 @@ export class SnippetManager {
    * Check if modal is visible
    */
   isVisible(): boolean {
-    return this.elements?.modal
-      ? !this.elements.modal.classList.contains('hidden')
-      : false;
+    return this.elements?.modal ? !this.elements.modal.classList.contains('hidden') : false;
   }
 
   /**
@@ -221,7 +219,7 @@ export class SnippetManager {
       id: this.generateId(),
       name,
       command,
-      createdAt: new Date().toISOString(),
+      createdAt: new Date().toISOString()
     };
 
     this.snippets.push(snippet);
@@ -344,7 +342,7 @@ export class SnippetManager {
 
     const storage: SnippetStorage = {
       version: STORAGE_VERSION,
-      snippets: this.snippets,
+      snippets: this.snippets
     };
 
     const json = JSON.stringify(storage, null, 2);
@@ -390,7 +388,7 @@ export class SnippetManager {
     try {
       const storage: SnippetStorage = {
         version: STORAGE_VERSION,
-        snippets: this.snippets,
+        snippets: this.snippets
       };
       localStorage.setItem(STORAGE_KEYS.SNIPPETS, JSON.stringify(storage));
     } catch {
@@ -418,7 +416,8 @@ export class SnippetManager {
         empty?.classList.add('hidden');
         const noResults = document.createElement('div');
         noResults.id = 'ttyd-snippet-no-results';
-        noResults.style.cssText = 'text-align: center; color: #888; padding: 24px; font-size: 14px;';
+        noResults.style.cssText =
+          'text-align: center; color: #888; padding: 24px; font-size: 14px;';
         noResults.textContent = '検索結果がありません';
         list.appendChild(noResults);
       } else {

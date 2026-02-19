@@ -101,16 +101,7 @@ export class SearchManager {
       this.searchBar.classList.toggle('hidden');
     }
 
-    if (!this.searchBar.classList.contains('hidden')) {
-      this.loadAddon()
-        .then(() => {
-          this.searchInput?.focus();
-          this.searchInput?.select();
-        })
-        .catch((err) => {
-          console.error('[Toolbar] Failed to load search:', err);
-        });
-    } else {
+    if (this.searchBar.classList.contains('hidden')) {
       // Clear search highlights when closing
       if (this.searchAddon?.clearDecorations) {
         this.searchAddon.clearDecorations();
@@ -120,6 +111,15 @@ export class SearchManager {
       // Return focus to terminal
       const terminal = document.querySelector('.xterm-helper-textarea') as HTMLElement;
       terminal?.focus();
+    } else {
+      this.loadAddon()
+        .then(() => {
+          this.searchInput?.focus();
+          this.searchInput?.select();
+        })
+        .catch((err) => {
+          console.error('[Toolbar] Failed to load search:', err);
+        });
     }
   }
 
@@ -184,7 +184,7 @@ export class SearchManager {
     const options = {
       caseSensitive: this.caseSensitive,
       regex: this.regex,
-      incremental: false,
+      incremental: false
     };
 
     const found = this.searchAddon.findNext(this.searchInput.value, options);
@@ -204,7 +204,7 @@ export class SearchManager {
 
     const options = {
       caseSensitive: this.caseSensitive,
-      regex: this.regex,
+      regex: this.regex
     };
 
     const found = this.searchAddon.findPrevious(this.searchInput.value, options);

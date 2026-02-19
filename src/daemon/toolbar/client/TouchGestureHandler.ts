@@ -91,7 +91,7 @@ export class TouchGestureHandler {
     const eventTypes: ('mousedown' | 'mousemove' | 'mouseup')[] = [
       'mousedown',
       'mousemove',
-      'mouseup',
+      'mouseup'
     ];
 
     for (const eventType of eventTypes) {
@@ -122,7 +122,7 @@ export class TouchGestureHandler {
               metaKey: e.metaKey,
               button: e.button,
               buttons: e.buttons,
-              relatedTarget: e.relatedTarget,
+              relatedTarget: e.relatedTarget
             });
             e.stopImmediatePropagation();
             e.preventDefault();
@@ -153,7 +153,7 @@ export class TouchGestureHandler {
       metaKey: false,
       button: 0,
       buttons: type === 'mouseup' ? 0 : 1,
-      relatedTarget: null,
+      relatedTarget: null
     });
     (touch.target as HTMLElement).dispatchEvent(mouseEvent);
   }

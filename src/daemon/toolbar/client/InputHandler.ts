@@ -67,7 +67,7 @@ export class InputHandler {
       up: [0x1b, 0x5b, 0x41], // ESC [ A
       down: [0x1b, 0x5b, 0x42], // ESC [ B
       right: [0x1b, 0x5b, 0x43], // ESC [ C
-      left: [0x1b, 0x5b, 0x44], // ESC [ D
+      left: [0x1b, 0x5b, 0x44] // ESC [ D
     };
     this.ws.sendBytes(codes[direction]);
   }

@@ -145,7 +145,7 @@ export class NotificationManager {
       // Subscribe to push
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: this.urlBase64ToUint8Array(publicKey) as BufferSource,
+        applicationServerKey: this.urlBase64ToUint8Array(publicKey) as BufferSource
       });
 
       // Extract keys
@@ -164,10 +164,10 @@ export class NotificationManager {
           endpoint: subscription.endpoint,
           keys: {
             p256dh: btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dh)))),
-            auth: btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(auth)))),
+            auth: btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(auth))))
           },
-          sessionName: sessionName || undefined,
-        }),
+          sessionName: sessionName || undefined
+        })
       });
 
       if (!response.ok) {

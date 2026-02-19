@@ -15,7 +15,7 @@ import {
   CLIPBOARD_HISTORY_KEY,
   ONBOARDING_SHOWN_KEY,
   SNIPPETS_KEY,
-  STORAGE_KEY,
+  STORAGE_KEY
 } from './config.js';
 import { toolbarStyles } from './styles.js';
 import { onboardingHtml, toolbarHtml } from './template.js';

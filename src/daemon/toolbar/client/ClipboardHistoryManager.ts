@@ -57,7 +57,11 @@ export class ClipboardHistoryManager {
 
     // Close on outside click
     document.addEventListener('click', (e) => {
-      if (this.isPopupVisible() && !this.popup?.contains(e.target as Node) && e.target !== this.pasteBtn) {
+      if (
+        this.isPopupVisible() &&
+        !this.popup?.contains(e.target as Node) &&
+        e.target !== this.pasteBtn
+      ) {
         this.hidePopup();
       }
     });
@@ -132,7 +136,7 @@ export class ClipboardHistoryManager {
     const item: ClipboardHistoryItem = {
       id: this.generateId(),
       text,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toISOString()
     };
 
     this.history.unshift(item);
@@ -256,7 +260,7 @@ export class ClipboardHistoryManager {
     try {
       const storage: ClipboardHistoryStorage = {
         version: STORAGE_VERSION,
-        items: this.history,
+        items: this.history
       };
       localStorage.setItem(STORAGE_KEYS.CLIPBOARD_HISTORY, JSON.stringify(storage));
     } catch {
