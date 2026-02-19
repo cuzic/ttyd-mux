@@ -6,6 +6,7 @@
 
 import qrcode from 'qrcode-generator';
 import type { ToolbarConfig } from './types.js';
+import { getSessionNameFromURL } from './utils.js';
 
 export class ShareManager {
   private config: ToolbarConfig;
@@ -104,8 +105,7 @@ export class ShareManager {
    * Get session name from URL
    */
   private getSessionName(): string {
-    const pathParts = window.location.pathname.split('/');
-    return pathParts[2] || '';
+    return getSessionNameFromURL(this.config.base_path);
   }
 
   /**

@@ -11,6 +11,7 @@
 import type { ClipboardHistoryManager } from './ClipboardHistoryManager.js';
 import type { InputHandler } from './InputHandler.js';
 import type { Terminal, ToolbarConfig } from './types.js';
+import { isMobileDevice } from './utils.js';
 
 export class TerminalController {
   private config: ToolbarConfig;
@@ -18,9 +19,7 @@ export class TerminalController {
 
   constructor(config: ToolbarConfig) {
     this.config = config;
-    this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-      navigator.userAgent
-    );
+    this.isMobile = isMobileDevice();
   }
 
   /**

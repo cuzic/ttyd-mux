@@ -6,6 +6,7 @@
  */
 
 import type { ToolbarConfig } from './types.js';
+import { getSessionNameFromURL } from './utils.js';
 
 export interface FileInfo {
   name: string;
@@ -34,18 +35,7 @@ export class FileTransferManager {
 
   constructor(config: ToolbarConfig) {
     this.config = config;
-    this.sessionName = this.extractSessionName();
-  }
-
-  /**
-   * Extract session name from current URL path
-   */
-  private extractSessionName(): string {
-    const path = window.location.pathname;
-    const basePath = this.config.base_path;
-    // Path format: /base_path/session_name
-    const match = path.match(new RegExp(`^${basePath}/([^/]+)`));
-    return match?.[1] ?? '';
+    this.sessionName = getSessionNameFromURL(config.base_path);
   }
 
   /**

@@ -21,6 +21,7 @@ import { TouchGestureHandler } from './TouchGestureHandler.js';
 import { WebSocketConnection } from './WebSocketConnection.js';
 import type { SmartPasteElements, ToolbarConfig, ToolbarElements } from './types.js';
 import { STORAGE_KEYS } from './types.js';
+import { isMobileDevice } from './utils.js';
 
 class ToolbarApp {
   private config: ToolbarConfig;
@@ -45,9 +46,7 @@ class ToolbarApp {
 
   constructor(config: ToolbarConfig) {
     this.config = config;
-    this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-      navigator.userAgent
-    );
+    this.isMobile = isMobileDevice();
 
     // Get DOM elements
     this.elements = this.getElements();

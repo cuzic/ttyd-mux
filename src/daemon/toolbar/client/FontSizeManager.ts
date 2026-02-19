@@ -6,6 +6,7 @@
 
 import type { ToolbarConfig } from './types.js';
 import { STORAGE_KEYS } from './types.js';
+import { isMobileDevice } from './utils.js';
 
 export class FontSizeManager {
   private config: ToolbarConfig;
@@ -29,10 +30,7 @@ export class FontSizeManager {
    * Load font size from localStorage
    */
   load(): number {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-      navigator.userAgent
-    );
-    const defaultSize = isMobile
+    const defaultSize = isMobileDevice()
       ? this.config.font_size_default_mobile
       : this.config.font_size_default_pc;
 

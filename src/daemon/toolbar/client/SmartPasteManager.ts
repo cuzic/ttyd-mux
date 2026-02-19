@@ -20,6 +20,7 @@ import {
   type PendingUpload
 } from './smartPasteMachine.js';
 import type { SmartPasteElements, ToolbarConfig } from './types.js';
+import { getSessionNameFromURL } from './utils.js';
 
 // Re-export PendingUpload from state machine
 export type { PendingUpload } from './smartPasteMachine.js';
@@ -492,14 +493,7 @@ export class SmartPasteManager {
    * Get session name from URL
    */
   private getSessionName(): string {
-    // URL pattern: /<base_path>/<session-name>/...
-    const basePath = this.config.base_path.replace(/^\/|\/$/g, ''); // Remove leading/trailing slashes
-    const pathname = window.location.pathname;
-
-    // Create regex pattern to match base_path followed by session name
-    const pattern = new RegExp(`^/${basePath}/([^/]+)`);
-    const match = pathname.match(pattern);
-    return match ? match[1] : '';
+    return getSessionNameFromURL(this.config.base_path);
   }
 
   /**
