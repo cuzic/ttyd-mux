@@ -39,8 +39,12 @@ export class FontSizeManager {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.FONT_SIZE);
       if (saved) {
-        const size = parseInt(saved, 10);
-        if (!isNaN(size) && size >= this.config.font_size_min && size <= this.config.font_size_max) {
+        const size = Number.parseInt(saved, 10);
+        if (
+          !isNaN(size) &&
+          size >= this.config.font_size_min &&
+          size <= this.config.font_size_max
+        ) {
           return size;
         }
       }
