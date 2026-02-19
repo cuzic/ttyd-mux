@@ -169,13 +169,8 @@ export type SmartPasteContentType =
   | { type: 'file'; file: File }
   | { type: 'html'; html: string; text: string };
 
-/** Pending upload item for preview */
-export interface PendingUpload {
-  blob: Blob;
-  dataUrl: string;
-  name: string;
-  mimeType: string;
-}
+/** Pending upload item for preview - re-exported from smartPasteMachine */
+export type { PendingUpload } from './smartPasteMachine.js';
 
 /** Smart paste modal elements */
 export interface SmartPasteElements {
