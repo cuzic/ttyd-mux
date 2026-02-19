@@ -133,4 +133,49 @@ describe('NotificationMatcher', () => {
       expect(result).toBeNull();
     });
   });
+
+  describe('bell notification', () => {
+    test('matches bell character (\\x07)', () => {
+      const bellMatcher = createNotificationMatcher({
+        patterns: [{ regex: '\x07', message: 'Terminal bell', cooldown: 10 }],
+        defaultCooldown: 60
+      });
+
+      const result = bellMatcher.match('session1', 'Output with bell\x07');
+      expect(result).not.toBeNull();
+      expect(result?.pattern.message).toBe('Terminal bell');
+    });
+
+    test('matches standalone bell character', () => {
+      const bellMatcher = createNotificationMatcher({
+        patterns: [{ regex: '\x07', message: 'Terminal bell', cooldown: 10 }],
+        defaultCooldown: 60
+      });
+
+      const result = bellMatcher.match('session1', '\x07');
+      expect(result).not.toBeNull();
+    });
+
+    test('bell has separate cooldown from other patterns', () => {
+      const bellMatcher = createNotificationMatcher({
+        patterns: [
+          { regex: '\x07', message: 'Terminal bell', cooldown: 10 },
+          { regex: '\\?$', message: 'Question', cooldown: 60 }
+        ],
+        defaultCooldown: 300
+      });
+
+      // Bell should match
+      const bellResult = bellMatcher.match('session1', '\x07');
+      expect(bellResult).not.toBeNull();
+
+      // Question should still match (different pattern)
+      const questionResult = bellMatcher.match('session1', 'What?');
+      expect(questionResult).not.toBeNull();
+
+      // Bell should be in cooldown
+      const bellResult2 = bellMatcher.match('session1', '\x07');
+      expect(bellResult2).toBeNull();
+    });
+  });
 });

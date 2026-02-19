@@ -44,6 +44,8 @@ export type NotificationPatternConfig = z.infer<typeof NotificationPatternSchema
 export const NotificationConfigSchema = z.object({
   enabled: z.boolean().default(true),
   contact_email: z.string().email().optional(),
+  bell_notification: z.boolean().default(true),
+  bell_cooldown: z.number().int().min(0).default(10),
   patterns: z.array(NotificationPatternSchema).default([]),
   default_cooldown: z.number().int().min(0).default(300)
 });
@@ -53,6 +55,8 @@ export type NotificationConfig = z.infer<typeof NotificationConfigSchema>;
 /** Default notification configuration */
 export const DEFAULT_NOTIFICATION_CONFIG: NotificationConfig = {
   enabled: true,
+  bell_notification: true,
+  bell_cooldown: 10,
   patterns: [],
   default_cooldown: 300
 };

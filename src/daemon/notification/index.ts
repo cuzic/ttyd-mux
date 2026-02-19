@@ -44,6 +44,13 @@ export interface NotificationStore {
   removeSubscription(id: string): void;
 }
 
+/** Default bell pattern for terminal bell notification */
+const BELL_PATTERN = {
+  regex: '\x07',
+  message: 'Terminal bell',
+  cooldown: 10
+};
+
 /**
  * Create the notification service
  */
@@ -53,9 +60,16 @@ export function createNotificationService(
   store: NotificationStore
 ): NotificationService {
   const enabled = config.enabled !== false;
-  const patterns = config.patterns ?? [];
+  const bellEnabled = config.bell_notification !== false; // Default: true
+  const bellCooldown = config.bell_cooldown ?? 10;
+  const userPatterns = config.patterns ?? [];
   const defaultCooldown = config.default_cooldown ?? 300;
   const contactEmail = config.contact_email ?? 'webmaster@localhost';
+
+  // Build patterns: bell first (if enabled), then user patterns
+  const patterns = bellEnabled
+    ? [{ ...BELL_PATTERN, cooldown: bellCooldown }, ...userPatterns]
+    : userPatterns;
 
   // Load or generate VAPID keys
   let vapidKeys: VapidKeys;

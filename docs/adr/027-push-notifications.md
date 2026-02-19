@@ -19,8 +19,10 @@ Implement Web Push notifications using the Web Push API and service workers.
 notifications:
   enabled: true
   contact_email: webmaster@example.com
-  default_cooldown: 300  # 5 minutes
-  patterns:
+  bell_notification: true   # Default: true - notify on terminal bell (\x07)
+  bell_cooldown: 10         # Default: 10 seconds
+  default_cooldown: 300     # 5 minutes for custom patterns
+  patterns:                 # Additional custom patterns (optional)
     - regex: '\?\s*$'
       message: "Question detected"
       cooldown: 60
@@ -28,6 +30,21 @@ notifications:
       message: "Confirmation required"
     - regex: 'ERROR|Error|error'
       message: "Error detected"
+```
+
+### Default Bell Notification
+
+By default, notifications are triggered when the terminal outputs a bell character (`\x07`, ASCII BEL). This is useful because:
+
+1. **AI coding assistants** (Claude Code, etc.) ring the bell when they need user attention
+2. **Build tools** often use bell to signal completion
+3. **Shell prompts** can be configured to ring bell after long-running commands
+4. **No configuration needed** - works out of the box
+
+To disable bell notifications:
+```yaml
+notifications:
+  bell_notification: false
 ```
 
 ### Architecture

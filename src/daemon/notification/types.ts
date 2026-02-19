@@ -49,6 +49,10 @@ export interface NotificationConfig {
   enabled?: boolean;
   /** VAPID contact email */
   contact_email?: string;
+  /** Enable bell notification (default: true) */
+  bell_notification?: boolean;
+  /** Bell notification cooldown in seconds (default: 10) */
+  bell_cooldown?: number;
   /** Patterns to match */
   patterns?: PatternConfig[];
   /** Default cooldown in seconds */

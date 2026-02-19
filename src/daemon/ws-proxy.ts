@@ -101,7 +101,11 @@ function processOutput(
   text: string,
   notificationService: NotificationService
 ): void {
-  // Accumulate output in buffer
+  // First, check raw text for control characters (bell, etc.)
+  // This catches patterns that don't fall on line boundaries
+  notificationService.processOutput(sessionName, text);
+
+  // Also accumulate output for line-based pattern matching
   let buffer = outputBuffers.get(sessionName) ?? '';
   buffer += text;
 
@@ -110,13 +114,12 @@ function processOutput(
     buffer = buffer.slice(-OUTPUT_BUFFER_MAX_LENGTH);
   }
 
-  outputBuffers.set(sessionName, buffer);
-
-  // Check for patterns in the buffer (line by line)
-  const lines = buffer.split('\\n');
-  for (const line of lines) {
-    if (line.trim()) {
-      notificationService.processOutput(sessionName, line.trim());
+  // Check for patterns in complete lines
+  const lines = buffer.split('\n');
+  for (let i = 0; i < lines.length - 1; i++) {
+    const line = lines[i]?.trim();
+    if (line) {
+      notificationService.processOutput(sessionName, line);
     }
   }
 
