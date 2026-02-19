@@ -27,9 +27,7 @@ export class TerminalController {
    * Get default font size based on device type
    */
   getDefaultFontSize(): number {
-    return this.isMobile
-      ? this.config.font_size_default_mobile
-      : this.config.font_size_default_pc;
+    return this.isMobile ? this.config.font_size_default_mobile : this.config.font_size_default_pc;
   }
 
   /**
@@ -140,7 +138,10 @@ export class TerminalController {
   /**
    * Paste from clipboard to terminal
    */
-  async paste(inputHandler: InputHandler, historyManager?: ClipboardHistoryManager): Promise<boolean> {
+  async paste(
+    inputHandler: InputHandler,
+    historyManager?: ClipboardHistoryManager
+  ): Promise<boolean> {
     try {
       const text = await navigator.clipboard.readText();
       if (!text) return false;

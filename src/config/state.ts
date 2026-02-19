@@ -3,7 +3,13 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { lockSync, unlockSync } from 'proper-lockfile';
 import type { StateStore } from './state-store.js';
-import type { DaemonState, PushSubscriptionState, SessionState, ShareState, State } from './types.js';
+import type {
+  DaemonState,
+  PushSubscriptionState,
+  SessionState,
+  ShareState,
+  State
+} from './types.js';
 
 /**
  * Get state directory path.
@@ -200,7 +206,9 @@ export function addPushSubscription(subscription: PushSubscriptionState): void {
       state.pushSubscriptions = [];
     }
     // Remove existing subscription with same endpoint
-    state.pushSubscriptions = state.pushSubscriptions.filter((s) => s.endpoint !== subscription.endpoint);
+    state.pushSubscriptions = state.pushSubscriptions.filter(
+      (s) => s.endpoint !== subscription.endpoint
+    );
     state.pushSubscriptions.push(subscription);
     saveState(state);
   });

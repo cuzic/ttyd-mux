@@ -3,7 +3,13 @@
  * Allows in-memory state store for testing without file system access
  */
 
-import type { DaemonState, PushSubscriptionState, SessionState, ShareState, State } from './types.js';
+import type {
+  DaemonState,
+  PushSubscriptionState,
+  SessionState,
+  ShareState,
+  State
+} from './types.js';
 
 // Re-export defaultStateStore from state.ts for convenience
 export { defaultStateStore } from './state.js';
@@ -116,7 +122,9 @@ export function createInMemoryStateStore(initialState?: Partial<State>): StateSt
 
     addPushSubscription: (subscription: PushSubscriptionState) => {
       if (!state.pushSubscriptions) state.pushSubscriptions = [];
-      state.pushSubscriptions = state.pushSubscriptions.filter((s) => s.endpoint !== subscription.endpoint);
+      state.pushSubscriptions = state.pushSubscriptions.filter(
+        (s) => s.endpoint !== subscription.endpoint
+      );
       state.pushSubscriptions.push(subscription);
     },
     removePushSubscription: (id: string) => {

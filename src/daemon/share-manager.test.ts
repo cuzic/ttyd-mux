@@ -54,8 +54,12 @@ describe('ShareManager', () => {
     shares = new Map();
     manager = createShareManager({
       getShares: () => Array.from(shares.values()) as ReturnType<ShareManager['listShares']>,
-      addShare: (share) => { shares.set(share.token, share); },
-      removeShare: (token) => { shares.delete(token); },
+      addShare: (share) => {
+        shares.set(share.token, share);
+      },
+      removeShare: (token) => {
+        shares.delete(token);
+      },
       getShare: (token) => shares.get(token) as ReturnType<ShareManager['getShare']>
     });
   });

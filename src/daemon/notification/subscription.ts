@@ -19,7 +19,11 @@ export interface SubscriptionStoreConfig {
  */
 export interface SubscriptionManager {
   /** Add a new subscription */
-  subscribe(endpoint: string, keys: { p256dh: string; auth: string }, sessionName?: string): PushSubscription;
+  subscribe(
+    endpoint: string,
+    keys: { p256dh: string; auth: string },
+    sessionName?: string
+  ): PushSubscription;
   /** Remove a subscription by ID */
   unsubscribe(id: string): boolean;
   /** Get all subscriptions */
@@ -80,9 +84,9 @@ export function createSubscriptionManager(store: SubscriptionStoreConfig): Subsc
     },
 
     getForSession(sessionName: string): PushSubscription[] {
-      return store.getSubscriptions().filter(
-        (s) => !s.sessionName || s.sessionName === sessionName
-      );
+      return store
+        .getSubscriptions()
+        .filter((s) => !s.sessionName || s.sessionName === sessionName);
     },
 
     hasSubscription(endpoint: string): boolean {

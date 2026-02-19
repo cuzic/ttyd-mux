@@ -170,7 +170,12 @@ export function setupWebSocketForwarding(
     }
 
     // Process output for notification pattern matching
-    if (sessionName && notificationService?.isEnabled() && isBinary && isOutputMessage(data as Buffer)) {
+    if (
+      sessionName &&
+      notificationService?.isEnabled() &&
+      isBinary &&
+      isOutputMessage(data as Buffer)
+    ) {
       try {
         const text = extractOutputText(data as Buffer);
         if (text) {
@@ -212,7 +217,9 @@ function connectToBackend(
   options: ForwardingOptions = {}
 ): void {
   const backendUrl = `ws://127.0.0.1:${session.port}${url}`;
-  log.debug(`Connecting to backend WebSocket: ${backendUrl}${options.readOnly ? ' (read-only)' : ''}`);
+  log.debug(
+    `Connecting to backend WebSocket: ${backendUrl}${options.readOnly ? ' (read-only)' : ''}`
+  );
 
   const backendWs = new WebSocket(
     backendUrl,
