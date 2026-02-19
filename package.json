@@ -30,7 +30,6 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",
-    "esbuild": "^0.24.0",
     "@playwright/test": "^1.58.2",
     "@types/bun": "latest",
     "@types/http-proxy": "^1.17.14",
@@ -38,6 +37,7 @@
     "@types/proper-lockfile": "^4.1.4",
     "@types/web-push": "^3.6.4",
     "@types/ws": "^8.18.1",
+    "esbuild": "^0.24.0",
     "playwright": "^1.58.2",
     "tsc-alias": "^1.8.16",
     "typescript": "^5.6.0"
@@ -72,6 +72,7 @@
     "commander": "^14.0.2",
     "http-proxy": "^1.18.1",
     "proper-lockfile": "^4.1.2",
+    "qrcode-generator": "^2.0.4",
     "web-push": "^3.6.7",
     "ws": "^8.19.0",
     "yaml": "^2.6.0",

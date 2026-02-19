@@ -4,14 +4,17 @@
  * Handles Web Push notification subscription and management.
  */
 
+import type { ToolbarConfig } from './types.js';
 import { STORAGE_KEYS } from './types.js';
 
 export class NotificationManager {
+  private config: ToolbarConfig;
   private subscribed = false;
   private subscriptionId: string | null = null;
   private notifyBtn: HTMLElement | null = null;
 
-  constructor() {
+  constructor(config: ToolbarConfig) {
+    this.config = config;
     this.loadSubscription();
   }
 
@@ -21,14 +24,6 @@ export class NotificationManager {
   bindElement(notifyBtn: HTMLElement): void {
     this.notifyBtn = notifyBtn;
     this.updateButton();
-  }
-
-  /**
-   * Get base path from URL
-   */
-  private getBasePath(): string {
-    const pathParts = window.location.pathname.split('/');
-    return '/' + (pathParts[1] || 'ttyd-mux');
   }
 
   /**
@@ -120,7 +115,7 @@ export class NotificationManager {
    * Subscribe to push notifications
    */
   async subscribe(): Promise<void> {
-    const basePath = this.getBasePath();
+    const basePath = this.config.base_path;
     const sessionName = this.getSessionName();
 
     try {
@@ -195,7 +190,7 @@ export class NotificationManager {
    * Unsubscribe from push notifications
    */
   async unsubscribe(): Promise<void> {
-    const basePath = this.getBasePath();
+    const basePath = this.config.base_path;
 
     try {
       if (this.subscriptionId) {

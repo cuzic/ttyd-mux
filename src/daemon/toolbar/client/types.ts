@@ -50,6 +50,7 @@ export interface FitAddon {
 
 /** Toolbar configuration from server */
 export interface ToolbarConfig {
+  base_path: string;
   font_size_min: number;
   font_size_max: number;
   font_size_default_mobile: number;
@@ -82,6 +83,15 @@ export interface ToolbarElements {
   pageUpBtn: HTMLButtonElement;
   pageDownBtn: HTMLButtonElement;
   notifyBtn: HTMLButtonElement;
+  shareBtn: HTMLButtonElement;
+  // Share modal elements
+  shareModal: HTMLElement;
+  shareModalClose: HTMLButtonElement;
+  shareCreate: HTMLButtonElement;
+  shareResult: HTMLElement;
+  shareUrl: HTMLInputElement;
+  shareCopy: HTMLButtonElement;
+  shareQr: HTMLButtonElement;
   // Search bar elements
   searchBar: HTMLElement;
   searchInput: HTMLInputElement;

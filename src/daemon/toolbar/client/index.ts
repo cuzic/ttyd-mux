@@ -11,6 +11,7 @@ import { InputHandler } from './InputHandler.js';
 import { ModifierKeyState } from './ModifierKeyState.js';
 import { NotificationManager } from './NotificationManager.js';
 import { SearchManager } from './SearchManager.js';
+import { ShareManager } from './ShareManager.js';
 import { TerminalController } from './TerminalController.js';
 import { TouchGestureHandler } from './TouchGestureHandler.js';
 import type { ToolbarConfig, ToolbarElements } from './types.js';
@@ -27,6 +28,7 @@ class ToolbarApp {
   private input: InputHandler;
   private search: SearchManager;
   private notifications: NotificationManager;
+  private share: ShareManager;
   private touch: TouchGestureHandler;
   private fontSizeManager: FontSizeManager;
   private autoRun: AutoRunManager;
@@ -48,7 +50,7 @@ class ToolbarApp {
     this.modifiers = new ModifierKeyState();
     this.input = new InputHandler(this.ws, this.modifiers);
     this.search = new SearchManager(() => this.terminal.findTerminal());
-    this.notifications = new NotificationManager();
+    this.notifications = new NotificationManager(config);
     this.touch = new TouchGestureHandler(config, this.terminal, this.input, this.modifiers);
     this.fontSizeManager = new FontSizeManager(config);
     this.autoRun = new AutoRunManager();
@@ -82,6 +84,15 @@ class ToolbarApp {
       pageUpBtn: document.getElementById('ttyd-toolbar-pageup') as HTMLButtonElement,
       pageDownBtn: document.getElementById('ttyd-toolbar-pagedown') as HTMLButtonElement,
       notifyBtn: document.getElementById('ttyd-toolbar-notify') as HTMLButtonElement,
+      shareBtn: document.getElementById('ttyd-toolbar-share') as HTMLButtonElement,
+      // Share modal elements
+      shareModal: document.getElementById('ttyd-share-modal') as HTMLElement,
+      shareModalClose: document.getElementById('ttyd-share-modal-close') as HTMLButtonElement,
+      shareCreate: document.getElementById('ttyd-share-create') as HTMLButtonElement,
+      shareResult: document.getElementById('ttyd-share-result') as HTMLElement,
+      shareUrl: document.getElementById('ttyd-share-url') as HTMLInputElement,
+      shareCopy: document.getElementById('ttyd-share-copy') as HTMLButtonElement,
+      shareQr: document.getElementById('ttyd-share-qr') as HTMLButtonElement,
       // Search bar elements
       searchBar: document.getElementById('ttyd-search-bar') as HTMLElement,
       searchInput: document.getElementById('ttyd-search-input') as HTMLInputElement,
@@ -115,6 +126,19 @@ class ToolbarApp {
     );
 
     this.notifications.bindElement(this.elements.notifyBtn);
+
+    this.share = new ShareManager(this.config);
+    this.share.bindElements(
+      this.elements.shareBtn,
+      this.elements.shareModal,
+      this.elements.shareModalClose,
+      this.elements.shareCreate,
+      this.elements.shareResult,
+      this.elements.shareUrl,
+      this.elements.shareCopy,
+      this.elements.shareQr
+    );
+
     this.touch.bindScrollButton(this.elements.scrollBtn);
     this.autoRun.bindElement(this.elements.autoBtn);
 

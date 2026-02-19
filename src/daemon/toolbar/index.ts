@@ -44,7 +44,9 @@ export function injectToolbar(
   basePath: string,
   config: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG
 ): string {
-  const configScript = `<script>window.__TOOLBAR_CONFIG__ = ${JSON.stringify(config)};</script>`;
+  // Merge basePath into config for client-side use
+  const clientConfig = { ...config, base_path: basePath };
+  const configScript = `<script>window.__TOOLBAR_CONFIG__ = ${JSON.stringify(clientConfig)};</script>`;
   const injection = `
 <style>${toolbarStyles}</style>
 ${toolbarHtml}
