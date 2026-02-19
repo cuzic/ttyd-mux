@@ -10,7 +10,7 @@ export async function daemonCommand(options: DaemonOptions): Promise<void> {
   // Check if already running
   if (await isDaemonRunning()) {
     console.log('Daemon is already running.');
-    console.log('Use "ttyd-mux shutdown" to stop it first.');
+    console.log('Use "ttyd-mux daemon stop" to stop it first.');
     process.exit(1);
   }
 

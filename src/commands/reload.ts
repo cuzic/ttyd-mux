@@ -23,7 +23,7 @@ export async function reloadCommand(_options: ReloadOptions): Promise<void> {
 
     if (!response) {
       console.error('Error: Daemon is not running');
-      console.log('  Start with: ttyd-mux daemon');
+      console.log('  Start with: ttyd-mux daemon start');
       process.exit(1);
     }
 
@@ -52,14 +52,14 @@ export async function reloadCommand(_options: ReloadOptions): Promise<void> {
         console.log(`  ⚠ ${setting}`);
       }
       console.log('\nTo apply these changes, restart the daemon:');
-      console.log('  ttyd-mux shutdown && ttyd-mux daemon');
+      console.log('  ttyd-mux daemon restart');
     }
 
     console.log('\nConfiguration reloaded successfully.');
   } catch (error) {
     if (error instanceof Error && error.message.includes('ENOENT')) {
       console.error('Error: Daemon is not running');
-      console.log('  Start with: ttyd-mux daemon');
+      console.log('  Start with: ttyd-mux daemon start');
     } else {
       console.error('Error:', error instanceof Error ? error.message : error);
     }

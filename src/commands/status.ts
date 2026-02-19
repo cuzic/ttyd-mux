@@ -12,7 +12,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
   const running = await isDaemonRunning();
   if (!running) {
     console.log('Daemon: not running');
-    console.log('\nStart daemon with: ttyd-mux daemon');
+    console.log('\nStart daemon with: ttyd-mux daemon start');
     return;
   }
 

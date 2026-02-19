@@ -89,7 +89,7 @@ export class SessionManager extends EventEmitter {
     if (!portAvailable) {
       log.error(`Port ${port} is already in use`);
       throw new Error(
-        `Port ${port} is already in use by another process.\n  To find the process: lsof -i :${port}\n  To stop all sessions: ttyd-mux shutdown`
+        `Port ${port} is already in use by another process.\n  To find the process: lsof -i :${port}\n  To stop all sessions: ttyd-mux daemon stop -s`
       );
     }
 

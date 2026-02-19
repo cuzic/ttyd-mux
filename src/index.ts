@@ -27,7 +27,7 @@ program
   .description('ttyd session multiplexer - manage multiple ttyd+tmux sessions')
   .version(VERSION);
 
-// === Main commands ===
+// === Quick session commands (current directory) ===
 
 program
   .command('up')
@@ -66,8 +66,6 @@ program
   .option('-c, --config <path>', 'Config file path')
   .action((options) => statusCommand(options));
 
-// === Direct access ===
-
 program
   .command('attach [name]')
   .description('Attach to a tmux session directly')
@@ -76,39 +74,41 @@ program
 
 // === Daemon control ===
 
-program
-  .command('daemon')
+const daemon = program.command('daemon').description('Daemon management');
+
+daemon
+  .command('start')
   .description('Start the daemon')
   .option('-f, --foreground', 'Run in foreground')
   .option('-c, --config <path>', 'Config file path')
   .action((options) => daemonCommand(options));
 
-program
-  .command('shutdown')
+daemon
+  .command('stop')
   .description('Stop the daemon')
   .option('-c, --config <path>', 'Config file path')
   .option('-s, --stop-sessions', 'Stop all sessions before shutting down')
   .action((options) => shutdownCommand(options));
 
-program
+daemon
   .command('reload')
-  .description('Reload daemon configuration without restart')
+  .description('Reload configuration without restart')
   .option('-c, --config <path>', 'Config file path')
   .action((options) => reloadCommand(options));
 
-program
+daemon
   .command('restart')
   .description('Restart the daemon (stop and start)')
   .option('-c, --config <path>', 'Config file path')
   .action((options) => restartCommand(options));
+
+// === Utilities ===
 
 program
   .command('doctor')
   .description('Check dependencies and configuration')
   .option('-c, --config <path>', 'Config file path')
   .action((options) => doctorCommand(options));
-
-// === Deployment (static mode) ===
 
 program
   .command('deploy')

@@ -130,7 +130,7 @@ async function checkDaemon(): Promise<CheckResult> {
     name: 'daemon',
     ok: true, // Not an error, just informational
     message: 'daemon not running',
-    hint: 'Start with: ttyd-mux daemon'
+    hint: 'Start with: ttyd-mux daemon start'
   };
 }
 
