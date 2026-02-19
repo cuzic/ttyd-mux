@@ -13,6 +13,7 @@ import { generatePortalHtml } from './portal.js';
 import { getIconPng, getIconSvg, getManifestJson, getServiceWorker } from './pwa.js';
 import { sessionManager } from './session-manager.js';
 import { createShareManager } from './share-manager.js';
+import { generateTabsHtml } from './tabs/index.js';
 
 // Get the directory of this module for resolving dist path
 const __filename = fileURLToPath(import.meta.url);
@@ -21,6 +22,10 @@ const __dirname = dirname(__filename);
 // Cache for toolbar.js content and ETag
 let toolbarJsCache: string | null = null;
 let toolbarJsEtag: string | null = null;
+
+// Cache for tabs.js content and ETag
+let tabsJsCache: string | null = null;
+let tabsJsEtag: string | null = null;
 
 /**
  * Generate ETag from content using MD5 hash
@@ -37,6 +42,14 @@ export function generateEtag(content: string): string {
 export function resetToolbarCache(): void {
   toolbarJsCache = null;
   toolbarJsEtag = null;
+}
+
+/**
+ * Reset tabs.js cache (for testing)
+ */
+export function resetTabsCache(): void {
+  tabsJsCache = null;
+  tabsJsEtag = null;
 }
 
 // Share manager for validating share tokens
@@ -199,6 +212,74 @@ function serveToolbarJs(req: IncomingMessage, res: ServerResponse): void {
 }
 
 /**
+ * Load tabs.js from dist directory (cached)
+ * Returns { content, etag }
+ */
+function loadTabsJs(): { content: string; etag: string } {
+  if (tabsJsCache !== null && tabsJsEtag !== null) {
+    return { content: tabsJsCache, etag: tabsJsEtag };
+  }
+
+  try {
+    // Load from dist directory (relative to compiled output)
+    const distPath = join(__dirname, '../../dist/tabs.js');
+    tabsJsCache = readFileSync(distPath, 'utf-8');
+    log.debug('Loaded tabs.js from dist');
+  } catch {
+    // Fallback: bundle not available
+    log.warn('tabs.js not found in dist, returning placeholder');
+    tabsJsCache =
+      '// tabs.js not built - run: bun run build:tabs\nconsole.warn("[Tabs] Bundle not found");';
+  }
+
+  // Calculate ETag from content hash
+  tabsJsEtag = generateEtag(tabsJsCache);
+
+  return { content: tabsJsCache, etag: tabsJsEtag };
+}
+
+/**
+ * Serve tabs JavaScript (static file from dist)
+ * Supports ETag-based conditional requests for cache revalidation
+ */
+function serveTabsJs(req: IncomingMessage, res: ServerResponse): void {
+  const { content, etag } = loadTabsJs();
+
+  // Check If-None-Match header for conditional request
+  const ifNoneMatch = req.headers['if-none-match'];
+  if (ifNoneMatch === etag) {
+    // Content hasn't changed, return 304 Not Modified
+    res.writeHead(304, {
+      ETag: etag,
+      'Cache-Control': 'public, max-age=0, must-revalidate'
+    });
+    res.end();
+    return;
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'application/javascript',
+    'Content-Length': Buffer.byteLength(content),
+    ETag: etag,
+    'Cache-Control': 'public, max-age=0, must-revalidate'
+  });
+  res.end(content);
+}
+
+/**
+ * Serve tabs HTML page
+ */
+function serveTabs(config: Config, res: ServerResponse, sessionName: string | null): void {
+  const sessions = sessionManager.listSessions();
+  const html = generateTabsHtml(config, sessions, sessionName);
+  res.writeHead(200, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Content-Length': Buffer.byteLength(html)
+  });
+  res.end(html);
+}
+
+/**
  * Handle incoming HTTP request
  */
 export function handleRequest(config: Config, req: IncomingMessage, res: ServerResponse): void {
@@ -243,6 +324,34 @@ export function handleRequest(config: Config, req: IncomingMessage, res: ServerR
   if (url === `${basePath}/toolbar.js`) {
     serveToolbarJs(req, res);
     return;
+  }
+
+  // Tabs JavaScript (static file)
+  if (url === `${basePath}/tabs.js`) {
+    serveTabsJs(req, res);
+    return;
+  }
+
+  // Tabs view: /ttyd-mux/tabs/ or /ttyd-mux/tabs/{session}
+  if (url.startsWith(`${basePath}/tabs`)) {
+    const tabsPath = `${basePath}/tabs`;
+    if (url === tabsPath || url === `${tabsPath}/`) {
+      // /tabs/ - show tabs view with first/last session
+      if (method === 'GET') {
+        log.debug('Serving tabs page');
+        serveTabs(config, res, null);
+        return;
+      }
+    } else if (url.startsWith(`${tabsPath}/`)) {
+      // /tabs/{session} - show tabs view with specific session
+      const sessionPart = url.slice(tabsPath.length + 1).replace(/\/$/, '');
+      const sessionName = decodeURIComponent(sessionPart);
+      if (method === 'GET' && sessionName) {
+        log.debug(`Serving tabs page for session: ${sessionName}`);
+        serveTabs(config, res, sessionName);
+        return;
+      }
+    }
   }
 
   // Portal page
