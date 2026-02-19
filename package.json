@@ -71,6 +71,7 @@
     "@inquirer/prompts": "^8.2.1",
     "commander": "^14.0.2",
     "http-proxy": "^1.18.1",
+    "mitt": "^3.0.1",
     "proper-lockfile": "^4.1.2",
     "qrcode-generator": "^2.0.4",
     "web-push": "^3.6.7",
