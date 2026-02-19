@@ -31,7 +31,7 @@ html, body {
   display: flex;
   height: 100vh;
   width: 100vw;
-  ${isVertical ? (isRight ? 'flex-direction: row-reverse;' : 'flex-direction: row;') : (isBottom ? 'flex-direction: column-reverse;' : 'flex-direction: column;')}
+  ${isVertical ? (isRight ? 'flex-direction: row-reverse;' : 'flex-direction: row;') : isBottom ? 'flex-direction: column-reverse;' : 'flex-direction: column;'}
 }
 
 /* Vertical sidebar styles */

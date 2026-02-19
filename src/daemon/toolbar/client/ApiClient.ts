@@ -98,10 +98,7 @@ export function createApiClient(config: ApiClientConfig): ToolbarApiClient {
   /**
    * Make an API request with error handling
    */
-  const request = async <T>(
-    url: string,
-    init?: RequestInit
-  ): Promise<T> => {
+  const request = async <T>(url: string, init?: RequestInit): Promise<T> => {
     try {
       const response = await fetchFn(url, {
         ...init,
@@ -126,65 +123,43 @@ export function createApiClient(config: ApiClientConfig): ToolbarApiClient {
       if (error instanceof ApiError) {
         throw error;
       }
-      throw new ApiError(
-        error instanceof Error ? error.message : 'Unknown error',
-        0
-      );
+      throw new ApiError(error instanceof Error ? error.message : 'Unknown error', 0);
     }
   };
 
   /**
    * Make a JSON API request
    */
-  const requestJson = async <T>(
-    url: string,
-    init?: RequestInit
-  ): Promise<T> => {
+  const requestJson = async <T>(url: string, init?: RequestInit): Promise<T> => {
     const response = await request<Response>(url, init);
     return response.json() as Promise<T>;
   };
 
   // Clipboard
-  const uploadImages = async (
-    session: string,
-    images: ImageData[]
-  ): Promise<string[]> => {
+  const uploadImages = async (session: string, images: ImageData[]): Promise<string[]> => {
     const url = `${basePath}/api/clipboard-image?session=${encodeURIComponent(session)}`;
-    const result = await requestJson<{ success: boolean; paths: string[]; error?: string }>(
-      url,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images })
-      }
-    );
+    const result = await requestJson<{ success: boolean; paths: string[]; error?: string }>(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ images })
+    });
     return result.paths;
   };
 
   // File Transfer
-  const listFiles = async (
-    session: string,
-    path: string
-  ): Promise<FileInfo[]> => {
+  const listFiles = async (session: string, path: string): Promise<FileInfo[]> => {
     const url = `${basePath}/api/files/list?session=${encodeURIComponent(session)}&path=${encodeURIComponent(path)}`;
     const result = await requestJson<{ files: FileInfo[] }>(url);
     return result.files;
   };
 
-  const downloadFile = async (
-    session: string,
-    path: string
-  ): Promise<Blob> => {
+  const downloadFile = async (session: string, path: string): Promise<Blob> => {
     const url = `${basePath}/api/files/download?session=${encodeURIComponent(session)}&path=${encodeURIComponent(path)}`;
     const response = await request<Response>(url);
     return response.blob();
   };
 
-  const uploadFile = async (
-    session: string,
-    destPath: string,
-    file: File
-  ): Promise<string> => {
+  const uploadFile = async (session: string, destPath: string, file: File): Promise<string> => {
     const url = `${basePath}/api/files/upload?session=${encodeURIComponent(session)}&path=${encodeURIComponent(destPath)}`;
     const formData = new FormData();
     formData.append('file', file);
@@ -219,10 +194,7 @@ export function createApiClient(config: ApiClientConfig): ToolbarApiClient {
   };
 
   // Share
-  const createShare = async (
-    sessionName: string,
-    expiresIn: string
-  ): Promise<ShareLink> => {
+  const createShare = async (sessionName: string, expiresIn: string): Promise<ShareLink> => {
     const url = `${basePath}/api/shares`;
     return requestJson<ShareLink>(url, {
       method: 'POST',

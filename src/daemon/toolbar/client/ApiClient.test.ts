@@ -53,18 +53,14 @@ describe('ToolbarApiClient', () => {
 
   describe('clipboard images', () => {
     test('uploadImages sends POST with base64 images', async () => {
-      const images: ImageData[] = [
-        { data: 'base64data', mimeType: 'image/png', name: 'test.png' }
-      ];
+      const images: ImageData[] = [{ data: 'base64data', mimeType: 'image/png', name: 'test.png' }];
       mockFetch.setJsonResponse({ success: true, paths: ['/tmp/test.png'] });
 
       const paths = await client.uploadImages('my-session', images);
 
       expect(paths).toEqual(['/tmp/test.png']);
       expect(mockFetch.calls.length).toBe(1);
-      expect(mockFetch.calls[0].url).toBe(
-        '/ttyd-mux/api/clipboard-image?session=my-session'
-      );
+      expect(mockFetch.calls[0].url).toBe('/ttyd-mux/api/clipboard-image?session=my-session');
       expect(mockFetch.calls[0].init?.method).toBe('POST');
     });
 
@@ -145,9 +141,7 @@ describe('ToolbarApiClient', () => {
       await client.unsubscribe('sub-123');
 
       expect(mockFetch.calls[0].init?.method).toBe('DELETE');
-      expect(mockFetch.calls[0].url).toBe(
-        '/ttyd-mux/api/notifications/subscribe/sub-123'
-      );
+      expect(mockFetch.calls[0].url).toBe('/ttyd-mux/api/notifications/subscribe/sub-123');
     });
   });
 

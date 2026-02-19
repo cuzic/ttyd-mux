@@ -12,9 +12,11 @@ import { STORAGE_KEYS } from './types.js';
 import { getSessionNameFromURL } from './utils.js';
 
 // Schema for notification subscription storage
-const subscriptionSchema = z.object({
-  id: z.string()
-}).nullable();
+const subscriptionSchema = z
+  .object({
+    id: z.string()
+  })
+  .nullable();
 
 type SubscriptionData = { id: string } | null;
 

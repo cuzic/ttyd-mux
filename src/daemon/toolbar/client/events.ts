@@ -41,12 +41,7 @@ export type ToolbarEvents = {
 /**
  * Modal names for type safety
  */
-export type ModalName =
-  | 'snippet'
-  | 'preview'
-  | 'share'
-  | 'file'
-  | 'clipboard-history';
+export type ModalName = 'snippet' | 'preview' | 'share' | 'file' | 'clipboard-history';
 
 /**
  * Toolbar event bus interface
@@ -56,10 +51,7 @@ export interface ToolbarEventBus {
    * Register an event handler
    * @returns Unsubscribe function
    */
-  on<K extends keyof ToolbarEvents>(
-    type: K,
-    handler: Handler<ToolbarEvents[K]>
-  ): () => void;
+  on<K extends keyof ToolbarEvents>(type: K, handler: Handler<ToolbarEvents[K]>): () => void;
 
   /**
    * Register a wildcard handler that receives all events
@@ -70,10 +62,7 @@ export interface ToolbarEventBus {
   /**
    * Remove an event handler
    */
-  off<K extends keyof ToolbarEvents>(
-    type: K,
-    handler: Handler<ToolbarEvents[K]>
-  ): void;
+  off<K extends keyof ToolbarEvents>(type: K, handler: Handler<ToolbarEvents[K]>): void;
 
   /**
    * Remove a wildcard handler

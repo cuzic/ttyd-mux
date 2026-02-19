@@ -4,11 +4,7 @@
 
 import { getFullPath, normalizeBasePath } from '@/config/config.js';
 import type { Config, SessionState } from '@/config/types.js';
-import {
-  escapeHtml,
-  generatePwaHead,
-  generateSwRegistration
-} from '../portal-utils.js';
+import { escapeHtml, generatePwaHead, generateSwRegistration } from '../portal-utils.js';
 import { generateTabsStyles } from './styles.js';
 
 /**
@@ -24,7 +20,7 @@ export function generateTabsHtml(
 
   // Determine initial session
   const initialSession = currentSession
-    ? sessions.find((s) => s.name === currentSession)?.name ?? sessions[0]?.name
+    ? (sessions.find((s) => s.name === currentSession)?.name ?? sessions[0]?.name)
     : sessions[0]?.name;
 
   // Generate tab items HTML

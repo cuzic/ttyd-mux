@@ -36,26 +36,13 @@ export interface ModalController {
 /**
  * Create a new ModalController instance
  */
-export function createModalController(
-  options: ModalControllerOptions
-): ModalController {
-  const {
-    modal,
-    closeBtn,
-    onShow,
-    onHide,
-    backdropClose = true,
-    escapeClose = true
-  } = options;
+export function createModalController(options: ModalControllerOptions): ModalController {
+  const { modal, closeBtn, onShow, onHide, backdropClose = true, escapeClose = true } = options;
 
   // Event handler references for cleanup
   const handlers: Array<{ element: EventTarget; type: string; handler: EventListener }> = [];
 
-  const addHandler = (
-    element: EventTarget,
-    type: string,
-    handler: EventListener
-  ) => {
+  const addHandler = (element: EventTarget, type: string, handler: EventListener) => {
     element.addEventListener(type, handler);
     handlers.push({ element, type, handler });
   };

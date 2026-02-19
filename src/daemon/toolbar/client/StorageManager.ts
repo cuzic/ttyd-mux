@@ -51,9 +51,7 @@ export interface StorageManager<T> {
 /**
  * Create a new StorageManager instance
  */
-export function createStorageManager<T>(
-  config: StorageManagerConfig<T>
-): StorageManager<T> {
+export function createStorageManager<T>(config: StorageManagerConfig<T>): StorageManager<T> {
   const { key, schema, defaultValue, storage, migrate } = config;
 
   // Use provided storage or try to use localStorage (for browser)

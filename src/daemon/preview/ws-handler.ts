@@ -2,132 +2,241 @@
  * Preview WebSocket Handler
  *
  * Handles WebSocket connections for live preview file watching.
+ * Uses dependency injection for testability.
  */
 
 import type { IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
 import { createLogger } from '@/utils/logger.js';
-import type WebSocket from 'ws';
 import { WebSocketServer } from 'ws';
-import { sessionManager } from '../session-manager.js';
+import { sessionManager as defaultSessionManager } from '../session-manager.js';
+import type { SessionManagerDeps } from './deps.js';
 import type { FileChangeEvent, PreviewClientMessage, PreviewServerMessage } from './types.js';
-import { onFileChange, unwatchAllForClient, unwatchFile, watchFile } from './watcher.js';
+import { FileWatcherService } from './watcher.js';
 
 const log = createLogger('preview-ws');
 
-/** WebSocket server for preview connections */
-const wss = new WebSocketServer({ noServer: true });
+/** WebSocket-like interface for testing */
+export interface WebSocketLike {
+  readyState: number;
+  send(data: string): void;
+  close(code?: number, reason?: string): void;
+  on(event: 'message', listener: (data: { toString(): string }) => void): void;
+  on(event: 'close', listener: () => void): void;
+  on(event: 'error', listener: (err: Error) => void): void;
+}
 
-/** Map of client WebSocket to session name */
-const clientSessions = new Map<WebSocket, string>();
+/** WebSocket server-like interface for testing */
+export interface WebSocketServerLike {
+  clients: Set<WebSocketLike>;
+  handleUpgrade(
+    req: IncomingMessage,
+    socket: Socket,
+    head: Buffer,
+    callback: (ws: WebSocketLike) => void
+  ): void;
+  emit(event: string, ...args: unknown[]): void;
+}
 
-/** Initialize change event forwarding */
-let changeListenerInitialized = false;
+/** Dependencies for PreviewWsHandler */
+export interface PreviewWsHandlerDeps {
+  sessionManager: SessionManagerDeps;
+  fileWatcher: FileWatcherService<WebSocketLike>;
+  createWsServer?: () => WebSocketServerLike;
+}
 
-function initializeChangeListener(): void {
-  if (changeListenerInitialized) return;
-  changeListenerInitialized = true;
+/** Default dependencies */
+const defaultDeps: PreviewWsHandlerDeps = {
+  sessionManager: defaultSessionManager,
+  fileWatcher: new FileWatcherService()
+};
 
-  onFileChange((event: FileChangeEvent) => {
-    // Find all clients watching this session/file and notify them
-    for (const client of wss.clients) {
-      const ws = client as WebSocket;
-      if (ws.readyState === 1) {
+/**
+ * Preview WebSocket Handler
+ *
+ * Manages WebSocket connections for live preview file watching.
+ */
+export class PreviewWsHandler {
+  private deps: PreviewWsHandlerDeps;
+  private wss: WebSocketServerLike;
+  private clientSessions = new Map<WebSocketLike, string>();
+  private changeListenerInitialized = false;
+
+  constructor(deps: Partial<PreviewWsHandlerDeps> = {}) {
+    this.deps = { ...defaultDeps, ...deps };
+
+    // Create WebSocket server
+    if (deps.createWsServer) {
+      this.wss = deps.createWsServer();
+    } else {
+      this.wss = new WebSocketServer({ noServer: true }) as unknown as WebSocketServerLike;
+    }
+  }
+
+  /**
+   * Initialize change event forwarding
+   */
+  private initializeChangeListener(): void {
+    if (this.changeListenerInitialized) return;
+    this.changeListenerInitialized = true;
+
+    this.deps.fileWatcher.onFileChange((event: FileChangeEvent) => {
+      this.broadcastChange(event);
+    });
+  }
+
+  /**
+   * Broadcast a file change event to all connected clients
+   */
+  private broadcastChange(event: FileChangeEvent): void {
+    for (const client of this.wss.clients) {
+      if (client.readyState === 1) {
         // WebSocket.OPEN
         const message: PreviewServerMessage = event;
-        ws.send(JSON.stringify(message));
+        client.send(JSON.stringify(message));
       }
     }
-  });
-}
+  }
 
-/**
- * Handle a WebSocket message from client
- */
-function handleMessage(ws: WebSocket, data: string): void {
-  try {
-    const message = JSON.parse(data) as PreviewClientMessage;
+  /**
+   * Handle a WebSocket message from client
+   */
+  handleMessage(ws: WebSocketLike, data: string): void {
+    try {
+      const message = JSON.parse(data) as PreviewClientMessage;
 
-    // Find session directory
-    const session = sessionManager.listSessions().find((s) => s.name === message.session);
-    if (!session) {
-      log.warn(`Session not found: ${message.session}`);
-      return;
-    }
+      // Find session directory
+      const session = this.deps.sessionManager
+        .listSessions()
+        .find((s) => s.name === message.session);
+      if (!session) {
+        log.warn(`Session not found: ${message.session}`);
+        return;
+      }
 
-    switch (message.action) {
-      case 'watch':
-        clientSessions.set(ws, message.session);
-        const success = watchFile(session.dir, message.path, message.session, ws);
-        if (success) {
-          log.debug(`Client subscribed to: ${message.session}/${message.path}`);
+      switch (message.action) {
+        case 'watch': {
+          this.clientSessions.set(ws, message.session);
+          const success = this.deps.fileWatcher.watchFile(
+            session.dir,
+            message.path,
+            message.session,
+            ws
+          );
+          if (success) {
+            log.debug(`Client subscribed to: ${message.session}/${message.path}`);
+          }
+          break;
         }
-        break;
 
-      case 'unwatch':
-        unwatchFile(session.dir, message.path, ws);
-        log.debug(`Client unsubscribed from: ${message.session}/${message.path}`);
-        break;
+        case 'unwatch':
+          this.deps.fileWatcher.unwatchFile(session.dir, message.path, ws);
+          log.debug(`Client unsubscribed from: ${message.session}/${message.path}`);
+          break;
 
-      default:
-        log.warn(`Unknown action: ${(message as { action: string }).action}`);
+        default:
+          log.warn(`Unknown action: ${(message as { action: string }).action}`);
+      }
+    } catch (err) {
+      log.error('Failed to parse message:', err);
     }
-  } catch (err) {
-    log.error('Failed to parse message:', err);
+  }
+
+  /**
+   * Handle a new WebSocket connection
+   */
+  handleConnection(ws: WebSocketLike): void {
+    log.debug('Preview WebSocket client connected');
+
+    ws.on('message', (data) => {
+      this.handleMessage(ws, data.toString());
+    });
+
+    ws.on('close', () => {
+      log.debug('Preview WebSocket client disconnected');
+      this.deps.fileWatcher.unwatchAllForClient(ws);
+      this.clientSessions.delete(ws);
+    });
+
+    ws.on('error', (err) => {
+      log.error('WebSocket error:', err);
+      this.deps.fileWatcher.unwatchAllForClient(ws);
+      this.clientSessions.delete(ws);
+    });
+  }
+
+  /**
+   * Handle WebSocket upgrade for preview endpoint
+   */
+  handleUpgrade(req: IncomingMessage, socket: Socket, head: Buffer): void {
+    this.initializeChangeListener();
+
+    this.wss.handleUpgrade(req, socket, head, (ws) => {
+      this.wss.emit('connection', ws, req);
+      this.handleConnection(ws);
+    });
+  }
+
+  /**
+   * Get preview WebSocket statistics
+   */
+  getStats(): { connectedClients: number } {
+    return {
+      connectedClients: this.wss.clients.size
+    };
+  }
+
+  /**
+   * Cleanup preview WebSocket server
+   */
+  cleanup(): void {
+    for (const client of this.wss.clients) {
+      client.close(1000, 'Server shutdown');
+    }
+    this.clientSessions.clear();
+    log.info('Preview WebSocket server cleaned up');
   }
 }
 
-/**
- * Handle a new WebSocket connection
- */
-function handleConnection(ws: WebSocket): void {
-  log.debug('Preview WebSocket client connected');
+// =============================================================================
+// Module-level singleton for backward compatibility
+// =============================================================================
 
-  ws.on('message', (data) => {
-    handleMessage(ws, data.toString());
-  });
+let defaultHandler: PreviewWsHandler | null = null;
 
-  ws.on('close', () => {
-    log.debug('Preview WebSocket client disconnected');
-    unwatchAllForClient(ws);
-    clientSessions.delete(ws);
-  });
-
-  ws.on('error', (err) => {
-    log.error('WebSocket error:', err);
-    unwatchAllForClient(ws);
-    clientSessions.delete(ws);
-  });
+function getDefaultHandler(): PreviewWsHandler {
+  if (!defaultHandler) {
+    defaultHandler = new PreviewWsHandler();
+  }
+  return defaultHandler;
 }
 
-/**
- * Handle WebSocket upgrade for preview endpoint
- */
-export function handlePreviewUpgrade(req: IncomingMessage, socket: Socket, head: Buffer): void {
-  initializeChangeListener();
-
-  wss.handleUpgrade(req, socket, head, (ws) => {
-    wss.emit('connection', ws, req);
-    handleConnection(ws);
-  });
+/** Handle WebSocket upgrade for preview endpoint (backward compatible) */
+export function handlePreviewUpgrade(
+  req: IncomingMessage,
+  socket: Socket,
+  head: Buffer
+): void {
+  getDefaultHandler().handleUpgrade(req, socket, head);
 }
 
-/**
- * Get preview WebSocket statistics
- */
+/** Get preview WebSocket statistics (backward compatible) */
 export function getPreviewWsStats(): { connectedClients: number } {
-  return {
-    connectedClients: wss.clients.size
-  };
+  return getDefaultHandler().getStats();
 }
 
-/**
- * Cleanup preview WebSocket server
- */
+/** Cleanup preview WebSocket server (backward compatible) */
 export function cleanupPreviewWs(): void {
-  for (const client of wss.clients) {
-    client.close(1000, 'Server shutdown');
+  if (defaultHandler) {
+    defaultHandler.cleanup();
+    defaultHandler = null;
   }
-  clientSessions.clear();
-  log.info('Preview WebSocket server cleaned up');
+}
+
+/** Reset default handler (for testing) */
+export function resetDefaultHandler(): void {
+  if (defaultHandler) {
+    defaultHandler.cleanup();
+    defaultHandler = null;
+  }
 }

@@ -8,9 +8,7 @@
  * Check if the current device is a mobile device
  */
 export const isMobileDevice = (): boolean =>
-  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-    navigator.userAgent
-  );
+  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 /**
  * Extract session name from URL path
@@ -58,11 +56,7 @@ export function bindClick(
  * @param suffix - Suffix to append when truncated (default: '...')
  * @returns Truncated text
  */
-export function truncateText(
-  text: string,
-  maxLength: number,
-  suffix = '...'
-): string {
+export function truncateText(text: string, maxLength: number, suffix = '...'): string {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength - suffix.length) + suffix;
 }

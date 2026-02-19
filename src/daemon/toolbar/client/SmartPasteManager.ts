@@ -237,8 +237,7 @@ export class SmartPasteManager {
   private hasFiles(dataTransfer: DataTransfer | null): boolean {
     if (!dataTransfer) return false;
     return (
-      dataTransfer.types.includes('Files') ||
-      dataTransfer.types.includes('application/x-moz-file')
+      dataTransfer.types.includes('Files') || dataTransfer.types.includes('application/x-moz-file')
     );
   }
 
@@ -450,7 +449,8 @@ export class SmartPasteManager {
     this.renderDots(context);
 
     // Show/hide remove button
-    this.elements.previewRemove.style.display = context.pendingUploads.length > 0 ? 'block' : 'none';
+    this.elements.previewRemove.style.display =
+      context.pendingUploads.length > 0 ? 'block' : 'none';
   }
 
   /**

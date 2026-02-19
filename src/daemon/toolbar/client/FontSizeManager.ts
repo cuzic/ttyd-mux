@@ -22,11 +22,7 @@ export class FontSizeManager {
       : config.font_size_default_pc;
 
     // Schema with min/max validation
-    const fontSizeSchema = z
-      .number()
-      .int()
-      .min(config.font_size_min)
-      .max(config.font_size_max);
+    const fontSizeSchema = z.number().int().min(config.font_size_min).max(config.font_size_max);
 
     this.storage = createStorageManager({
       key: STORAGE_KEYS.FONT_SIZE,
@@ -36,11 +32,7 @@ export class FontSizeManager {
         // Migrate from string format
         if (typeof raw === 'string') {
           const size = parseInt(raw, 10);
-          if (
-            !isNaN(size) &&
-            size >= config.font_size_min &&
-            size <= config.font_size_max
-          ) {
+          if (!isNaN(size) && size >= config.font_size_min && size <= config.font_size_max) {
             return size;
           }
         }
