@@ -12,42 +12,51 @@ GitHub Issue の受入条件に基づいて、TDD（テスト駆動開発）で�
 
 ## Workflow
 
-このスキルは Red-Green-Refactor-Review-ADR-Commit サイクルに従って実装を進める。
+このスキルは Research-Red-Green-Refactor-Review-ADR-Commit サイクルに従って実装を進める。
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  Phase 1: Issue Analysis（課題分析）                        │
+│  - Issue の取得と受入条件の抽出                             │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  Phase 2: Red（テストを書く）                               │
+│  Phase 2: Research（予備調査）                  ← NEW       │
+│  - Web 検索で技術調査                                       │
+│  - 既存コードベースの調査                                   │
+│  - ライブラリ・API の調査                                   │
+│  - 実装アプローチの検討                                     │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 3: Red（テストを書く）                               │
 │  - 失敗するテストを書く                                     │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  Phase 3: Green（テストを通す）                             │
+│  Phase 4: Green（テストを通す）                             │
 │  - 最小限の実装                                             │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  Phase 4: Refactor（リファクタリング）                      │
+│  Phase 5: Refactor（リファクタリング）                      │
 │  - コード品質改善                                           │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  Phase 5: Self-Review（AIセルフレビュー）      ← NEW        │
+│  Phase 6: Self-Review（AIセルフレビュー）                   │
 │  - コード品質チェック                                       │
 │  - セキュリティチェック                                     │
 │  - パフォーマンスチェック                                   │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  Phase 6: ADR（設計決定の記録）                ← NEW        │
+│  Phase 7: ADR（設計決定の記録）                             │
 │  - 重要な設計判断を文書化                                   │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  Phase 7: Commit（コミット）                                │
+│  Phase 8: Commit（コミット）                                │
 │  - 変更をコミット                                           │
 │  - 次の受入条件へ                                           │
 └─────────────────────────────────────────────────────────────┘
@@ -65,16 +74,149 @@ GitHub Issue の受入条件に基づいて、TDD（テスト駆動開発）で�
    - Should Have: 優先度の高い条件
    - Could Have: あると良い条件
 
-3. **実装計画を作成**
-   - 受入条件をテストケースに分解
-   - 依存関係を特定
-   - ファイル構成を計画
+3. **技術的な課題を特定**
+   - 未知の技術・ライブラリ
+   - 調査が必要な領域
+   - 不明確な要件
 
-4. **ユーザーに計画を確認**
-   - 計画を提示して承認を得る
-   - 疑問点があれば質問する
+### Phase 2: Research（予備調査）
 
-### Phase 2: Red（テストを書く）
+実装前に必要な情報を収集する。
+
+#### 2.1 Web 検索による技術調査
+
+```markdown
+## 調査項目
+
+### 検索クエリ
+1. "<技術名> <言語> example"
+2. "<ライブラリ名> tutorial"
+3. "<問題> best practices"
+4. "<機能> implementation <フレームワーク>"
+```
+
+**検索例:**
+```
+- "xterm.js search addon typescript"
+- "xterm-addon-search example"
+- "terminal search functionality best practices"
+- "PWA push notifications service worker"
+```
+
+#### 2.2 公式ドキュメントの確認
+
+```markdown
+## ドキュメント調査
+
+### 確認すべきドキュメント
+- [ ] ライブラリの公式ドキュメント
+- [ ] API リファレンス
+- [ ] Getting Started / Quick Start
+- [ ] Examples / Samples
+- [ ] GitHub README
+- [ ] CHANGELOG（破壊的変更の確認）
+```
+
+**URL を取得して内容を確認:**
+```
+WebFetch: https://github.com/xtermjs/xterm.js/tree/master/addons/xterm-addon-search
+WebFetch: https://www.npmjs.com/package/xterm-addon-search
+```
+
+#### 2.3 既存コードベースの調査
+
+```markdown
+## コードベース調査
+
+### 類似実装の検索
+- 同様のパターンが既にあるか
+- 再利用できるコードがあるか
+- 既存の設計パターンに従うべきか
+```
+
+**調査コマンド:**
+```bash
+# 類似機能の検索
+grep -r "addEventListener" src/daemon/toolbar/
+grep -r "xterm" src/
+
+# ファイル構造の確認
+ls -la src/daemon/toolbar/
+
+# 既存の実装パターンを確認
+cat src/daemon/toolbar/index.ts
+```
+
+#### 2.4 npm パッケージの調査
+
+```markdown
+## パッケージ調査
+
+### 候補パッケージの評価
+| パッケージ名 | 週間DL | 最終更新 | サイズ | 評価 |
+|-------------|--------|---------|--------|------|
+| package-a   | 100k   | 1週間前 | 50KB   | ⭐⭐⭐ |
+| package-b   | 10k    | 1年前   | 200KB  | ⭐ |
+```
+
+**調査コマンド:**
+```bash
+# パッケージ情報の確認
+npm info <package-name>
+
+# 依存関係の確認
+npm info <package-name> dependencies
+
+# バンドルサイズの確認
+# https://bundlephobia.com/package/<package-name>
+```
+
+#### 2.5 実装アプローチの検討
+
+```markdown
+## 実装アプローチ
+
+### 選択肢
+1. **アプローチ A**: [説明]
+   - メリット: ...
+   - デメリット: ...
+
+2. **アプローチ B**: [説明]
+   - メリット: ...
+   - デメリット: ...
+
+### 推奨
+アプローチ A を採用。理由: ...
+```
+
+#### 2.6 調査結果のまとめ
+
+```markdown
+## 調査結果サマリー
+
+### 使用する技術・ライブラリ
+- xterm-addon-search v0.13.0
+- 理由: 公式アドオン、活発にメンテナンス
+
+### 実装方針
+1. SearchAddon をインストール
+2. toolbar/search.ts に検索ロジックを実装
+3. 検索 UI を HTML に追加
+4. キーボードショートカットを設定
+
+### 参考資料
+- [xterm-addon-search README](https://github.com/xtermjs/xterm.js/tree/master/addons/xterm-addon-search)
+- [Example usage](https://xtermjs.org/docs/api/addons/search/)
+
+### 懸念事項・リスク
+- [ ] 大量のスクロールバックでのパフォーマンス
+- [ ] モバイルでの検索 UI の使いやすさ
+
+### 実装計画
+この調査結果に基づいて実装を進めてよろしいですか？
+```
+
+### Phase 3: Red（テストを書く）
 
 各受入条件に対して:
 
@@ -104,7 +246,7 @@ GitHub Issue の受入条件に基づいて、TDD（テスト駆動開発）で�
    - 期待: X
    - 実際: Y (または未実装エラー)
 
-### Phase 3: Green（テストを通す）
+### Phase 4: Green（テストを通す）
 
 1. **最小限の実装を書く**
    - テストを通すための最小限のコード
@@ -121,7 +263,7 @@ GitHub Issue の受入条件に基づいて、TDD（テスト駆動開発）で�
    bun test
    ```
 
-### Phase 4: Refactor（リファクタリング）
+### Phase 5: Refactor（リファクタリング）
 
 1. **コード品質の改善**
    - 重複の除去
@@ -143,11 +285,11 @@ GitHub Issue の受入条件に基づいて、TDD（テスト駆動開発）で�
    bun run typecheck
    ```
 
-### Phase 5: Self-Review（AI セルフレビュー）
+### Phase 6: Self-Review（AI セルフレビュー）
 
 実装完了後、以下の観点でセルフレビューを実施:
 
-#### 5.1 コード品質チェック
+#### 6.1 コード品質チェック
 
 ```markdown
 ## コード品質レビュー
@@ -168,7 +310,7 @@ GitHub Issue の受入条件に基づいて、TDD（テスト駆動開発）で�
 - [ ] ログ出力のフォーマットは統一されているか
 ```
 
-#### 5.2 セキュリティチェック
+#### 6.2 セキュリティチェック
 
 ```markdown
 ## セキュリティレビュー
@@ -186,7 +328,7 @@ GitHub Issue の受入条件に基づいて、TDD（テスト駆動開発）で�
 - [ ] 新しい依存関係にセキュリティ上の問題はないか
 ```
 
-#### 5.3 パフォーマンスチェック
+#### 6.3 パフォーマンスチェック
 
 ```markdown
 ## パフォーマンスレビュー
@@ -201,7 +343,7 @@ GitHub Issue の受入条件に基づいて、TDD（テスト駆動開発）で�
 - [ ] ファイルハンドルやコネクションは適切にクローズされているか
 ```
 
-#### 5.4 レビュー結果の報告
+#### 6.4 レビュー結果の報告
 
 ```markdown
 ## Self-Review 結果
@@ -218,11 +360,11 @@ GitHub Issue の受入条件に基づいて、TDD（テスト駆動開発）で�
 - [改善した内容を記載]
 ```
 
-### Phase 6: ADR（設計決定の記録）
+### Phase 7: ADR（設計決定の記録）
 
 重要な設計判断があった場合、ADR を作成:
 
-#### 6.1 ADR が必要な場合
+#### 7.1 ADR が必要な場合
 
 以下のいずれかに該当する場合:
 - 新しいライブラリやフレームワークを導入した
@@ -231,7 +373,7 @@ GitHub Issue の受入条件に基づいて、TDD（テスト駆動開発）で�
 - 将来の開発者に伝えるべき背景がある
 - 代替案を検討して却下した
 
-#### 6.2 ADR テンプレート
+#### 7.2 ADR テンプレート
 
 ```markdown
 # ADR XXX: [タイトル]
@@ -273,7 +415,7 @@ Accepted
 - #XX
 ```
 
-#### 6.3 ADR 番号の決定
+#### 7.3 ADR 番号の決定
 
 ```bash
 # 既存 ADR の最大番号を確認
@@ -284,7 +426,7 @@ ls docs/adr/ | tail -1
 # → 025-xxx.md
 ```
 
-#### 6.4 ADR が不要な場合
+#### 7.4 ADR が不要な場合
 
 以下の場合は ADR をスキップ:
 - 単純なバグ修正
@@ -298,7 +440,7 @@ ls docs/adr/ | tail -1
 この変更は既存パターンに従った実装のため、ADR は不要です。
 ```
 
-### Phase 7: Commit（コミット）
+### Phase 8: Commit（コミット）
 
 1. **変更をコミット**
    ```bash
@@ -313,7 +455,7 @@ ls docs/adr/ | tail -1
    ```
 
 3. **次の受入条件へ進む**
-   - Phase 2 に戻る
+   - Phase 3 に戻る
    - すべての Must Have が完了するまで繰り返す
 
 ## Test Patterns
@@ -423,13 +565,14 @@ gh issue comment <number> --body "✅ Completed: <acceptance criteria descriptio
 
 ## Rules
 
-1. **テストファースト**: 実装コードより先にテストを書く
-2. **小さなステップ**: 一度に1つの受入条件だけ実装
-3. **セルフレビュー必須**: 実装後は必ずセルフレビューを実施
-4. **ADR 検討**: 設計判断があれば ADR を作成
-5. **頻繁なコミット**: 各受入条件の完了ごとにコミット
-6. **リグレッション防止**: 新しいテストを追加する前に既存テストが通ることを確認
-7. **カバレッジ維持**: テストカバレッジを下げない
+1. **調査ファースト**: 実装前に必要な情報を収集する
+2. **テストファースト**: 実装コードより先にテストを書く
+3. **小さなステップ**: 一度に1つの受入条件だけ実装
+4. **セルフレビュー必須**: 実装後は必ずセルフレビューを実施
+5. **ADR 検討**: 設計判断があれば ADR を作成
+6. **頻繁なコミット**: 各受入条件の完了ごとにコミット
+7. **リグレッション防止**: 新しいテストを追加する前に既存テストが通ることを確認
+8. **カバレッジ維持**: テストカバレッジを下げない
 
 ## Example Session
 
@@ -438,7 +581,7 @@ User: /tdd 3
 
 Claude: ## Issue #3: Search within scrollback buffer
 
-### 受入条件の確認
+### Phase 1: Issue Analysis
 
 **Must Have:**
 1. [ ] Ctrl+Shift+F で検索バーが開く
@@ -446,18 +589,30 @@ Claude: ## Issue #3: Search within scrollback buffer
 3. [ ] マッチした箇所がハイライト表示される
 ...
 
-### 実装計画
+### Phase 2: Research（予備調査）
 
-1. `xterm-addon-search` パッケージを追加
+#### Web 検索
+「xterm.js search addon」で検索...
+
+#### 公式ドキュメント確認
+- xterm-addon-search: https://github.com/xtermjs/xterm.js/tree/master/addons/xterm-addon-search
+
+#### 調査結果
+- xterm.js 公式の search addon が利用可能
+- `SearchAddon.findNext()` / `SearchAddon.findPrevious()` で検索
+- ハイライトは addon が自動で処理
+
+#### 実装計画
+1. `bun add xterm-addon-search` でインストール
 2. `src/daemon/toolbar/search.ts` を作成
-3. 検索 UI コンポーネントを実装
-4. キーボードショートカットを追加
+3. 検索 UI を toolbar に追加
+4. Ctrl+Shift+F のショートカット実装
 
 この計画で進めてよろしいですか？
 
 User: はい
 
-Claude: ### Phase 2: Red - テストを書く
+Claude: ### Phase 3: Red - テストを書く
 
 最初の受入条件「Ctrl+Shift+F で検索バーが開く」のテストを書きます。
 
@@ -471,7 +626,7 @@ Claude: ### Phase 2: Red - テストを書く
   Received: undefined
 ```
 
-### Phase 3: Green - 実装
+### Phase 4: Green - 実装
 
 [最小限の実装コードを作成]
 
@@ -481,11 +636,11 @@ Claude: ### Phase 2: Red - テストを書く
 ✓ should open search bar on Ctrl+Shift+F
 ```
 
-### Phase 4: Refactor
+### Phase 5: Refactor
 
 [必要に応じてリファクタリング]
 
-### Phase 5: Self-Review
+### Phase 6: Self-Review
 
 ## Self-Review 結果
 
@@ -502,14 +657,14 @@ Claude: ### Phase 2: Red - テストを書く
 - 検索は xterm.js の最適化された実装を使用
 - 不要な再レンダリングを避けている
 
-### Phase 6: ADR
+### Phase 7: ADR
 
 この変更は新しいライブラリ（xterm-addon-search）を導入するため、
 ADR を作成します。
 
 [ADR 025 を作成]
 
-### Phase 7: コミット
+### Phase 8: コミット
 
 ```bash
 git commit -m "feat(search): add Ctrl+Shift+F shortcut to open search bar"
