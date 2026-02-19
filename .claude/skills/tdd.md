@@ -1,3 +1,7 @@
+---
+description: GitHub Issue を TDD（テスト駆動開発）で実装する。Red-Green-Refactor サイクルに従い、テストファーストで機能を実装。新機能の実装、テストが必要なバグ修正、品質重視の開発に使用。
+---
+
 # /tdd - Test-Driven Development Implementation
 
 GitHub Issue の受入条件に基づいて、TDD（テスト駆動開発）で機能を実装するスキル。
