@@ -33,6 +33,30 @@ export const DEFAULT_TOOLBAR_CONFIG: ToolbarConfig = {
   double_tap_delay: 300
 };
 
+export const NotificationPatternSchema = z.object({
+  regex: z.string().min(1),
+  message: z.string().min(1),
+  cooldown: z.number().int().min(0).optional()
+});
+
+export type NotificationPatternConfig = z.infer<typeof NotificationPatternSchema>;
+
+export const NotificationConfigSchema = z.object({
+  enabled: z.boolean().default(true),
+  contact_email: z.string().email().optional(),
+  patterns: z.array(NotificationPatternSchema).default([]),
+  default_cooldown: z.number().int().min(0).default(300)
+});
+
+export type NotificationConfig = z.infer<typeof NotificationConfigSchema>;
+
+/** Default notification configuration */
+export const DEFAULT_NOTIFICATION_CONFIG: NotificationConfig = {
+  enabled: true,
+  patterns: [],
+  default_cooldown: 300
+};
+
 export const ConfigSchema = z.object({
   base_path: z.string().startsWith('/').default('/ttyd-mux'),
   base_port: z.number().int().min(1024).max(65535).default(7600),
@@ -45,7 +69,8 @@ export const ConfigSchema = z.object({
   hostname: z.string().optional(),
   caddy_admin_api: z.string().default('http://localhost:2019'),
   tmux_mode: TmuxModeSchema.default('auto'),
-  toolbar: ToolbarConfigSchema.default(DEFAULT_TOOLBAR_CONFIG)
+  toolbar: ToolbarConfigSchema.default(DEFAULT_TOOLBAR_CONFIG),
+  notifications: NotificationConfigSchema.default(DEFAULT_NOTIFICATION_CONFIG)
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -75,10 +100,22 @@ export interface ShareState {
   password?: string;
 }
 
+export interface PushSubscriptionState {
+  id: string;
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+  sessionName?: string;
+  createdAt: string;
+}
+
 export interface State {
   daemon: DaemonState | null;
   sessions: SessionState[];
   shares?: ShareState[];
+  pushSubscriptions?: PushSubscriptionState[];
 }
 
 // === 解決済みセッション（設定 + 状態を統合）===

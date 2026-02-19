@@ -1,9 +1,21 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { getFullPath, normalizeBasePath } from '@/config/config.js';
-import { addShare, getAllShares, getDaemonState, getShare, removeShare } from '@/config/state.js';
+import {
+  addPushSubscription,
+  addShare,
+  getAllPushSubscriptions,
+  getAllShares,
+  getDaemonState,
+  getShare,
+  getStateDir,
+  removePushSubscription,
+  removeShare
+} from '@/config/state.js';
 import type { Config } from '@/config/types.js';
 import { getErrorMessage } from '@/utils/errors.js';
 import { isValidSessionName, sanitizeSessionName } from '@/utils/tmux-client.js';
+import { createSubscriptionManager } from './notification/subscription.js';
+import { getPublicVapidKey } from './notification/vapid.js';
 import { generateJsonResponse } from './portal.js';
 import {
   type StartSessionOptions,
@@ -25,6 +37,28 @@ const shareManager = createShareManager({
   addShare: addShare,
   removeShare: removeShare,
   getShare: (token: string) => getShare(token)
+});
+
+// Create SubscriptionManager for push notifications
+const subscriptionManager = createSubscriptionManager({
+  getSubscriptions: () =>
+    getAllPushSubscriptions().map((s) => ({
+      id: s.id,
+      endpoint: s.endpoint,
+      keys: s.keys,
+      sessionName: s.sessionName,
+      createdAt: s.createdAt
+    })),
+  addSubscription: (subscription) => {
+    addPushSubscription({
+      id: subscription.id,
+      endpoint: subscription.endpoint,
+      keys: subscription.keys,
+      sessionName: subscription.sessionName,
+      createdAt: subscription.createdAt
+    });
+  },
+  removeSubscription: (id) => removePushSubscription(id)
 });
 
 export function sendJson(res: ServerResponse, status: number, data: unknown): void {
@@ -201,6 +235,70 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
     } else {
       sendJson(res, 404, { error: 'Share not found' });
     }
+    return;
+  }
+
+  // === Push Notification API ===
+
+  // GET /api/notifications/vapid-key - Get public VAPID key
+  if (path === '/api/notifications/vapid-key' && method === 'GET') {
+    try {
+      const publicKey = getPublicVapidKey(getStateDir());
+      sendJson(res, 200, { publicKey });
+    } catch (error) {
+      sendJson(res, 500, { error: getErrorMessage(error) });
+    }
+    return;
+  }
+
+  // POST /api/notifications/subscribe - Subscribe to push notifications
+  if (path === '/api/notifications/subscribe' && method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+    req.on('end', () => {
+      try {
+        const parsed = JSON.parse(body) as {
+          endpoint: string;
+          keys: { p256dh: string; auth: string };
+          sessionName?: string;
+        };
+
+        if (!parsed.endpoint || !parsed.keys?.p256dh || !parsed.keys?.auth) {
+          sendJson(res, 400, { error: 'Invalid subscription data' });
+          return;
+        }
+
+        const subscription = subscriptionManager.subscribe(
+          parsed.endpoint,
+          parsed.keys,
+          parsed.sessionName
+        );
+        sendJson(res, 201, subscription);
+      } catch (error) {
+        sendJson(res, 400, { error: getErrorMessage(error) });
+      }
+    });
+    return;
+  }
+
+  // DELETE /api/notifications/subscribe/:id - Unsubscribe
+  if (path.startsWith('/api/notifications/subscribe/') && method === 'DELETE') {
+    const id = decodeURIComponent(path.slice('/api/notifications/subscribe/'.length));
+    const success = subscriptionManager.unsubscribe(id);
+    if (success) {
+      sendJson(res, 200, { success: true });
+    } else {
+      sendJson(res, 404, { error: 'Subscription not found' });
+    }
+    return;
+  }
+
+  // GET /api/notifications/subscriptions - List subscriptions
+  if (path === '/api/notifications/subscriptions' && method === 'GET') {
+    const subscriptions = subscriptionManager.getAll();
+    sendJson(res, 200, subscriptions);
     return;
   }
 

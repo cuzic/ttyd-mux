@@ -1,10 +1,20 @@
 import { existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import { createServer as createUnixServer } from 'node:net';
-import { clearDaemonState, getSocketPath, getStateDir, setDaemonState } from '@/config/state.js';
+import {
+  addPushSubscription,
+  clearDaemonState,
+  getAllPushSubscriptions,
+  getSocketPath,
+  getStateDir,
+  removePushSubscription,
+  setDaemonState
+} from '@/config/state.js';
 import { createLogger } from '@/utils/logger.js';
 import { getCurrentConfig, initConfigManager, reloadConfig } from './config-manager.js';
+import { createNotificationService } from './notification/index.js';
 import { createDaemonServer, setConfigGetter } from './server.js';
 import { sessionManager } from './session-manager.js';
+import { setNotificationService } from './ws-proxy.js';
 
 const log = createLogger('daemon');
 
@@ -75,10 +85,32 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
   // Set up config getter for hot-reload support
   setConfigGetter(getCurrentConfig);
 
+  // Initialize notification service if configured
+  const stateDir = getStateDir();
+  if (config.notifications?.enabled !== false) {
+    try {
+      const notificationService = createNotificationService(
+        config.notifications ?? { enabled: true, patterns: [], default_cooldown: 300 },
+        stateDir,
+        {
+          getSubscriptions: getAllPushSubscriptions,
+          addSubscription: addPushSubscription,
+          removeSubscription: removePushSubscription
+        }
+      );
+      setNotificationService(notificationService);
+      log.info('Notification service initialized');
+      if (config.notifications?.patterns?.length) {
+        log.info(`Watching ${config.notifications.patterns.length} pattern(s) for notifications`);
+      }
+    } catch (error) {
+      log.error(`Failed to initialize notification service: ${String(error)}`);
+    }
+  }
+
   const socketPath = getSocketPath();
 
   // Ensure state directory exists
-  const stateDir = getStateDir();
   if (!existsSync(stateDir)) {
     mkdirSync(stateDir, { recursive: true });
     log.info(`Created state directory: ${stateDir}`);

@@ -48,6 +48,7 @@ export function generateManifest(basePath: string): object {
  *
  * Minimal implementation for PWA installability.
  * Uses network-first strategy since terminal requires online connectivity.
+ * Also handles push notifications.
  */
 export const serviceWorkerScript = `// ttyd-mux Service Worker
 self.addEventListener('install', (event) => {
@@ -63,6 +64,56 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // Network-first strategy - terminal requires online connectivity
   event.respondWith(fetch(event.request));
+});
+
+// Push notification handler
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  try {
+    const data = event.data.json();
+    const options = {
+      body: data.body || 'Terminal notification',
+      icon: '/ttyd-mux/icon-192.png',
+      badge: '/ttyd-mux/icon-192.png',
+      tag: data.tag || 'ttyd-mux-notification',
+      requireInteraction: true,
+      data: {
+        sessionName: data.sessionName,
+        timestamp: data.timestamp,
+        url: data.sessionName ? '/ttyd-mux/' + data.sessionName : '/ttyd-mux/'
+      }
+    };
+
+    event.waitUntil(
+      self.registration.showNotification(data.title || 'ttyd-mux', options)
+    );
+  } catch (e) {
+    console.error('[SW] Push notification error:', e);
+  }
+});
+
+// Notification click handler
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const url = event.notification.data?.url || '/ttyd-mux/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        // Try to focus existing window
+        for (const client of clientList) {
+          if (client.url.includes('/ttyd-mux/') && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        // Open new window if none exists
+        if (clients.openWindow) {
+          return clients.openWindow(url);
+        }
+      })
+  );
 });
 `;
 

@@ -3,7 +3,7 @@
  * Allows in-memory state store for testing without file system access
  */
 
-import type { DaemonState, SessionState, ShareState, State } from './types.js';
+import type { DaemonState, PushSubscriptionState, SessionState, ShareState, State } from './types.js';
 
 // Re-export defaultStateStore from state.ts for convenience
 export { defaultStateStore } from './state.js';
@@ -38,6 +38,12 @@ export interface StateStore {
   removeShare(token: string): void;
   getShare(token: string): ShareState | undefined;
   getAllShares(): ShareState[];
+
+  // Push subscription state
+  addPushSubscription(subscription: PushSubscriptionState): void;
+  removePushSubscription(id: string): void;
+  getPushSubscription(id: string): PushSubscriptionState | undefined;
+  getAllPushSubscriptions(): PushSubscriptionState[];
 }
 
 /**
@@ -47,7 +53,8 @@ export function createInMemoryStateStore(initialState?: Partial<State>): StateSt
   let state: State = {
     daemon: initialState?.daemon ?? null,
     sessions: initialState?.sessions ?? [],
-    shares: initialState?.shares ?? []
+    shares: initialState?.shares ?? [],
+    pushSubscriptions: initialState?.pushSubscriptions ?? []
   };
 
   return {
@@ -105,6 +112,19 @@ export function createInMemoryStateStore(initialState?: Partial<State>): StateSt
       }
     },
     getShare: (token: string) => state.shares?.find((s) => s.token === token),
-    getAllShares: () => [...(state.shares ?? [])]
+    getAllShares: () => [...(state.shares ?? [])],
+
+    addPushSubscription: (subscription: PushSubscriptionState) => {
+      if (!state.pushSubscriptions) state.pushSubscriptions = [];
+      state.pushSubscriptions = state.pushSubscriptions.filter((s) => s.endpoint !== subscription.endpoint);
+      state.pushSubscriptions.push(subscription);
+    },
+    removePushSubscription: (id: string) => {
+      if (state.pushSubscriptions) {
+        state.pushSubscriptions = state.pushSubscriptions.filter((s) => s.id !== id);
+      }
+    },
+    getPushSubscription: (id: string) => state.pushSubscriptions?.find((s) => s.id === id),
+    getAllPushSubscriptions: () => [...(state.pushSubscriptions ?? [])]
   };
 }

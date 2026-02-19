@@ -3,12 +3,30 @@ import type { Socket } from 'node:net';
 import type { Config, SessionState } from '@/config/types.js';
 import { createLogger } from '@/utils/logger.js';
 import WebSocket, { WebSocketServer } from 'ws';
+import type { NotificationService } from './notification/index.js';
 import { findSessionForPath } from './router.js';
 
 const log = createLogger('websocket');
 
 // Create WebSocket server (noServer mode for manual upgrade handling)
 const wss = new WebSocketServer({ noServer: true });
+
+// Global notification service reference (set by daemon)
+let globalNotificationService: NotificationService | null = null;
+
+/**
+ * Set the notification service for output monitoring
+ */
+export function setNotificationService(service: NotificationService | null): void {
+  globalNotificationService = service;
+}
+
+/**
+ * Get the notification service
+ */
+export function getNotificationService(): NotificationService | null {
+  return globalNotificationService;
+}
 
 /**
  * Gracefully close a WebSocket connection
@@ -27,6 +45,10 @@ export function closeWebSocket(ws: WebSocket, code: number, reason: string): voi
 export interface ForwardingOptions {
   /** If true, block input messages from client to backend (read-only mode) */
   readOnly?: boolean;
+  /** Session name for notification tracking */
+  sessionName?: string;
+  /** Notification service for output monitoring */
+  notificationService?: NotificationService;
 }
 
 /**
@@ -45,6 +67,65 @@ function isInputMessage(data: Buffer | ArrayBuffer | Buffer[]): boolean {
 }
 
 /**
+ * Check if data is a ttyd output message (command byte '1')
+ * ttyd protocol: first byte is command type, '1' = output
+ */
+function isOutputMessage(data: Buffer | ArrayBuffer | Buffer[]): boolean {
+  if (Buffer.isBuffer(data) && data.length > 1) {
+    // ttyd output command is '1' (0x31)
+    return data[0] === 0x31;
+  }
+  if (data instanceof ArrayBuffer && data.byteLength > 1) {
+    return new Uint8Array(data)[0] === 0x31;
+  }
+  return false;
+}
+
+/**
+ * Extract text from ttyd output message
+ */
+function extractOutputText(data: Buffer): string {
+  // Skip first byte (command type) and decode the rest as UTF-8
+  return data.subarray(1).toString('utf-8');
+}
+
+// Output buffer for accumulating text before matching
+const outputBuffers = new Map<string, string>();
+const OUTPUT_BUFFER_MAX_LENGTH = 4096;
+
+/**
+ * Process terminal output for pattern matching
+ */
+function processOutput(
+  sessionName: string,
+  text: string,
+  notificationService: NotificationService
+): void {
+  // Accumulate output in buffer
+  let buffer = outputBuffers.get(sessionName) ?? '';
+  buffer += text;
+
+  // Keep buffer size manageable
+  if (buffer.length > OUTPUT_BUFFER_MAX_LENGTH) {
+    buffer = buffer.slice(-OUTPUT_BUFFER_MAX_LENGTH);
+  }
+
+  outputBuffers.set(sessionName, buffer);
+
+  // Check for patterns in the buffer (line by line)
+  const lines = buffer.split('\\n');
+  for (const line of lines) {
+    if (line.trim()) {
+      notificationService.processOutput(sessionName, line.trim());
+    }
+  }
+
+  // Keep only the last incomplete line in buffer
+  const lastLine = lines[lines.length - 1] ?? '';
+  outputBuffers.set(sessionName, lastLine);
+}
+
+/**
  * Setup bidirectional WebSocket forwarding
  */
 export function setupWebSocketForwarding(
@@ -53,7 +134,7 @@ export function setupWebSocketForwarding(
   options: ForwardingOptions = {}
 ): void {
   let closed = false;
-  const { readOnly = false } = options;
+  const { readOnly = false, sessionName, notificationService } = options;
 
   const cleanup = (initiator: 'client' | 'backend', code?: number, reason?: Buffer) => {
     if (closed) {
@@ -83,6 +164,18 @@ export function setupWebSocketForwarding(
   backendWs.on('message', (data, isBinary) => {
     if (clientWs.readyState === WebSocket.OPEN) {
       clientWs.send(data, { binary: isBinary });
+    }
+
+    // Process output for notification pattern matching
+    if (sessionName && notificationService?.isEnabled() && isBinary && isOutputMessage(data as Buffer)) {
+      try {
+        const text = extractOutputText(data as Buffer);
+        if (text) {
+          processOutput(sessionName, text, notificationService);
+        }
+      } catch {
+        // Ignore output processing errors
+      }
     }
   });
 
@@ -161,5 +254,9 @@ export function handleUpgrade(
   }
 
   const protocol = req.headers['sec-websocket-protocol'];
-  connectToBackend(session, url, protocol, req, socket, head, { readOnly });
+  connectToBackend(session, url, protocol, req, socket, head, {
+    readOnly,
+    sessionName: session.name,
+    notificationService: globalNotificationService ?? undefined
+  });
 }

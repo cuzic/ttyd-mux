@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { lockSync, unlockSync } from 'proper-lockfile';
 import type { StateStore } from './state-store.js';
-import type { DaemonState, SessionState, ShareState, State } from './types.js';
+import type { DaemonState, PushSubscriptionState, SessionState, ShareState, State } from './types.js';
 
 /**
  * Get state directory path.
@@ -191,6 +191,40 @@ export function getAllShares(): ShareState[] {
   return loadState().shares ?? [];
 }
 
+// === Push Subscription State ===
+
+export function addPushSubscription(subscription: PushSubscriptionState): void {
+  withStateLock(() => {
+    const state = loadState();
+    if (!state.pushSubscriptions) {
+      state.pushSubscriptions = [];
+    }
+    // Remove existing subscription with same endpoint
+    state.pushSubscriptions = state.pushSubscriptions.filter((s) => s.endpoint !== subscription.endpoint);
+    state.pushSubscriptions.push(subscription);
+    saveState(state);
+  });
+}
+
+export function removePushSubscription(id: string): void {
+  withStateLock(() => {
+    const state = loadState();
+    if (state.pushSubscriptions) {
+      state.pushSubscriptions = state.pushSubscriptions.filter((s) => s.id !== id);
+      saveState(state);
+    }
+  });
+}
+
+export function getPushSubscription(id: string): PushSubscriptionState | undefined {
+  const state = loadState();
+  return state.pushSubscriptions?.find((s) => s.id === id);
+}
+
+export function getAllPushSubscriptions(): PushSubscriptionState[] {
+  return loadState().pushSubscriptions ?? [];
+}
+
 /**
  * Default StateStore implementation using file system
  * Can be replaced with in-memory store for testing
@@ -213,5 +247,9 @@ export const defaultStateStore: StateStore = {
   addShare,
   removeShare,
   getShare,
-  getAllShares
+  getAllShares,
+  addPushSubscription,
+  removePushSubscription,
+  getPushSubscription,
+  getAllPushSubscriptions
 };
