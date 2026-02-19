@@ -13,6 +13,7 @@ import { daemonCommand } from './commands/daemon.js';
 import { deployCommand } from './commands/deploy.js';
 import { doctorCommand } from './commands/doctor.js';
 import { downCommand } from './commands/down.js';
+import { listCommand } from './commands/list.js';
 import { reloadCommand } from './commands/reload.js';
 import { restartCommand } from './commands/restart.js';
 import { shutdownCommand } from './commands/shutdown.js';
@@ -63,6 +64,15 @@ program
   .description('Show daemon and session status')
   .option('-c, --config <path>', 'Config file path')
   .action((options) => statusCommand(options));
+
+program
+  .command('list')
+  .alias('ls')
+  .description('List active sessions')
+  .option('-c, --config <path>', 'Config file path')
+  .option('-l, --long', 'Show detailed information')
+  .option('--url', 'Show access URLs')
+  .action((options) => listCommand(options));
 
 program
   .command('attach [name]')
