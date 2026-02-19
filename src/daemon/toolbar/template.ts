@@ -20,11 +20,13 @@ export const toolbarHtml = `
     <button id="ttyd-toolbar-zoomin">A+</button>
     <button id="ttyd-toolbar-copy">Copy</button>
     <button id="ttyd-toolbar-copyall">All</button>
-    <button id="ttyd-toolbar-paste" title="ペースト">📋</button>
+    <button id="ttyd-toolbar-paste" title="スマートペースト（テキスト/画像を自動判別）">📋</button>
     <button id="ttyd-toolbar-search">🔍</button>
     <button id="ttyd-toolbar-notify" title="Push通知">🔔</button>
     <button id="ttyd-toolbar-share" title="共有リンク">🔗</button>
     <button id="ttyd-toolbar-snippet" title="スニペット">📌</button>
+    <button id="ttyd-toolbar-download" title="ダウンロード">📥</button>
+    <button id="ttyd-toolbar-upload" title="アップロード">📤</button>
     <button id="ttyd-toolbar-send">Send</button>
     <button id="ttyd-toolbar-run">Run</button>
     <button id="ttyd-toolbar-auto" class="modifier">Auto</button>
@@ -100,6 +102,49 @@ export const toolbarHtml = `
         「+」ボタンで追加できます。
       </div>
     </div>
+  </div>
+</div>
+<div id="ttyd-file-modal" class="hidden">
+  <div id="ttyd-file-modal-content">
+    <div id="ttyd-file-modal-header">
+      <span id="ttyd-file-modal-title">ファイルブラウザ</span>
+      <div id="ttyd-file-modal-actions">
+        <button id="ttyd-file-upload-btn" title="アップロード">📤</button>
+        <button id="ttyd-file-modal-close">×</button>
+      </div>
+    </div>
+    <div id="ttyd-file-modal-body">
+      <div id="ttyd-file-breadcrumb"></div>
+      <div id="ttyd-file-list"></div>
+    </div>
+  </div>
+</div>
+<input type="file" id="ttyd-file-upload-input" multiple style="display: none;" />
+<div id="ttyd-image-preview-modal" class="hidden">
+  <div id="ttyd-image-preview-content">
+    <div id="ttyd-image-preview-header">
+      <span>画像プレビュー</span>
+      <button id="ttyd-image-preview-close">×</button>
+    </div>
+    <div id="ttyd-image-preview-body">
+      <img id="ttyd-image-preview-img" alt="Preview" />
+      <div id="ttyd-image-preview-nav">
+        <button id="ttyd-image-preview-prev">◀</button>
+        <span id="ttyd-image-preview-counter">1/1</span>
+        <button id="ttyd-image-preview-next">▶</button>
+      </div>
+      <div id="ttyd-image-preview-dots"></div>
+    </div>
+    <div id="ttyd-image-preview-footer">
+      <button id="ttyd-image-preview-remove">削除</button>
+      <button id="ttyd-image-preview-cancel">キャンセル</button>
+      <button id="ttyd-image-preview-submit">送信</button>
+    </div>
+  </div>
+</div>
+<div id="ttyd-drop-zone" class="hidden">
+  <div id="ttyd-drop-zone-content">
+    📁 ここに画像をドロップ
   </div>
 </div>
 `;

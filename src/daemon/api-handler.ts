@@ -15,6 +15,15 @@ import type { Config } from '@/config/types.js';
 import { getErrorMessage } from '@/utils/errors.js';
 import { createLogger } from '@/utils/logger.js';
 import { isValidSessionName, sanitizeSessionName } from '@/utils/tmux-client.js';
+import {
+  extractBoundary,
+  handleFileDownload,
+  handleFileList,
+  handleFileUpload,
+  parseMultipartFile
+} from './file-transfer-api.js';
+import { createFileTransferManager, saveClipboardImages } from './file-transfer.js';
+import type { ClipboardImageInput } from './file-transfer.js';
 import { createSubscriptionManager } from './notification/subscription.js';
 import { getPublicVapidKey } from './notification/vapid.js';
 import { generateJsonResponse } from './portal.js';
@@ -332,6 +341,193 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
         log.info(`Bell notification triggered for session: ${sessionName}`);
         await notificationService.processOutput(sessionName, '\x07');
         sendJson(res, 200, { success: true, sent: true });
+      } catch (error) {
+        sendJson(res, 400, { error: getErrorMessage(error) });
+      }
+    });
+    return;
+  }
+
+  // === File Transfer API ===
+
+  // GET /api/files/download?session=<name>&path=<path> - Download file
+  if (path.startsWith('/api/files/download') && method === 'GET') {
+    const queryStart = path.indexOf('?');
+    const params = new URLSearchParams(queryStart >= 0 ? path.slice(queryStart + 1) : '');
+    const sessionName = params.get('session');
+    const filePath = params.get('path');
+
+    if (!sessionName || !filePath) {
+      sendJson(res, 400, { error: 'session and path parameters are required' });
+      return;
+    }
+
+    // Find session
+    const session = sessionManager.listSessions().find((s) => s.name === sessionName);
+    if (!session) {
+      sendJson(res, 404, { error: `Session "${sessionName}" not found` });
+      return;
+    }
+
+    const manager = createFileTransferManager({
+      baseDir: session.dir,
+      config: config.file_transfer
+    });
+    void handleFileDownload(manager, filePath, res);
+    return;
+  }
+
+  // POST /api/files/upload?session=<name>&path=<path> - Upload file
+  if (path.startsWith('/api/files/upload') && method === 'POST') {
+    const queryStart = path.indexOf('?');
+    const params = new URLSearchParams(queryStart >= 0 ? path.slice(queryStart + 1) : '');
+    const sessionName = params.get('session');
+    const uploadPath = params.get('path') || '';
+
+    if (!sessionName) {
+      sendJson(res, 400, { error: 'session parameter is required' });
+      return;
+    }
+
+    // Find session
+    const session = sessionManager.listSessions().find((s) => s.name === sessionName);
+    if (!session) {
+      sendJson(res, 404, { error: `Session "${sessionName}" not found` });
+      return;
+    }
+
+    // Read request body
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => {
+      chunks.push(chunk);
+    });
+    req.on('end', async () => {
+      const body = Buffer.concat(chunks);
+      const contentType = req.headers['content-type'] || '';
+
+      let filename: string;
+      let content: Buffer;
+
+      // Handle multipart form data
+      if (contentType.includes('multipart/form-data')) {
+        const boundary = extractBoundary(contentType);
+        if (!boundary) {
+          sendJson(res, 400, { error: 'Invalid multipart boundary' });
+          return;
+        }
+
+        const parsed = parseMultipartFile(body, boundary);
+        if (!parsed) {
+          sendJson(res, 400, { error: 'Failed to parse multipart data' });
+          return;
+        }
+
+        filename = uploadPath ? `${uploadPath}/${parsed.filename}` : parsed.filename;
+        content = parsed.content;
+      } else {
+        // Direct upload with path in query
+        if (!uploadPath) {
+          sendJson(res, 400, { error: 'path parameter is required for direct upload' });
+          return;
+        }
+        filename = uploadPath;
+        content = body;
+      }
+
+      const manager = createFileTransferManager({
+        baseDir: session.dir,
+        config: config.file_transfer
+      });
+      await handleFileUpload(manager, filename, content, res);
+    });
+    return;
+  }
+
+  // GET /api/files/list?session=<name>&path=<path> - List files
+  if (path.startsWith('/api/files/list') && method === 'GET') {
+    const queryStart = path.indexOf('?');
+    const params = new URLSearchParams(queryStart >= 0 ? path.slice(queryStart + 1) : '');
+    const sessionName = params.get('session');
+    const listPath = params.get('path') || '.';
+
+    if (!sessionName) {
+      sendJson(res, 400, { error: 'session parameter is required' });
+      return;
+    }
+
+    // Find session
+    const session = sessionManager.listSessions().find((s) => s.name === sessionName);
+    if (!session) {
+      sendJson(res, 404, { error: `Session "${sessionName}" not found` });
+      return;
+    }
+
+    const manager = createFileTransferManager({
+      baseDir: session.dir,
+      config: config.file_transfer
+    });
+    void handleFileList(manager, listPath, res);
+    return;
+  }
+
+  // === Clipboard Image API ===
+
+  // POST /api/clipboard-image?session=<name> - Upload clipboard images
+  if (path.startsWith('/api/clipboard-image') && method === 'POST') {
+    const queryStart = path.indexOf('?');
+    const params = new URLSearchParams(queryStart >= 0 ? path.slice(queryStart + 1) : '');
+    const sessionName = params.get('session');
+
+    if (!sessionName) {
+      sendJson(res, 400, { error: 'session parameter is required' });
+      return;
+    }
+
+    // Find session
+    const session = sessionManager.listSessions().find((s) => s.name === sessionName);
+    if (!session) {
+      sendJson(res, 404, { error: `Session "${sessionName}" not found` });
+      return;
+    }
+
+    // Read request body
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+    req.on('end', async () => {
+      try {
+        const parsed = JSON.parse(body) as {
+          images: ClipboardImageInput[];
+        };
+
+        if (!parsed.images || !Array.isArray(parsed.images) || parsed.images.length === 0) {
+          sendJson(res, 400, { error: 'images array is required' });
+          return;
+        }
+
+        // Validate each image
+        for (const img of parsed.images) {
+          if (!img.data || !img.mimeType) {
+            sendJson(res, 400, { error: 'Each image must have data and mimeType' });
+            return;
+          }
+          if (!img.mimeType.startsWith('image/')) {
+            sendJson(res, 400, { error: 'Invalid mimeType: must be an image type' });
+            return;
+          }
+        }
+
+        // Save images to session directory
+        const result = await saveClipboardImages(session.dir, parsed.images, config.file_transfer);
+
+        if (!result.success) {
+          sendJson(res, 400, { error: result.error || 'Failed to save images' });
+          return;
+        }
+
+        log.info(`Saved ${result.paths?.length || 0} clipboard image(s) for session: ${sessionName}`);
+        sendJson(res, 200, { success: true, paths: result.paths });
       } catch (error) {
         sendJson(res, 400, { error: getErrorMessage(error) });
       }

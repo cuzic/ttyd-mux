@@ -310,7 +310,7 @@ describe('toolbar/paste - template', () => {
   });
 
   test('paste button has correct title', () => {
-    expect(toolbarHtml).toContain('title="ペースト"');
+    expect(toolbarHtml).toContain('title="スマートペースト（テキスト/画像を自動判別）"');
   });
 
   test('paste button uses clipboard emoji', () => {

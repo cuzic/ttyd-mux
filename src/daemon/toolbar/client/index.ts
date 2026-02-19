@@ -7,18 +7,20 @@
 
 import { AutoRunManager } from './AutoRunManager.js';
 import { ClipboardHistoryManager } from './ClipboardHistoryManager.js';
+import { FileTransferManager } from './FileTransferManager.js';
 import { FontSizeManager } from './FontSizeManager.js';
 import { InputHandler } from './InputHandler.js';
 import { ModifierKeyState } from './ModifierKeyState.js';
 import { NotificationManager } from './NotificationManager.js';
 import { SearchManager } from './SearchManager.js';
 import { ShareManager } from './ShareManager.js';
+import { SmartPasteManager } from './SmartPasteManager.js';
 import { SnippetManager } from './SnippetManager.js';
 import { TerminalController } from './TerminalController.js';
 import { TouchGestureHandler } from './TouchGestureHandler.js';
-import type { ToolbarConfig, ToolbarElements } from './types.js';
-import { STORAGE_KEYS } from './types.js';
 import { WebSocketConnection } from './WebSocketConnection.js';
+import type { SmartPasteElements, ToolbarConfig, ToolbarElements } from './types.js';
+import { STORAGE_KEYS } from './types.js';
 
 class ToolbarApp {
   private config: ToolbarConfig;
@@ -33,6 +35,8 @@ class ToolbarApp {
   private share: ShareManager;
   private snippet: SnippetManager;
   private clipboardHistory: ClipboardHistoryManager;
+  private fileTransfer: FileTransferManager;
+  private smartPaste: SmartPasteManager;
   private touch: TouchGestureHandler;
   private fontSizeManager: FontSizeManager;
   private autoRun: AutoRunManager;
@@ -57,6 +61,8 @@ class ToolbarApp {
     this.notifications = new NotificationManager(config);
     this.snippet = new SnippetManager(this.input);
     this.clipboardHistory = new ClipboardHistoryManager(this.input);
+    this.fileTransfer = new FileTransferManager(config);
+    this.smartPaste = new SmartPasteManager(config, this.input, this.clipboardHistory);
     this.touch = new TouchGestureHandler(config, this.terminal, this.input, this.modifiers);
     this.fontSizeManager = new FontSizeManager(config);
     this.autoRun = new AutoRunManager();
@@ -93,6 +99,8 @@ class ToolbarApp {
       notifyBtn: document.getElementById('ttyd-toolbar-notify') as HTMLButtonElement,
       shareBtn: document.getElementById('ttyd-toolbar-share') as HTMLButtonElement,
       snippetBtn: document.getElementById('ttyd-toolbar-snippet') as HTMLButtonElement,
+      downloadBtn: document.getElementById('ttyd-toolbar-download') as HTMLButtonElement,
+      uploadBtn: document.getElementById('ttyd-toolbar-upload') as HTMLButtonElement,
       // Share modal elements
       shareModal: document.getElementById('ttyd-share-modal') as HTMLElement,
       shareModalClose: document.getElementById('ttyd-share-modal-close') as HTMLButtonElement,
@@ -110,7 +118,7 @@ class ToolbarApp {
       searchCaseBtn: document.getElementById('ttyd-search-case') as HTMLButtonElement,
       searchRegexBtn: document.getElementById('ttyd-search-regex') as HTMLButtonElement,
       searchCloseBtn: document.getElementById('ttyd-search-close') as HTMLButtonElement,
-      searchToolbarBtn: document.getElementById('ttyd-toolbar-search') as HTMLButtonElement,
+      searchToolbarBtn: document.getElementById('ttyd-toolbar-search') as HTMLButtonElement
     };
   }
 
@@ -163,9 +171,37 @@ class ToolbarApp {
       document.getElementById('ttyd-snippet-add-cancel') as HTMLButtonElement
     );
 
+    this.fileTransfer.bindElements(
+      this.elements.downloadBtn,
+      this.elements.uploadBtn,
+      document.getElementById('ttyd-file-modal') as HTMLElement,
+      document.getElementById('ttyd-file-modal-close') as HTMLButtonElement,
+      document.getElementById('ttyd-file-modal-title') as HTMLElement,
+      document.getElementById('ttyd-file-list') as HTMLElement,
+      document.getElementById('ttyd-file-breadcrumb') as HTMLElement,
+      document.getElementById('ttyd-file-upload-input') as HTMLInputElement,
+      document.getElementById('ttyd-file-upload-btn') as HTMLButtonElement
+    );
+
     this.touch.bindScrollButton(this.elements.scrollBtn);
     this.autoRun.bindElement(this.elements.autoBtn);
     this.clipboardHistory.bindPasteButton(this.elements.pasteBtn);
+
+    // Smart paste elements
+    const smartPasteElements: SmartPasteElements = {
+      previewModal: document.getElementById('ttyd-image-preview-modal') as HTMLElement,
+      previewClose: document.getElementById('ttyd-image-preview-close') as HTMLButtonElement,
+      previewImg: document.getElementById('ttyd-image-preview-img') as HTMLImageElement,
+      previewPrev: document.getElementById('ttyd-image-preview-prev') as HTMLButtonElement,
+      previewNext: document.getElementById('ttyd-image-preview-next') as HTMLButtonElement,
+      previewCounter: document.getElementById('ttyd-image-preview-counter') as HTMLElement,
+      previewDots: document.getElementById('ttyd-image-preview-dots') as HTMLElement,
+      previewRemove: document.getElementById('ttyd-image-preview-remove') as HTMLButtonElement,
+      previewCancel: document.getElementById('ttyd-image-preview-cancel') as HTMLButtonElement,
+      previewSubmit: document.getElementById('ttyd-image-preview-submit') as HTMLButtonElement,
+      dropZone: document.getElementById('ttyd-drop-zone') as HTMLElement
+    };
+    this.smartPaste.bindElements(smartPasteElements);
 
     // Setup event listeners
     this.setupEventListeners();
@@ -299,14 +335,15 @@ class ToolbarApp {
       this.terminal.copyAll();
     });
 
-    // Paste button
+    // Paste button - uses smart paste for text/image detection
     elements.pasteBtn.addEventListener('click', (e) => {
       e.preventDefault();
       // Don't paste if this was a long press (history popup shown)
       if (this.clipboardHistory.isLongPressInProgress()) {
         return;
       }
-      this.terminal.paste(this.input, this.clipboardHistory);
+      // Use smart paste to detect content type (text vs image)
+      this.smartPaste.smartPaste();
     });
 
     // Scroll button
@@ -447,6 +484,11 @@ class ToolbarApp {
         e.preventDefault();
         this.search.toggle();
       }
+      // Ctrl+Shift+V for smart paste (image-aware paste)
+      if (e.ctrlKey && e.shiftKey && e.key === 'V') {
+        e.preventDefault();
+        this.smartPaste.smartPaste();
+      }
     });
   }
 
@@ -504,13 +546,13 @@ class ToolbarApp {
       container.classList.toggle('hidden');
     }
 
-    if (!container.classList.contains('hidden')) {
-      input.focus();
-      // Fit terminal after showing toolbar
-      setTimeout(() => this.terminal.fitTerminal(), 100);
-    } else {
+    if (container.classList.contains('hidden')) {
       const terminal = document.querySelector('.xterm-helper-textarea') as HTMLElement;
       terminal?.focus();
+      setTimeout(() => this.terminal.fitTerminal(), 100);
+    } else {
+      input.focus();
+      // Fit terminal after showing toolbar
       setTimeout(() => this.terminal.fitTerminal(), 100);
     }
   }

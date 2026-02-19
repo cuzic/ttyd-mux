@@ -86,6 +86,8 @@ export interface ToolbarElements {
   notifyBtn: HTMLButtonElement;
   shareBtn: HTMLButtonElement;
   snippetBtn: HTMLButtonElement;
+  downloadBtn: HTMLButtonElement;
+  uploadBtn: HTMLButtonElement;
   // Share modal elements
   shareModal: HTMLElement;
   shareModalClose: HTMLButtonElement;
@@ -113,7 +115,7 @@ export const STORAGE_KEYS = {
   AUTO_RUN: 'ttyd-toolbar-auto-run',
   NOTIFY_SUBSCRIPTION: 'ttyd-mux-notify-subscription',
   SNIPPETS: 'ttyd-mux-snippets',
-  CLIPBOARD_HISTORY: 'ttyd-mux-clipboard-history',
+  CLIPBOARD_HISTORY: 'ttyd-mux-clipboard-history'
 } as const;
 
 /** Snippet definition */
@@ -158,6 +160,36 @@ export interface ClipboardHistoryItem {
 export interface ClipboardHistoryStorage {
   version: number;
   items: ClipboardHistoryItem[];
+}
+
+/** Smart paste content types */
+export type SmartPasteContentType =
+  | { type: 'text'; data: string }
+  | { type: 'image'; blob: Blob; dataUrl: string; name?: string }
+  | { type: 'file'; file: File }
+  | { type: 'html'; html: string; text: string };
+
+/** Pending upload item for preview */
+export interface PendingUpload {
+  blob: Blob;
+  dataUrl: string;
+  name: string;
+  mimeType: string;
+}
+
+/** Smart paste modal elements */
+export interface SmartPasteElements {
+  previewModal: HTMLElement;
+  previewClose: HTMLButtonElement;
+  previewImg: HTMLImageElement;
+  previewPrev: HTMLButtonElement;
+  previewNext: HTMLButtonElement;
+  previewCounter: HTMLElement;
+  previewDots: HTMLElement;
+  previewRemove: HTMLButtonElement;
+  previewCancel: HTMLButtonElement;
+  previewSubmit: HTMLButtonElement;
+  dropZone: HTMLElement;
 }
 
 /** Declare global window extensions */
