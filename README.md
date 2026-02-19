@@ -83,27 +83,19 @@ ttyd-mux down
 
 ## Commands / コマンド
 
-### Main Commands / メインコマンド
+### Session Commands / セッションコマンド
 
 ```bash
-ttyd-mux up [--name <name>]     # Start session and attach / セッション起動 → 自動アタッチ
+ttyd-mux up                     # Start session for current directory / カレントディレクトリでセッション起動
+ttyd-mux up <name>              # Start predefined session / 事前定義セッションを起動
+ttyd-mux up --all               # Start all predefined sessions / 全ての事前定義セッションを起動
 ttyd-mux up --detach            # Start without attaching / セッション起動のみ（アタッチしない）
-ttyd-mux down                   # Stop current directory session / カレントディレクトリのセッション停止
-```
 
-### Session Management / セッション管理
+ttyd-mux down                   # Stop session for current directory / カレントディレクトリのセッション停止
+ttyd-mux down <name>            # Stop named session / 名前指定でセッション停止
+ttyd-mux down --all             # Stop all sessions / 全セッション停止
 
-```bash
-ttyd-mux start <name>           # Start predefined session / 事前定義セッションを起動
-ttyd-mux start --all            # Start all predefined sessions / 全ての事前定義セッションを起動
-ttyd-mux stop <name>            # Stop session / セッション停止
-ttyd-mux stop --all             # Stop all sessions / 全セッション停止
 ttyd-mux status                 # Show status / 状態表示
-```
-
-### Direct Access / 直接アクセス
-
-```bash
 ttyd-mux attach [name]          # Attach directly to tmux session / tmuxセッションに直接アタッチ
 ```
 

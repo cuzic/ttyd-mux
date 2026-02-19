@@ -16,9 +16,7 @@ import { downCommand } from './commands/down.js';
 import { reloadCommand } from './commands/reload.js';
 import { restartCommand } from './commands/restart.js';
 import { shutdownCommand } from './commands/shutdown.js';
-import { startCommand } from './commands/start.js';
 import { statusCommand } from './commands/status.js';
-import { stopCommand } from './commands/stop.js';
 import { upCommand } from './commands/up.js';
 import { NAME, VERSION } from './version.js';
 
@@ -27,38 +25,24 @@ program
   .description('ttyd session multiplexer - manage multiple ttyd+tmux sessions')
   .version(VERSION);
 
-// === Quick session commands (current directory) ===
+// === Session commands ===
 
 program
-  .command('up')
-  .description('Start ttyd+tmux session for current directory')
-  .option('-n, --name <name>', 'Session name (default: directory name)')
+  .command('up [name]')
+  .description('Start a ttyd+tmux session')
+  .option('-n, --name <name>', 'Session name (for current directory)')
   .option('-c, --config <path>', 'Config file path')
   .option('-a, --attach', 'Attach to tmux session after starting')
-  .option('-d, --detach', 'Do not attach to tmux session (run in background)')
-  .action((options) => upCommand(options));
+  .option('-d, --detach', 'Do not attach to tmux session')
+  .option('--all', 'Start all predefined sessions')
+  .action((name, options) => upCommand(name, options));
 
 program
-  .command('down')
-  .description('Stop ttyd session for current directory')
+  .command('down [name]')
+  .description('Stop a ttyd session')
   .option('-c, --config <path>', 'Config file path')
-  .action((options) => downCommand(options));
-
-// === Session management ===
-
-program
-  .command('start [name]')
-  .description('Start a predefined session')
-  .option('-a, --all', 'Start all predefined sessions')
-  .option('-c, --config <path>', 'Config file path')
-  .action((name, options) => startCommand(name, options));
-
-program
-  .command('stop [name]')
-  .description('Stop a session')
-  .option('-a, --all', 'Stop all sessions')
-  .option('-c, --config <path>', 'Config file path')
-  .action((name, options) => stopCommand(name, options));
+  .option('--all', 'Stop all sessions')
+  .action((name, options) => downCommand(name, options));
 
 program
   .command('status')
