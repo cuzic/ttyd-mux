@@ -21,7 +21,7 @@ import { TouchGestureHandler } from './TouchGestureHandler.js';
 import { WebSocketConnection } from './WebSocketConnection.js';
 import type { SmartPasteElements, ToolbarConfig, ToolbarElements } from './types.js';
 import { STORAGE_KEYS } from './types.js';
-import { isMobileDevice } from './utils.js';
+import { bindClick, isMobileDevice } from './utils.js';
 
 class ToolbarApp {
   private config: ToolbarConfig;
@@ -240,103 +240,48 @@ class ToolbarApp {
     const { elements } = this;
 
     // Send button
-    elements.sendBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.submitInput();
-    });
+    bindClick(elements.sendBtn, () => this.submitInput());
 
     // Enter button
-    elements.enterBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.input.sendEnter();
-    });
+    bindClick(elements.enterBtn, () => this.input.sendEnter());
 
     // Run button
-    elements.runBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.runInput();
-    });
+    bindClick(elements.runBtn, () => this.runInput());
 
     // Zoom buttons
-    elements.zoomInBtn.addEventListener('click', (e) => {
-      e.preventDefault();
+    bindClick(elements.zoomInBtn, () => {
       this.terminal.zoomTerminal(2);
       this.fontSizeManager.save(this.terminal.getCurrentFontSize());
     });
 
-    elements.zoomOutBtn.addEventListener('click', (e) => {
-      e.preventDefault();
+    bindClick(elements.zoomOutBtn, () => {
       this.terminal.zoomTerminal(-2);
       this.fontSizeManager.save(this.terminal.getCurrentFontSize());
     });
 
     // Modifier buttons
-    elements.ctrlBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.modifiers.toggle('ctrl');
-    });
-
-    elements.altBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.modifiers.toggle('alt');
-    });
-
-    elements.shiftBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.modifiers.toggle('shift');
-    });
+    bindClick(elements.ctrlBtn, () => this.modifiers.toggle('ctrl'));
+    bindClick(elements.altBtn, () => this.modifiers.toggle('alt'));
+    bindClick(elements.shiftBtn, () => this.modifiers.toggle('shift'));
 
     // Auto-run button
-    elements.autoBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.autoRun.toggle();
-    });
+    bindClick(elements.autoBtn, () => this.autoRun.toggle());
 
     // Special key buttons
-    elements.escBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.input.sendEsc();
-    });
+    bindClick(elements.escBtn, () => this.input.sendEsc());
+    bindClick(elements.tabBtn, () => this.input.sendTab());
+    bindClick(elements.upBtn, () => this.input.sendArrow('up'));
+    bindClick(elements.downBtn, () => this.input.sendArrow('down'));
 
-    elements.tabBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.input.sendTab();
-    });
-
-    elements.upBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.input.sendArrow('up');
-    });
-
-    elements.downBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.input.sendArrow('down');
-    });
-
-    elements.pageUpBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.input.sendPage('up');
-    });
-
-    elements.pageDownBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.input.sendPage('down');
-    });
+    bindClick(elements.pageUpBtn, () => this.input.sendPage('up'));
+    bindClick(elements.pageDownBtn, () => this.input.sendPage('down'));
 
     // Copy buttons
-    elements.copyBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.terminal.copySelection();
-    });
-
-    elements.copyAllBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.terminal.copyAll();
-    });
+    bindClick(elements.copyBtn, () => this.terminal.copySelection());
+    bindClick(elements.copyAllBtn, () => this.terminal.copyAll());
 
     // Paste button - uses smart paste for text/image detection
-    elements.pasteBtn.addEventListener('click', (e) => {
-      e.preventDefault();
+    bindClick(elements.pasteBtn, () => {
       // Don't paste if this was a long press (history popup shown)
       if (this.clipboardHistory.isLongPressInProgress()) {
         return;
@@ -346,20 +291,13 @@ class ToolbarApp {
     });
 
     // Scroll button
-    elements.scrollBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.touch.toggleScrollMode();
-    });
+    bindClick(elements.scrollBtn, () => this.touch.toggleScrollMode());
 
     // Notification button
-    elements.notifyBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.notifications.toggle();
-    });
+    bindClick(elements.notifyBtn, () => this.notifications.toggle());
 
     // Minimize button
-    elements.minimizeBtn.addEventListener('click', (e) => {
-      e.preventDefault();
+    bindClick(elements.minimizeBtn, () => {
       elements.container.classList.toggle('minimized');
       elements.minimizeBtn.textContent = elements.container.classList.contains('minimized')
         ? '\u25B2'
@@ -368,10 +306,7 @@ class ToolbarApp {
     });
 
     // Toggle button
-    elements.toggleBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.toggleToolbar();
-    });
+    bindClick(elements.toggleBtn, () => this.toggleToolbar());
 
     // Search bar events
     this.setupSearchEvents();
@@ -389,35 +324,12 @@ class ToolbarApp {
   private setupSearchEvents(): void {
     const { elements } = this;
 
-    elements.searchToolbarBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.search.toggle();
-    });
-
-    elements.searchCloseBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.search.toggle(false);
-    });
-
-    elements.searchNextBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.search.findNext();
-    });
-
-    elements.searchPrevBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.search.findPrevious();
-    });
-
-    elements.searchCaseBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.search.toggleCaseSensitive();
-    });
-
-    elements.searchRegexBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.search.toggleRegex();
-    });
+    bindClick(elements.searchToolbarBtn, () => this.search.toggle());
+    bindClick(elements.searchCloseBtn, () => this.search.toggle(false));
+    bindClick(elements.searchNextBtn, () => this.search.findNext());
+    bindClick(elements.searchPrevBtn, () => this.search.findPrevious());
+    bindClick(elements.searchCaseBtn, () => this.search.toggleCaseSensitive());
+    bindClick(elements.searchRegexBtn, () => this.search.toggleRegex());
 
     elements.searchInput.addEventListener('input', () => {
       this.search.doSearch();
