@@ -4,52 +4,62 @@
  * Handles font size persistence to localStorage.
  */
 
+import { z } from 'zod';
 import type { ToolbarConfig } from './types.js';
 import { STORAGE_KEYS } from './types.js';
 import { isMobileDevice } from './utils.js';
+import { createStorageManager, type StorageManager } from './StorageManager.js';
 
 export class FontSizeManager {
   private config: ToolbarConfig;
+  private storage: StorageManager<number>;
+  private defaultSize: number;
 
   constructor(config: ToolbarConfig) {
     this.config = config;
+    this.defaultSize = isMobileDevice()
+      ? config.font_size_default_mobile
+      : config.font_size_default_pc;
+
+    // Schema with min/max validation
+    const fontSizeSchema = z
+      .number()
+      .int()
+      .min(config.font_size_min)
+      .max(config.font_size_max);
+
+    this.storage = createStorageManager({
+      key: STORAGE_KEYS.FONT_SIZE,
+      schema: fontSizeSchema,
+      defaultValue: this.defaultSize,
+      migrate: (raw) => {
+        // Migrate from string format
+        if (typeof raw === 'string') {
+          const size = parseInt(raw, 10);
+          if (
+            !isNaN(size) &&
+            size >= config.font_size_min &&
+            size <= config.font_size_max
+          ) {
+            return size;
+          }
+        }
+        return null;
+      }
+    });
   }
 
   /**
-   * Save font size to localStorage
+   * Save font size to storage
    */
   save(size: number): void {
-    try {
-      localStorage.setItem(STORAGE_KEYS.FONT_SIZE, String(size));
-    } catch (e) {
-      console.warn('[Toolbar] Failed to save font size:', e);
-    }
+    this.storage.save(size);
   }
 
   /**
-   * Load font size from localStorage
+   * Load font size from storage
    */
   load(): number {
-    const defaultSize = isMobileDevice()
-      ? this.config.font_size_default_mobile
-      : this.config.font_size_default_pc;
-
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.FONT_SIZE);
-      if (saved) {
-        const size = Number.parseInt(saved, 10);
-        if (
-          !isNaN(size) &&
-          size >= this.config.font_size_min &&
-          size <= this.config.font_size_max
-        ) {
-          return size;
-        }
-      }
-    } catch (e) {
-      console.warn('[Toolbar] Failed to load font size:', e);
-    }
-
-    return defaultSize;
+    return this.storage.load();
   }
 }

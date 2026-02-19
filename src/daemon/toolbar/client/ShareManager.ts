@@ -5,11 +5,14 @@
  */
 
 import qrcode from 'qrcode-generator';
+import { createApiClient, type ToolbarApiClient } from './ApiClient.js';
+import { createModalController, type ModalController } from './ModalController.js';
 import type { ToolbarConfig } from './types.js';
 import { getSessionNameFromURL } from './utils.js';
 
 export class ShareManager {
   private config: ToolbarConfig;
+  private apiClient: ToolbarApiClient;
   private shareBtn: HTMLElement | null = null;
   private modal: HTMLElement | null = null;
   private modalClose: HTMLElement | null = null;
@@ -19,9 +22,11 @@ export class ShareManager {
   private copyBtn: HTMLElement | null = null;
   private qrBtn: HTMLElement | null = null;
   private expiryOptions: NodeListOf<HTMLInputElement> | null = null;
+  private modalController: ModalController | null = null;
 
   constructor(config: ToolbarConfig) {
     this.config = config;
+    this.apiClient = createApiClient({ basePath: config.base_path });
   }
 
   /**
@@ -56,23 +61,20 @@ export class ShareManager {
    * Setup event listeners
    */
   private setupEventListeners(): void {
+    // Setup modal controller for show/hide/backdrop/escape
+    if (this.modal) {
+      this.modalController = createModalController({
+        modal: this.modal,
+        closeBtn: this.modalClose,
+        backdropClose: true,
+        escapeClose: true
+      });
+    }
+
     // Open modal
     this.shareBtn?.addEventListener('click', (e) => {
       e.preventDefault();
       this.show();
-    });
-
-    // Close modal
-    this.modalClose?.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.hide();
-    });
-
-    // Close on backdrop click
-    this.modal?.addEventListener('click', (e) => {
-      if (e.target === this.modal) {
-        this.hide();
-      }
     });
 
     // Create share link
@@ -91,13 +93,6 @@ export class ShareManager {
     this.qrBtn?.addEventListener('click', (e) => {
       e.preventDefault();
       this.showQR();
-    });
-
-    // Close on Escape key
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.isVisible()) {
-        this.hide();
-      }
     });
   }
 
@@ -127,17 +122,17 @@ export class ShareManager {
    * Check if modal is visible
    */
   isVisible(): boolean {
-    return this.modal ? !this.modal.classList.contains('hidden') : false;
+    return this.modalController?.isVisible() ?? false;
   }
 
   /**
    * Show the share modal
    */
   show(): void {
-    if (!this.modal) {
+    if (!this.modalController) {
       return;
     }
-    this.modal.classList.remove('hidden');
+    this.modalController.show();
     // Reset to initial state
     this.resultSection?.classList.add('hidden');
     this.createBtn?.classList.remove('hidden');
@@ -147,10 +142,7 @@ export class ShareManager {
    * Hide the share modal
    */
   hide(): void {
-    if (!this.modal) {
-      return;
-    }
-    this.modal.classList.add('hidden');
+    this.modalController?.hide();
   }
 
   /**
@@ -173,18 +165,7 @@ export class ShareManager {
         (this.createBtn as HTMLButtonElement).disabled = true;
       }
 
-      const response = await fetch(`${basePath}/api/shares`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionName, expiresIn })
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || 'Failed to create share link');
-      }
-
-      const share = await response.json();
+      const share = await this.apiClient.createShare(sessionName, expiresIn);
       const shareUrl = `${window.location.origin}${basePath}/s/${share.token}`;
 
       this.showResult(shareUrl);

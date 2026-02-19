@@ -9,6 +9,7 @@
  */
 
 import type { ClipboardHistoryManager } from './ClipboardHistoryManager.js';
+import { toolbarEvents } from './events.js';
 import type { InputHandler } from './InputHandler.js';
 import type { Terminal, ToolbarConfig } from './types.js';
 import { isMobileDevice } from './utils.js';
@@ -192,7 +193,7 @@ export class TerminalController {
   /**
    * Setup visual bell handler
    */
-  setupBellHandler(onBell: () => void): void {
+  setupBellHandler(onBell?: () => void): void {
     const term = this.findTerminal();
     if (!term?.onBell) {
       // Retry later if terminal not ready
@@ -202,7 +203,12 @@ export class TerminalController {
 
     term.onBell(() => {
       console.log('[Toolbar] Bell detected (visual feedback)');
-      onBell();
+
+      // Emit event via EventBus
+      toolbarEvents.emit('notification:bell');
+
+      // Call legacy callback if provided
+      onBell?.();
 
       // Visual bell effect - flash the terminal
       const termEl = term.element;

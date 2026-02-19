@@ -19,6 +19,7 @@ import { SnippetManager } from './SnippetManager.js';
 import { TerminalController } from './TerminalController.js';
 import { TouchGestureHandler } from './TouchGestureHandler.js';
 import { WebSocketConnection } from './WebSocketConnection.js';
+import { toolbarEvents } from './events.js';
 import type { SmartPasteElements, ToolbarConfig, ToolbarElements } from './types.js';
 import { STORAGE_KEYS } from './types.js';
 import { bindClick, isMobileDevice } from './utils.js';
@@ -208,12 +209,13 @@ class ToolbarApp {
     // Setup touch gestures
     this.touch.setup();
 
-    // Setup bell handler
+    // Setup bell handler (emits 'notification:bell' via EventBus)
     setTimeout(() => {
-      this.terminal.setupBellHandler(() => {
-        // Visual feedback handled inside setupBellHandler
-      });
+      this.terminal.setupBellHandler();
     }, 1000);
+
+    // Subscribe to EventBus events
+    this.setupEventBusListeners();
 
     // Restore font size
     this.applyStoredFontSize();
@@ -251,12 +253,12 @@ class ToolbarApp {
     // Zoom buttons
     bindClick(elements.zoomInBtn, () => {
       this.terminal.zoomTerminal(2);
-      this.fontSizeManager.save(this.terminal.getCurrentFontSize());
+      toolbarEvents.emit('font:change', this.terminal.getCurrentFontSize());
     });
 
     bindClick(elements.zoomOutBtn, () => {
       this.terminal.zoomTerminal(-2);
-      this.fontSizeManager.save(this.terminal.getCurrentFontSize());
+      toolbarEvents.emit('font:change', this.terminal.getCurrentFontSize());
     });
 
     // Modifier buttons
@@ -485,6 +487,27 @@ class ToolbarApp {
     // Try multiple times as terminal may not be ready
     setTimeout(applySize, 500);
     setTimeout(applySize, 1500);
+  }
+
+  /**
+   * Setup EventBus listeners for inter-manager communication
+   */
+  private setupEventBusListeners(): void {
+    // Listen for bell events
+    toolbarEvents.on('notification:bell', () => {
+      console.log('[Toolbar] Bell event received via EventBus');
+    });
+
+    // Listen for font change events
+    toolbarEvents.on('font:change', (size) => {
+      this.fontSizeManager.save(size);
+      console.log('[Toolbar] Font size changed via EventBus:', size);
+    });
+
+    // Listen for error events
+    toolbarEvents.on('error', (error) => {
+      console.error('[Toolbar] Error event:', error.message);
+    });
   }
 
   /**

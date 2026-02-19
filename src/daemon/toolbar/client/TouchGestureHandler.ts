@@ -8,6 +8,7 @@
  * - Shift+touch for text selection
  */
 
+import { toolbarEvents } from './events.js';
 import type { InputHandler } from './InputHandler.js';
 import type { ModifierKeyState } from './ModifierKeyState.js';
 import type { TerminalController } from './TerminalController.js';
@@ -312,7 +313,9 @@ export class TouchGestureHandler {
     document.addEventListener(
       'touchend',
       (e: TouchEvent) => {
-        if (e.touches.length < 2) {
+        if (e.touches.length < 2 && this.pinchStartDistance > 0) {
+          // Pinch gesture completed - emit font change event
+          toolbarEvents.emit('font:change', this.terminal.getCurrentFontSize());
           this.pinchStartDistance = 0;
         }
       },
@@ -333,7 +336,9 @@ export class TouchGestureHandler {
 
           // deltaY > 0: zoom out, deltaY < 0: zoom in
           const delta = e.deltaY > 0 ? -2 : 2;
-          this.terminal.zoomTerminal(delta);
+          if (this.terminal.zoomTerminal(delta)) {
+            toolbarEvents.emit('font:change', this.terminal.getCurrentFontSize());
+          }
         }
       },
       { passive: false }

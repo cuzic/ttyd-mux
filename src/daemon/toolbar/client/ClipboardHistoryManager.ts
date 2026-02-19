@@ -5,13 +5,28 @@
  * Shows history popup on long press of paste button.
  */
 
+import { z } from 'zod';
 import type { InputHandler } from './InputHandler.js';
-import type { ClipboardHistoryItem, ClipboardHistoryStorage } from './types.js';
+import type { ClipboardHistoryItem } from './types.js';
 import { STORAGE_KEYS } from './types.js';
+import { createStorageManager, type StorageManager } from './StorageManager.js';
 
-const STORAGE_VERSION = 1;
 const MAX_HISTORY_ITEMS = 10;
 const LONG_PRESS_DURATION = 500; // ms
+
+// Schema for clipboard history storage
+const clipboardHistoryItemSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  timestamp: z.string()
+});
+
+const clipboardHistoryStorageSchema = z.object({
+  version: z.number(),
+  items: z.array(clipboardHistoryItemSchema)
+});
+
+type ClipboardHistoryStorageType = z.infer<typeof clipboardHistoryStorageSchema>;
 
 export class ClipboardHistoryManager {
   private inputHandler: InputHandler;
@@ -20,9 +35,15 @@ export class ClipboardHistoryManager {
   private popup: HTMLElement | null = null;
   private longPressTimer: ReturnType<typeof setTimeout> | null = null;
   private isLongPress = false;
+  private storage: StorageManager<ClipboardHistoryStorageType>;
 
   constructor(inputHandler: InputHandler) {
     this.inputHandler = inputHandler;
+    this.storage = createStorageManager({
+      key: STORAGE_KEYS.CLIPBOARD_HISTORY,
+      schema: clipboardHistoryStorageSchema,
+      defaultValue: { version: 1, items: [] }
+    });
     this.load();
   }
 
@@ -231,41 +252,21 @@ export class ClipboardHistoryManager {
   }
 
   /**
-   * Load history from localStorage
+   * Load history from storage
    */
   private load(): void {
-    try {
-      const data = localStorage.getItem(STORAGE_KEYS.CLIPBOARD_HISTORY);
-      if (!data) {
-        this.history = [];
-        return;
-      }
-
-      const storage: ClipboardHistoryStorage = JSON.parse(data);
-      if (storage.version === STORAGE_VERSION && Array.isArray(storage.items)) {
-        this.history = storage.items;
-      } else {
-        this.history = [];
-      }
-    } catch {
-      console.warn('[Toolbar] Failed to load clipboard history');
-      this.history = [];
-    }
+    const storage = this.storage.load();
+    this.history = storage.items;
   }
 
   /**
-   * Save history to localStorage
+   * Save history to storage
    */
   private save(): void {
-    try {
-      const storage: ClipboardHistoryStorage = {
-        version: STORAGE_VERSION,
-        items: this.history
-      };
-      localStorage.setItem(STORAGE_KEYS.CLIPBOARD_HISTORY, JSON.stringify(storage));
-    } catch {
-      console.warn('[Toolbar] Failed to save clipboard history');
-    }
+    this.storage.save({
+      version: 1,
+      items: this.history
+    });
   }
 
   /**

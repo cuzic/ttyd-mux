@@ -4,18 +4,36 @@
  * Handles Web Push notification subscription and management.
  */
 
+import { z } from 'zod';
+import { createApiClient, type ToolbarApiClient } from './ApiClient.js';
+import { createStorageManager, type StorageManager } from './StorageManager.js';
 import type { ToolbarConfig } from './types.js';
 import { STORAGE_KEYS } from './types.js';
 import { getSessionNameFromURL } from './utils.js';
 
+// Schema for notification subscription storage
+const subscriptionSchema = z.object({
+  id: z.string()
+}).nullable();
+
+type SubscriptionData = { id: string } | null;
+
 export class NotificationManager {
   private config: ToolbarConfig;
+  private apiClient: ToolbarApiClient;
   private subscribed = false;
   private subscriptionId: string | null = null;
   private notifyBtn: HTMLElement | null = null;
+  private storage: StorageManager<SubscriptionData>;
 
   constructor(config: ToolbarConfig) {
     this.config = config;
+    this.apiClient = createApiClient({ basePath: config.base_path });
+    this.storage = createStorageManager({
+      key: STORAGE_KEYS.NOTIFY_SUBSCRIPTION,
+      schema: subscriptionSchema,
+      defaultValue: null
+    });
     this.loadSubscription();
   }
 
@@ -49,42 +67,29 @@ export class NotificationManager {
   }
 
   /**
-   * Load saved subscription ID from localStorage
+   * Load saved subscription ID from storage
    */
   private loadSubscription(): void {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.NOTIFY_SUBSCRIPTION);
-      if (saved) {
-        const data = JSON.parse(saved);
-        this.subscriptionId = data.id;
-        this.subscribed = true;
-        console.log('[Toolbar] Loaded notification subscription: ' + data.id);
-      }
-    } catch (e) {
-      console.warn('[Toolbar] Failed to load notification subscription:', e);
+    const data = this.storage.load();
+    if (data) {
+      this.subscriptionId = data.id;
+      this.subscribed = true;
+      console.log('[Toolbar] Loaded notification subscription: ' + data.id);
     }
   }
 
   /**
-   * Save subscription ID to localStorage
+   * Save subscription ID to storage
    */
   private saveSubscription(id: string): void {
-    try {
-      localStorage.setItem(STORAGE_KEYS.NOTIFY_SUBSCRIPTION, JSON.stringify({ id }));
-    } catch (e) {
-      console.warn('[Toolbar] Failed to save notification subscription:', e);
-    }
+    this.storage.save({ id });
   }
 
   /**
-   * Clear subscription from localStorage
+   * Clear subscription from storage
    */
   private clearSubscription(): void {
-    try {
-      localStorage.removeItem(STORAGE_KEYS.NOTIFY_SUBSCRIPTION);
-    } catch (e) {
-      console.warn('[Toolbar] Failed to clear notification subscription:', e);
-    }
+    this.storage.clear();
   }
 
   /**
@@ -115,7 +120,6 @@ export class NotificationManager {
    * Subscribe to push notifications
    */
   async subscribe(): Promise<void> {
-    const basePath = this.config.base_path;
     const sessionName = this.getSessionName();
 
     try {
@@ -133,11 +137,7 @@ export class NotificationManager {
       }
 
       // Get VAPID public key from server
-      const vapidResponse = await fetch(basePath + '/api/notifications/vapid-key');
-      if (!vapidResponse.ok) {
-        throw new Error('VAPID key fetch failed');
-      }
-      const { publicKey } = await vapidResponse.json();
+      const publicKey = await this.apiClient.getVapidKey();
 
       // Get service worker registration
       const registration = await navigator.serviceWorker.ready;
@@ -157,29 +157,20 @@ export class NotificationManager {
       }
 
       // Send subscription to server
-      const response = await fetch(basePath + '/api/notifications/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endpoint: subscription.endpoint,
-          keys: {
-            p256dh: btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dh)))),
-            auth: btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(auth))))
-          },
-          sessionName: sessionName || undefined
-        })
+      const subscriptionId = await this.apiClient.subscribe({
+        endpoint: subscription.endpoint,
+        keys: {
+          p256dh: btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dh)))),
+          auth: btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(auth))))
+        },
+        sessionName: sessionName || undefined
       });
 
-      if (!response.ok) {
-        throw new Error('Subscription failed');
-      }
-
-      const result = await response.json();
-      this.subscriptionId = result.id;
+      this.subscriptionId = subscriptionId;
       this.subscribed = true;
-      this.saveSubscription(result.id);
+      this.saveSubscription(subscriptionId);
       this.updateButton();
-      console.log('[Toolbar] Push notification subscribed: ' + result.id);
+      console.log('[Toolbar] Push notification subscribed: ' + subscriptionId);
     } catch (error) {
       console.error('[Toolbar] Push notification subscription failed:', error);
       alert('Push通知の登録に失敗しました: ' + (error as Error).message);
@@ -190,14 +181,9 @@ export class NotificationManager {
    * Unsubscribe from push notifications
    */
   async unsubscribe(): Promise<void> {
-    const basePath = this.config.base_path;
-
     try {
       if (this.subscriptionId) {
-        await fetch(
-          basePath + '/api/notifications/subscribe/' + encodeURIComponent(this.subscriptionId),
-          { method: 'DELETE' }
-        );
+        await this.apiClient.unsubscribe(this.subscriptionId);
       }
 
       // Also unsubscribe from browser

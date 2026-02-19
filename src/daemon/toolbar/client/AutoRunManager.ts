@@ -4,11 +4,31 @@
  * Manages auto-run mode state persistence.
  */
 
+import { z } from 'zod';
 import { STORAGE_KEYS } from './types.js';
+import { createStorageManager, type StorageManager } from './StorageManager.js';
+
+// Schema for auto-run state
+const autoRunSchema = z.boolean();
 
 export class AutoRunManager {
   private active = false;
   private autoBtn: HTMLElement | null = null;
+  private storage: StorageManager<boolean>;
+
+  constructor() {
+    this.storage = createStorageManager({
+      key: STORAGE_KEYS.AUTO_RUN,
+      schema: autoRunSchema,
+      defaultValue: false,
+      migrate: (raw) => {
+        // Migrate from '1'/'0' string format
+        if (raw === '1' || raw === 1) return true;
+        if (raw === '0' || raw === 0) return false;
+        return null;
+      }
+    });
+  }
 
   /**
    * Bind auto-run button element
@@ -31,34 +51,18 @@ export class AutoRunManager {
   toggle(): boolean {
     this.active = !this.active;
     this.autoBtn?.classList.toggle('active', this.active);
-    this.save();
+    this.storage.save(this.active);
     return this.active;
   }
 
   /**
-   * Save auto-run state to localStorage
-   */
-  private save(): void {
-    try {
-      localStorage.setItem(STORAGE_KEYS.AUTO_RUN, this.active ? '1' : '0');
-    } catch (e) {
-      console.warn('[Toolbar] Failed to save auto-run state:', e);
-    }
-  }
-
-  /**
-   * Restore auto-run state from localStorage
+   * Restore auto-run state from storage
    */
   private restore(): void {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.AUTO_RUN);
-      if (saved === '1') {
-        this.active = true;
-        this.autoBtn?.classList.add('active');
-        console.log('[Toolbar] Restored auto-run mode: enabled');
-      }
-    } catch (e) {
-      console.warn('[Toolbar] Failed to load auto-run state:', e);
+    this.active = this.storage.load();
+    if (this.active) {
+      this.autoBtn?.classList.add('active');
+      console.log('[Toolbar] Restored auto-run mode: enabled');
     }
   }
 }

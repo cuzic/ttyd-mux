@@ -5,20 +5,41 @@
  * Provides CRUD operations with localStorage persistence.
  */
 
+import { z } from 'zod';
 import type { InputHandler } from './InputHandler.js';
-import type { Snippet, SnippetElements, SnippetStorage } from './types.js';
+import type { Snippet, SnippetElements } from './types.js';
 import { STORAGE_KEYS } from './types.js';
+import { createStorageManager, type StorageManager } from './StorageManager.js';
 
-const STORAGE_VERSION = 1;
+// Schema for snippet storage
+const snippetSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  command: z.string(),
+  createdAt: z.string()
+});
+
+const snippetStorageSchema = z.object({
+  version: z.number(),
+  snippets: z.array(snippetSchema)
+});
+
+type SnippetStorageType = z.infer<typeof snippetStorageSchema>;
 
 export class SnippetManager {
   private inputHandler: InputHandler;
   private snippets: Snippet[] = [];
   private elements: SnippetElements | null = null;
   private searchQuery = '';
+  private storage: StorageManager<SnippetStorageType>;
 
   constructor(inputHandler: InputHandler) {
     this.inputHandler = inputHandler;
+    this.storage = createStorageManager({
+      key: STORAGE_KEYS.SNIPPETS,
+      schema: snippetStorageSchema,
+      defaultValue: { version: 1, snippets: [] }
+    });
     this.load();
   }
 
@@ -362,38 +383,18 @@ export class SnippetManager {
    * Load snippets from localStorage
    */
   private load(): void {
-    try {
-      const data = localStorage.getItem(STORAGE_KEYS.SNIPPETS);
-      if (!data) {
-        this.snippets = [];
-        return;
-      }
-
-      const storage: SnippetStorage = JSON.parse(data);
-      if (storage.version === STORAGE_VERSION && Array.isArray(storage.snippets)) {
-        this.snippets = storage.snippets;
-      } else {
-        this.snippets = [];
-      }
-    } catch {
-      console.warn('[Toolbar] Failed to load snippets');
-      this.snippets = [];
-    }
+    const storage = this.storage.load();
+    this.snippets = storage.snippets;
   }
 
   /**
-   * Save snippets to localStorage
+   * Save snippets to storage
    */
   private save(): void {
-    try {
-      const storage: SnippetStorage = {
-        version: STORAGE_VERSION,
-        snippets: this.snippets
-      };
-      localStorage.setItem(STORAGE_KEYS.SNIPPETS, JSON.stringify(storage));
-    } catch {
-      console.warn('[Toolbar] Failed to save snippets');
-    }
+    this.storage.save({
+      version: 1,
+      snippets: this.snippets
+    });
   }
 
   /**
