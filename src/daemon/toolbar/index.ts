@@ -60,6 +60,7 @@ export function getToolbarScript(config: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG)
   const scrollBtn = document.getElementById('ttyd-toolbar-scroll');
   const pageUpBtn = document.getElementById('ttyd-toolbar-pageup');
   const pageDownBtn = document.getElementById('ttyd-toolbar-pagedown');
+  const notifyBtn = document.getElementById('ttyd-toolbar-notify');
 
   // Search bar elements
   const searchBar = document.getElementById('ttyd-search-bar');
@@ -481,6 +482,191 @@ export function getToolbarScript(config: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG)
     });
   }
 
+  // ========== Push Notification Subscription ==========
+
+  let notifySubscribed = false;
+  let notifySubscriptionId = null;
+  const NOTIFY_SUBSCRIPTION_KEY = 'ttyd-mux-notify-subscription';
+
+  // Convert base64 to Uint8Array for applicationServerKey
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
+
+  // Get base path from URL
+  function getBasePath() {
+    const pathParts = window.location.pathname.split('/');
+    return '/' + (pathParts[1] || 'ttyd-mux');
+  }
+
+  // Get session name from URL
+  function getSessionName() {
+    const pathParts = window.location.pathname.split('/');
+    return pathParts[2] || '';
+  }
+
+  // Load saved subscription ID
+  function loadNotifySubscription() {
+    try {
+      const saved = localStorage.getItem(NOTIFY_SUBSCRIPTION_KEY);
+      if (saved) {
+        const data = JSON.parse(saved);
+        notifySubscriptionId = data.id;
+        notifySubscribed = true;
+        updateNotifyButton();
+        console.log('[Toolbar] Loaded notification subscription: ' + data.id);
+      }
+    } catch (e) {
+      console.warn('[Toolbar] Failed to load notification subscription:', e);
+    }
+  }
+
+  // Save subscription ID
+  function saveNotifySubscription(id) {
+    try {
+      localStorage.setItem(NOTIFY_SUBSCRIPTION_KEY, JSON.stringify({ id: id }));
+    } catch (e) {
+      console.warn('[Toolbar] Failed to save notification subscription:', e);
+    }
+  }
+
+  // Clear subscription ID
+  function clearNotifySubscription() {
+    try {
+      localStorage.removeItem(NOTIFY_SUBSCRIPTION_KEY);
+    } catch (e) {
+      console.warn('[Toolbar] Failed to clear notification subscription:', e);
+    }
+  }
+
+  // Update button appearance
+  function updateNotifyButton() {
+    if (notifySubscribed) {
+      notifyBtn.classList.add('active');
+      notifyBtn.textContent = '🔔';
+      notifyBtn.title = 'Push通知: ON (クリックで解除)';
+    } else {
+      notifyBtn.classList.remove('active');
+      notifyBtn.textContent = '🔕';
+      notifyBtn.title = 'Push通知: OFF (クリックで有効化)';
+    }
+  }
+
+  // Subscribe to push notifications
+  async function subscribeToNotifications() {
+    const basePath = getBasePath();
+    const sessionName = getSessionName();
+
+    try {
+      // Check if service worker is supported
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        alert('このブラウザはPush通知をサポートしていません');
+        return;
+      }
+
+      // Request notification permission
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        alert('通知の許可が必要です');
+        return;
+      }
+
+      // Get VAPID public key from server
+      const vapidResponse = await fetch(basePath + '/api/notifications/vapid-key');
+      if (!vapidResponse.ok) {
+        throw new Error('VAPID key fetch failed');
+      }
+      const { publicKey } = await vapidResponse.json();
+
+      // Get service worker registration
+      const registration = await navigator.serviceWorker.ready;
+
+      // Subscribe to push
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey)
+      });
+
+      // Extract keys
+      const p256dh = subscription.getKey('p256dh');
+      const auth = subscription.getKey('auth');
+
+      // Send subscription to server
+      const response = await fetch(basePath + '/api/notifications/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: subscription.endpoint,
+          keys: {
+            p256dh: btoa(String.fromCharCode.apply(null, new Uint8Array(p256dh))),
+            auth: btoa(String.fromCharCode.apply(null, new Uint8Array(auth)))
+          },
+          sessionName: sessionName || undefined
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Subscription failed');
+      }
+
+      const result = await response.json();
+      notifySubscriptionId = result.id;
+      notifySubscribed = true;
+      saveNotifySubscription(result.id);
+      updateNotifyButton();
+      console.log('[Toolbar] Push notification subscribed: ' + result.id);
+
+    } catch (error) {
+      console.error('[Toolbar] Push notification subscription failed:', error);
+      alert('Push通知の登録に失敗しました: ' + error.message);
+    }
+  }
+
+  // Unsubscribe from push notifications
+  async function unsubscribeFromNotifications() {
+    const basePath = getBasePath();
+
+    try {
+      if (notifySubscriptionId) {
+        await fetch(basePath + '/api/notifications/subscribe/' + encodeURIComponent(notifySubscriptionId), {
+          method: 'DELETE'
+        });
+      }
+
+      // Also unsubscribe from browser
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        await subscription.unsubscribe();
+      }
+
+      notifySubscribed = false;
+      notifySubscriptionId = null;
+      clearNotifySubscription();
+      updateNotifyButton();
+      console.log('[Toolbar] Push notification unsubscribed');
+
+    } catch (error) {
+      console.error('[Toolbar] Push notification unsubscribe failed:', error);
+    }
+  }
+
+  // Toggle notification subscription
+  async function toggleNotifications() {
+    if (notifySubscribed) {
+      await unsubscribeFromNotifications();
+    } else {
+      await subscribeToNotifications();
+    }
+  }
+
   function submitInput() {
     const text = input.value;
     if (!text) return;
@@ -692,6 +878,11 @@ export function getToolbarScript(config: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG)
     } else {
       console.log('[Toolbar] Scroll mode disabled');
     }
+  });
+
+  notifyBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    toggleNotifications();
   });
 
   copyBtn.addEventListener('click', function(e) {
@@ -1036,6 +1227,10 @@ export function getToolbarScript(config: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG)
     }
   }
   applyStoredAutoRun();
+
+  // Restore notification subscription state from localStorage
+  loadNotifySubscription();
+  updateNotifyButton();
 
   // Auto-reload when tab becomes visible if WebSocket is disconnected
   document.addEventListener('visibilitychange', function() {

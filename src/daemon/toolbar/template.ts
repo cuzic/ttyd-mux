@@ -21,6 +21,7 @@ export const toolbarHtml = `
     <button id="ttyd-toolbar-copy">Copy</button>
     <button id="ttyd-toolbar-copyall">All</button>
     <button id="ttyd-toolbar-search">🔍</button>
+    <button id="ttyd-toolbar-notify" title="Push通知">🔔</button>
     <button id="ttyd-toolbar-send">Send</button>
     <button id="ttyd-toolbar-run">Run</button>
     <button id="ttyd-toolbar-auto" class="modifier">Auto</button>

@@ -139,7 +139,19 @@ GET    /api/notifications/subscriptions  - List subscriptions
 POST   /api/notifications/bell           - Trigger bell notification (from client)
 ```
 
-### Client Integration
+### Toolbar Subscription UI
+
+The toolbar includes a notification toggle button (🔔/🔕):
+
+1. **Click the bell icon** in the toolbar
+2. Browser requests notification permission
+3. If granted, subscribes to push notifications
+4. Button shows 🔔 (active) when subscribed
+5. Click again to unsubscribe (shows 🔕)
+
+Subscription state is persisted in localStorage.
+
+### Client Integration (Programmatic)
 
 Browser subscribes to notifications:
 
