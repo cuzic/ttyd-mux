@@ -4,6 +4,7 @@ import { handleCliError } from '@/utils/errors.js';
 
 export interface DownOptions {
   config?: string;
+  killTmux?: boolean;
 }
 
 export async function downCommand(options: DownOptions): Promise<void> {
@@ -32,8 +33,12 @@ export async function downCommand(options: DownOptions): Promise<void> {
   }
 
   try {
-    await stopSession(config, session.name);
-    console.log(`Session "${session.name}" stopped`);
+    await stopSession(config, session.name, { killTmux: options.killTmux });
+    if (options.killTmux) {
+      console.log(`Session "${session.name}" stopped (tmux session terminated)`);
+    } else {
+      console.log(`Session "${session.name}" stopped`);
+    }
   } catch (error) {
     handleCliError('Failed to stop session', error);
     process.exit(1);

@@ -251,16 +251,19 @@ ttyd-mux daemon (manages sessions)
 | Command | daemon | ttyd | tmux |
 |---------|--------|------|------|
 | `daemon stop` | Stops | Keeps running | Keeps running |
-| `daemon stop --stop-sessions` | Stops | Stops | **Keeps running** |
+| `daemon stop -s` | Stops | Stops | **Keeps running** |
+| `daemon stop -s --kill-tmux` | Stops | Stops | Stops |
+| `down` | - | Stops | **Keeps running** |
+| `down --kill-tmux` | - | Stops | Stops |
 | `exit` in terminal | - | Stops | Stops |
 
-- tmux sessions persist even when ttyd or daemon is stopped
+- By default, tmux sessions persist even when ttyd or daemon is stopped
 - Restarting with `ttyd-mux up` reconnects to existing tmux session
-- To fully terminate a session, type `exit` in the terminal or run `tmux kill-session -t <name>`
+- Use `--kill-tmux` flag to fully terminate tmux sessions
 
-- tmux セッションは ttyd やデーモンを停止しても残ります
+- デフォルトでは tmux セッションは ttyd やデーモンを停止しても残ります
 - `ttyd-mux up` で再起動すると既存の tmux セッションに再接続します
-- セッションを完全に終了するには、ターミナル内で `exit` するか `tmux kill-session -t <name>` を実行します
+- `--kill-tmux` フラグで tmux セッションも完全に終了できます
 
 ## Toolbar Features / ツールバー機能
 

@@ -79,6 +79,11 @@ export interface TmuxClient {
    * Ensure a session exists, creating it if necessary
    */
   ensureSession(sessionName: string, cwd?: string): void;
+
+  /**
+   * Kill a tmux session
+   */
+  killSession(sessionName: string): boolean;
 }
 
 /**
@@ -140,6 +145,16 @@ export function createTmuxClient(processRunner: ProcessRunner = defaultProcessRu
           throw new Error(`Failed to create tmux session: ${sessionName}`);
         }
       }
+    },
+
+    killSession(sessionName: string): boolean {
+      if (!isValidSessionName(sessionName)) {
+        return false;
+      }
+      const result = processRunner.spawnSync('tmux', ['kill-session', '-t', sessionName], {
+        stdio: 'ignore'
+      });
+      return result.status === 0;
     }
   };
 }
@@ -162,6 +177,7 @@ export function createMockTmuxClient(overrides?: Partial<TmuxClient>): TmuxClien
       overrides?.ensureSession ??
       (() => {
         /* no-op mock */
-      })
+      }),
+    killSession: overrides?.killSession ?? (() => true)
   };
 }

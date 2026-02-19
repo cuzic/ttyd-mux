@@ -55,6 +55,7 @@ program
   .command('down')
   .description('Stop session for current directory')
   .option('-c, --config <path>', 'Config file path')
+  .option('--kill-tmux', 'Also terminate the tmux session')
   .action((options) => downCommand(options));
 
 program
@@ -87,6 +88,7 @@ daemon
   .description('Stop the daemon')
   .option('-c, --config <path>', 'Config file path')
   .option('-s, --stop-sessions', 'Stop all sessions before shutting down')
+  .option('--kill-tmux', 'Also terminate tmux sessions (requires -s)')
   .action((options) => shutdownCommand(options));
 
 daemon

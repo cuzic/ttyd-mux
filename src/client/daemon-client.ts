@@ -227,6 +227,8 @@ export async function sendCommand(command: string): Promise<string | null> {
 export interface ShutdownDaemonOptions {
   /** Stop all sessions before shutting down the daemon */
   stopSessions?: boolean;
+  /** Kill tmux sessions when stopping (requires stopSessions) */
+  killTmux?: boolean;
 }
 
 /**
@@ -239,7 +241,14 @@ export async function shutdownDaemon(options: ShutdownDaemonOptions = {}): Promi
     return;
   }
 
-  const command = options.stopSessions ? 'shutdown-with-sessions' : 'shutdown';
+  let command: string;
+  if (options.stopSessions && options.killTmux) {
+    command = 'shutdown-with-sessions-kill-tmux';
+  } else if (options.stopSessions) {
+    command = 'shutdown-with-sessions';
+  } else {
+    command = 'shutdown';
+  }
 
   return new Promise((resolve, reject) => {
     const socket = currentDeps.socketClient.connect(socketPath);

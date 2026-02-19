@@ -66,23 +66,37 @@ export function startSession(
   return apiRequest<SessionResponse>(config, 'POST', '/api/sessions', request);
 }
 
+export interface StopSessionOptions {
+  killTmux?: boolean;
+}
+
 /**
  * Stop a session
  */
-export async function stopSession(config: Config, name: string): Promise<void> {
+export async function stopSession(
+  config: Config,
+  name: string,
+  options?: StopSessionOptions
+): Promise<void> {
+  const query = options?.killTmux ? '?killTmux=true' : '';
   await apiRequest<{ success: boolean }>(
     config,
     'DELETE',
-    `/api/sessions/${encodeURIComponent(name)}`
+    `/api/sessions/${encodeURIComponent(name)}${query}`
   );
+}
+
+export interface ShutdownOptions {
+  stopSessions?: boolean;
+  killTmux?: boolean;
 }
 
 /**
  * Request daemon shutdown
  */
-export async function requestShutdown(config: Config): Promise<void> {
+export async function requestShutdown(config: Config, options?: ShutdownOptions): Promise<void> {
   try {
-    await apiRequest<{ success: boolean }>(config, 'POST', '/api/shutdown');
+    await apiRequest<{ success: boolean }>(config, 'POST', '/api/shutdown', options);
   } catch {
     // Server will shut down, so connection may be lost
   }

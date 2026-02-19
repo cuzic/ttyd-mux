@@ -160,10 +160,13 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
         socket.write('pong');
       } else if (command === 'shutdown') {
         socket.write('ok');
-        shutdown(false);
+        shutdown({ stopSessions: false });
       } else if (command === 'shutdown-with-sessions') {
         socket.write('ok');
-        shutdown(true);
+        shutdown({ stopSessions: true });
+      } else if (command === 'shutdown-with-sessions-kill-tmux') {
+        socket.write('ok');
+        shutdown({ stopSessions: true, killTmux: true });
       } else if (command === 'reload') {
         const result = reloadConfig();
         socket.write(JSON.stringify(result));
@@ -185,11 +188,16 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
   });
 
   // Handle shutdown signals
-  const shutdown = (stopSessions = false) => {
-    log.info(`Shutdown requested (stopSessions=${stopSessions})`);
+  interface ShutdownOptions {
+    stopSessions?: boolean;
+    killTmux?: boolean;
+  }
+  const shutdown = (options: ShutdownOptions = {}) => {
+    const { stopSessions = false, killTmux = false } = options;
+    log.info(`Shutdown requested (stopSessions=${stopSessions}, killTmux=${killTmux})`);
     console.log('\nShutting down...');
     if (stopSessions) {
-      sessionManager.stopAllSessions();
+      sessionManager.stopAllSessions({ killTmux });
       log.info('All sessions stopped');
     } else {
       log.info('Sessions preserved (daemon-only shutdown)');

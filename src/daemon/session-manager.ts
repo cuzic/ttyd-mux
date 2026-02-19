@@ -146,8 +146,8 @@ export class SessionManager extends EventEmitter {
     return session;
   }
 
-  stopSession(name: string): void {
-    const { stateStore, processRunner } = this.deps;
+  stopSession(name: string, options?: { killTmux?: boolean }): void {
+    const { stateStore, processRunner, tmuxClient } = this.deps;
 
     log.info(`Stopping session: ${name}`);
     const session = stateStore.getSession(name);
@@ -156,12 +156,21 @@ export class SessionManager extends EventEmitter {
       throw new Error(`Session "${name}" not found.\n  To view running sessions: ttyd-mux status`);
     }
 
-    // Try to kill the process
+    // Try to kill the ttyd process
     try {
       processRunner.kill(session.pid, 'SIGTERM');
       log.info(`Sent SIGTERM to pid ${session.pid}`);
     } catch (err) {
       log.debug(`Process ${session.pid} might already be dead: ${err}`);
+    }
+
+    // Kill tmux session if requested
+    if (options?.killTmux) {
+      if (tmuxClient.killSession(name)) {
+        log.info(`Killed tmux session: ${name}`);
+      } else {
+        log.debug(`tmux session "${name}" not found or already terminated`);
+      }
     }
 
     // Clean up
@@ -190,12 +199,12 @@ export class SessionManager extends EventEmitter {
     return activeSessions;
   }
 
-  stopAllSessions(): void {
+  stopAllSessions(options?: { killTmux?: boolean }): void {
     log.info('Stopping all sessions');
     const sessions = this.listSessions();
     for (const session of sessions) {
       try {
-        this.stopSession(session.name);
+        this.stopSession(session.name, options);
       } catch (err) {
         log.warn(`Error stopping session "${session.name}": ${err}`);
       }

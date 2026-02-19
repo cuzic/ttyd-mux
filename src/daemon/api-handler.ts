@@ -89,12 +89,15 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
     return;
   }
 
-  // DELETE /api/sessions/:name
+  // DELETE /api/sessions/:name?killTmux=true
   const deleteMatch = path.match(DELETE_SESSION_REGEX);
   if (deleteMatch?.[1] && method === 'DELETE') {
-    const name = decodeURIComponent(deleteMatch[1]);
+    const [pathPart = '', queryString] = deleteMatch[1].split('?');
+    const name = decodeURIComponent(pathPart);
+    const params = new URLSearchParams(queryString ?? '');
+    const killTmux = params.get('killTmux') === 'true';
     try {
-      sessionManager.stopSession(name);
+      sessionManager.stopSession(name, { killTmux });
       sendJson(res, 200, { success: true });
     } catch (error) {
       sendJson(res, 400, { error: getErrorMessage(error) });
@@ -104,10 +107,20 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
 
   // POST /api/shutdown
   if (path === '/api/shutdown' && method === 'POST') {
-    sendJson(res, 200, { success: true });
-    setTimeout(() => {
-      process.exit(0);
-    }, 100);
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+    req.on('end', () => {
+      const options = body ? (JSON.parse(body) as { stopSessions?: boolean; killTmux?: boolean }) : {};
+      if (options.stopSessions) {
+        sessionManager.stopAllSessions({ killTmux: options.killTmux });
+      }
+      sendJson(res, 200, { success: true });
+      setTimeout(() => {
+        process.exit(0);
+      }, 100);
+    });
     return;
   }
 
