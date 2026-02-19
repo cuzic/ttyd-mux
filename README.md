@@ -230,6 +230,38 @@ sessions:
 - Static portal (no daemon needed at runtime) / 静的ポータル（実行時デーモン不要）
 - No toolbar support / ツールバー非対応
 
+### Session Lifecycle / セッションのライフサイクル
+
+Each session consists of three independent processes:
+
+各セッションは3つの独立したプロセスで構成されています：
+
+```
+ttyd-mux daemon (manages sessions)
+    │
+    └── ttyd (web terminal server)
+            │
+            └── tmux session (terminal multiplexer)
+```
+
+**What happens when stopping:**
+
+**停止時の挙動：**
+
+| Command | daemon | ttyd | tmux |
+|---------|--------|------|------|
+| `daemon stop` | Stops | Keeps running | Keeps running |
+| `daemon stop --stop-sessions` | Stops | Stops | **Keeps running** |
+| `exit` in terminal | - | Stops | Stops |
+
+- tmux sessions persist even when ttyd or daemon is stopped
+- Restarting with `ttyd-mux up` reconnects to existing tmux session
+- To fully terminate a session, type `exit` in the terminal or run `tmux kill-session -t <name>`
+
+- tmux セッションは ttyd やデーモンを停止しても残ります
+- `ttyd-mux up` で再起動すると既存の tmux セッションに再接続します
+- セッションを完全に終了するには、ターミナル内で `exit` するか `tmux kill-session -t <name>` を実行します
+
 ## Toolbar Features / ツールバー機能
 
 In proxy mode, ttyd-mux injects a toolbar for improved input experience:
