@@ -1,4 +1,4 @@
-import { ensureDaemon, getSessions, stopSession } from '@/client/index.js';
+import { ensureDaemon, getSessions, shutdownDaemon, stopSession } from '@/client/index.js';
 import { loadConfig } from '@/config/config.js';
 import { handleCliError } from '@/utils/errors.js';
 
@@ -38,6 +38,13 @@ export async function downCommand(options: DownOptions): Promise<void> {
       console.log(`Session "${session.name}" stopped (tmux session terminated)`);
     } else {
       console.log(`Session "${session.name}" stopped`);
+    }
+
+    // Check if there are any remaining sessions
+    const remainingSessions = await getSessions(config);
+    if (remainingSessions.length === 0) {
+      console.log('No sessions remaining, stopping daemon...');
+      await shutdownDaemon();
     }
   } catch (error) {
     handleCliError('Failed to stop session', error);
