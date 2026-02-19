@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import {
   type NotificationMatcher,
-  createNotificationMatcher,
-  type PatternConfig
+  type PatternConfig,
+  createNotificationMatcher
 } from './matcher.js';
 
 describe('NotificationMatcher', () => {

@@ -14,13 +14,9 @@ import { deployCommand } from './commands/deploy.js';
 import { doctorCommand } from './commands/doctor.js';
 import { downCommand } from './commands/down.js';
 import { listCommand } from './commands/list.js';
-import {
-  shareCommand,
-  shareListCommand,
-  shareRevokeCommand
-} from './commands/share.js';
 import { reloadCommand } from './commands/reload.js';
 import { restartCommand } from './commands/restart.js';
+import { shareCommand, shareListCommand, shareRevokeCommand } from './commands/share.js';
 import { shutdownCommand } from './commands/shutdown.js';
 import { statusCommand } from './commands/status.js';
 import { upCommand } from './commands/up.js';

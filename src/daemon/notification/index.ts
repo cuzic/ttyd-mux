@@ -9,11 +9,15 @@ export * from './subscription.js';
 export * from './vapid.js';
 
 import { createLogger } from '@/utils/logger.js';
-import { createNotificationMatcher, type NotificationMatcher } from './matcher.js';
-import { createNotificationSender, type NotificationSender, type SubscriptionStore } from './sender.js';
-import { createSubscriptionManager, type SubscriptionManager } from './subscription.js';
-import { loadOrGenerateVapidKeys } from './vapid.js';
+import { type NotificationMatcher, createNotificationMatcher } from './matcher.js';
+import {
+  type NotificationSender,
+  type SubscriptionStore,
+  createNotificationSender
+} from './sender.js';
+import { type SubscriptionManager, createSubscriptionManager } from './subscription.js';
 import type { NotificationConfig, PushSubscription, VapidKeys } from './types.js';
+import { loadOrGenerateVapidKeys } from './vapid.js';
 
 const log = createLogger('notification');
 

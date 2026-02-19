@@ -2,8 +2,8 @@
  * Push notification sender
  */
 
-import webpush from 'web-push';
 import { createLogger } from '@/utils/logger.js';
+import webpush from 'web-push';
 import type { MatchResult, PushSubscription, VapidKeys } from './types.js';
 
 const log = createLogger('notification');
@@ -37,7 +37,10 @@ export interface NotificationSender {
   /** Send notification to all relevant subscribers */
   sendNotification(match: MatchResult): Promise<number>;
   /** Send notification to a specific subscription */
-  sendToSubscription(subscription: PushSubscription, payload: NotificationPayload): Promise<boolean>;
+  sendToSubscription(
+    subscription: PushSubscription,
+    payload: NotificationPayload
+  ): Promise<boolean>;
 }
 
 /**
@@ -101,11 +104,16 @@ export function createNotificationSender(
         store.removeSubscription(id);
       }
 
-      log.info(`Sent ${sent}/${subscriptions.length} notifications for pattern: ${match.pattern.message}`);
+      log.info(
+        `Sent ${sent}/${subscriptions.length} notifications for pattern: ${match.pattern.message}`
+      );
       return sent;
     },
 
-    async sendToSubscription(subscription: PushSubscription, payload: NotificationPayload): Promise<boolean> {
+    async sendToSubscription(
+      subscription: PushSubscription,
+      payload: NotificationPayload
+    ): Promise<boolean> {
       try {
         await webpush.sendNotification(
           {

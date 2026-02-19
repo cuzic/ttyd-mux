@@ -2,10 +2,10 @@
  * Share command - Generate read-only share links
  */
 
-import { addShare, getAllShares, getSession, removeShare } from '@/config/state.js';
-import { createShareManager } from '@/daemon/share-manager.js';
 import { ensureDaemon } from '@/client/index.js';
 import { loadConfig } from '@/config/config.js';
+import { addShare, getAllShares, getSession, removeShare } from '@/config/state.js';
+import { createShareManager } from '@/daemon/share-manager.js';
 
 export interface ShareOptions {
   expires?: string;
@@ -16,9 +16,7 @@ export interface ShareListOptions {
   json?: boolean;
 }
 
-export interface ShareRevokeOptions {
-  // No options for now
-}
+export type ShareRevokeOptions = {};
 
 // Create a ShareManager with file-system backed store
 function getShareManager() {
@@ -33,10 +31,7 @@ function getShareManager() {
 /**
  * Create a share link for a session
  */
-export async function shareCommand(
-  sessionName: string,
-  options: ShareOptions
-): Promise<void> {
+export async function shareCommand(sessionName: string, options: ShareOptions): Promise<void> {
   // Ensure daemon is running
   await ensureDaemon();
 

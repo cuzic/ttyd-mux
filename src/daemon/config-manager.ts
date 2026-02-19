@@ -4,8 +4,8 @@
  * Manages the daemon's configuration with support for hot-reload.
  */
 
-import type { Config } from '@/config/types.js';
 import { loadConfig } from '@/config/config.js';
+import type { Config } from '@/config/types.js';
 import { createLogger } from '@/utils/logger.js';
 
 const log = createLogger('config-manager');
