@@ -47,6 +47,19 @@ notifications:
   bell_notification: false
 ```
 
+#### Client-Side Bell Detection
+
+Bell detection uses xterm.js's `term.onBell()` event on the client side, which is more reliable than server-side pattern matching because:
+
+1. xterm.js properly parses terminal escape sequences
+2. The `onBell` event only fires for actual bell characters, not false positives
+3. Visual bell feedback (screen flash) is also applied
+
+When the bell event fires:
+1. Client sends `POST /api/notifications/bell` with session name
+2. Server applies cooldown and sends push notification
+3. Visual bell effect flashes the terminal briefly
+
 ### Architecture
 
 ```
@@ -120,6 +133,7 @@ GET    /api/notifications/vapid-key      - Get public VAPID key
 POST   /api/notifications/subscribe      - Subscribe to notifications
 DELETE /api/notifications/subscribe/:id  - Unsubscribe
 GET    /api/notifications/subscriptions  - List subscriptions
+POST   /api/notifications/bell           - Trigger bell notification (from client)
 ```
 
 ### Client Integration

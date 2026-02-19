@@ -1048,6 +1048,52 @@ export function getToolbarScript(config: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG)
     }
   });
 
+  // ========== Bell notification ==========
+  // Detect terminal bell via xterm.js onBell event
+  function setupBellHandler() {
+    const term = findTerminal();
+    if (!term || !term.onBell) {
+      // Retry later if terminal not ready
+      setTimeout(setupBellHandler, 500);
+      return;
+    }
+
+    term.onBell(function() {
+      console.log('[Toolbar] Bell detected');
+
+      // Visual bell effect (optional)
+      const termEl = term.element;
+      if (termEl) {
+        termEl.classList.add('bell-flash');
+        setTimeout(function() {
+          termEl.classList.remove('bell-flash');
+        }, 100);
+      }
+
+      // Send bell notification trigger to server
+      // Extract session name from URL path
+      const pathParts = window.location.pathname.split('/');
+      const basePath = pathParts.slice(0, 2).join('/'); // e.g., /ttyd-mux
+      const sessionName = pathParts[2] || '';
+
+      if (sessionName) {
+        fetch(basePath + '/api/notifications/bell', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionName: sessionName })
+        }).catch(function(err) {
+          // Silently ignore errors (notifications are optional)
+          console.debug('[Toolbar] Bell notification failed:', err);
+        });
+      }
+    });
+
+    console.log('[Toolbar] Bell handler registered');
+  }
+
+  // Setup bell handler after terminal is ready
+  setTimeout(setupBellHandler, 1000);
+
   console.log('[Toolbar] Loaded. ' + (isMobile ? 'Mobile mode.' : 'Press Ctrl+J or click keyboard button to toggle.'));
 })();`;
 }

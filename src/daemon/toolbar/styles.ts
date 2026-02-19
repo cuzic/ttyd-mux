@@ -370,4 +370,15 @@ body:has(#ttyd-toolbar:not(.hidden)) .xterm {
 #ttyd-search-close:hover {
   color: #fff;
 }
+
+/* Visual bell effect */
+.xterm.bell-flash {
+  animation: bell-flash 100ms ease-out;
+}
+
+@keyframes bell-flash {
+  0% { filter: brightness(1); }
+  50% { filter: brightness(1.5); }
+  100% { filter: brightness(1); }
+}
 `;

@@ -13,6 +13,7 @@ import {
 } from '@/config/state.js';
 import type { Config } from '@/config/types.js';
 import { getErrorMessage } from '@/utils/errors.js';
+import { createLogger } from '@/utils/logger.js';
 import { isValidSessionName, sanitizeSessionName } from '@/utils/tmux-client.js';
 import { createSubscriptionManager } from './notification/subscription.js';
 import { getPublicVapidKey } from './notification/vapid.js';
@@ -24,6 +25,9 @@ import {
   sessionNameFromDir
 } from './session-manager.js';
 import { createShareManager } from './share-manager.js';
+import { getNotificationService } from './ws-proxy.js';
+
+const log = createLogger('api');
 
 /** Regex to match DELETE /api/sessions/:name */
 const DELETE_SESSION_REGEX = /^\/api\/sessions\/(.+)$/;
@@ -299,6 +303,39 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
   if (path === '/api/notifications/subscriptions' && method === 'GET') {
     const subscriptions = subscriptionManager.getAll();
     sendJson(res, 200, subscriptions);
+    return;
+  }
+
+  // POST /api/notifications/bell - Trigger bell notification (from client-side xterm.js onBell)
+  if (path === '/api/notifications/bell' && method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+    req.on('end', async () => {
+      try {
+        const parsed = JSON.parse(body) as { sessionName: string };
+        const { sessionName } = parsed;
+
+        if (!sessionName) {
+          sendJson(res, 400, { error: 'sessionName is required' });
+          return;
+        }
+
+        const notificationService = getNotificationService();
+        if (!notificationService?.isEnabled()) {
+          sendJson(res, 200, { success: true, sent: false, reason: 'notifications disabled' });
+          return;
+        }
+
+        // Trigger bell notification
+        log.info(`Bell notification triggered for session: ${sessionName}`);
+        await notificationService.processOutput(sessionName, '\x07');
+        sendJson(res, 200, { success: true, sent: true });
+      } catch (error) {
+        sendJson(res, 400, { error: getErrorMessage(error) });
+      }
+    });
     return;
   }
 

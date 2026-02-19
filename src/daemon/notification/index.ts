@@ -66,7 +66,10 @@ export function createNotificationService(
   const defaultCooldown = config.default_cooldown ?? 300;
   const contactEmail = config.contact_email ?? 'webmaster@localhost';
 
-  // Build patterns: bell first (if enabled), then user patterns
+  // Build patterns: bell pattern (for client-side onBell trigger) + user patterns
+  // Note: Bell detection is primarily done client-side via xterm.js onBell event,
+  // which sends a POST to /api/notifications/bell. The bell pattern here handles
+  // that trigger and applies cooldown.
   const patterns = bellEnabled
     ? [{ ...BELL_PATTERN, cooldown: bellCooldown }, ...userPatterns]
     : userPatterns;
