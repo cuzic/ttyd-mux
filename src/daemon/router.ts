@@ -1,4 +1,8 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { normalizeBasePath } from '@/config/config.js';
 import { addShare, getAllShares, getShare, removeShare } from '@/config/state.js';
 import type { Config, SessionState } from '@/config/types.js';
@@ -9,7 +13,31 @@ import { generatePortalHtml } from './portal.js';
 import { getIconPng, getIconSvg, getManifestJson, getServiceWorker } from './pwa.js';
 import { sessionManager } from './session-manager.js';
 import { createShareManager } from './share-manager.js';
-import { getToolbarJs } from './toolbar/index.js';
+
+// Get the directory of this module for resolving dist path
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Cache for toolbar.js content and ETag
+let toolbarJsCache: string | null = null;
+let toolbarJsEtag: string | null = null;
+
+/**
+ * Generate ETag from content using MD5 hash
+ * @param content - Content to hash
+ * @returns ETag string with quotes (e.g., '"abc123..."')
+ */
+export function generateEtag(content: string): string {
+  return `"${createHash('md5').update(content).digest('hex')}"`;
+}
+
+/**
+ * Reset toolbar.js cache (for testing)
+ */
+export function resetToolbarCache(): void {
+  toolbarJsCache = null;
+  toolbarJsEtag = null;
+}
 
 // Share manager for validating share tokens
 const shareManager = createShareManager({
@@ -116,16 +144,58 @@ function servePwaIconPng(res: ServerResponse, size: 192 | 512): void {
 }
 
 /**
- * Serve toolbar JavaScript
+ * Load toolbar.js from dist directory (cached)
+ * Returns { content, etag }
  */
-function serveToolbarJs(config: Config, res: ServerResponse): void {
-  const script = getToolbarJs(config.toolbar);
+function loadToolbarJs(): { content: string; etag: string } {
+  if (toolbarJsCache !== null && toolbarJsEtag !== null) {
+    return { content: toolbarJsCache, etag: toolbarJsEtag };
+  }
+
+  try {
+    // Load from dist directory (relative to compiled output)
+    const distPath = join(__dirname, '../../dist/toolbar.js');
+    toolbarJsCache = readFileSync(distPath, 'utf-8');
+    log.debug('Loaded toolbar.js from dist');
+  } catch {
+    // Fallback: bundle not available
+    log.warn('toolbar.js not found in dist, returning placeholder');
+    toolbarJsCache =
+      '// toolbar.js not built - run: bun run build:toolbar\nconsole.warn("[Toolbar] Bundle not found");';
+  }
+
+  // Calculate ETag from content hash
+  toolbarJsEtag = generateEtag(toolbarJsCache);
+
+  return { content: toolbarJsCache, etag: toolbarJsEtag };
+}
+
+/**
+ * Serve toolbar JavaScript (static file from dist)
+ * Supports ETag-based conditional requests for cache revalidation
+ */
+function serveToolbarJs(req: IncomingMessage, res: ServerResponse): void {
+  const { content, etag } = loadToolbarJs();
+
+  // Check If-None-Match header for conditional request
+  const ifNoneMatch = req.headers['if-none-match'];
+  if (ifNoneMatch === etag) {
+    // Content hasn't changed, return 304 Not Modified
+    res.writeHead(304, {
+      ETag: etag,
+      'Cache-Control': 'public, max-age=0, must-revalidate'
+    });
+    res.end();
+    return;
+  }
+
   res.writeHead(200, {
     'Content-Type': 'application/javascript',
-    'Content-Length': Buffer.byteLength(script),
-    'Cache-Control': 'public, max-age=3600'
+    'Content-Length': Buffer.byteLength(content),
+    ETag: etag,
+    'Cache-Control': 'public, max-age=0, must-revalidate'
   });
-  res.end(script);
+  res.end(content);
 }
 
 /**
@@ -169,9 +239,9 @@ export function handleRequest(config: Config, req: IncomingMessage, res: ServerR
     return;
   }
 
-  // Toolbar JavaScript
+  // Toolbar JavaScript (static file)
   if (url === `${basePath}/toolbar.js`) {
-    serveToolbarJs(config, res);
+    serveToolbarJs(req, res);
     return;
   }
 
@@ -224,14 +294,14 @@ export function handleRequest(config: Config, req: IncomingMessage, res: ServerR
     // Proxy to the session in read-only mode
     // Set a header to indicate read-only mode for WebSocket proxy
     req.headers['x-ttyd-mux-readonly'] = 'true';
-    proxyToSession(req, res, session.port, basePath);
+    proxyToSession(req, res, session.port, basePath, config.toolbar);
     return;
   }
 
   // Try to proxy to a session
   const session = findSessionForPath(config, url);
   if (session) {
-    proxyToSession(req, res, session.port, basePath);
+    proxyToSession(req, res, session.port, basePath, config.toolbar);
     return;
   }
 

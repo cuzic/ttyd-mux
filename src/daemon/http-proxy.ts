@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { gzipSync } from 'node:zlib';
+import { DEFAULT_TOOLBAR_CONFIG, type ToolbarConfig } from '@/config/types.js';
 import { createLogger } from '@/utils/logger.js';
 import httpProxy from 'http-proxy';
 import { injectToolbar } from './toolbar/index.js';
@@ -27,9 +28,10 @@ export function buildCleanHeaders(
 export function transformHtmlResponse(
   originalHtml: string,
   supportsGzip: boolean,
-  basePath: string
+  basePath: string,
+  toolbarConfig: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG
 ): { body: Buffer; headers: Record<string, string> } {
-  const modifiedHtml = injectToolbar(originalHtml, basePath);
+  const modifiedHtml = injectToolbar(originalHtml, basePath, toolbarConfig);
   const headers: Record<string, string> = {};
 
   if (supportsGzip) {
@@ -98,11 +100,13 @@ proxy.on('proxyRes', (proxyRes, req, res) => {
   type ExtendedRequest = IncomingMessage & {
     originalAcceptEncoding?: string;
     toolbarBasePath?: string;
+    toolbarConfig?: ToolbarConfig;
   };
   const extReq = req as ExtendedRequest;
   const acceptEncoding = extReq.originalAcceptEncoding ?? '';
   const supportsGzip = supportsGzipEncoding(acceptEncoding);
   const basePath = extReq.toolbarBasePath ?? '/ttyd-mux';
+  const toolbarConfig = extReq.toolbarConfig ?? DEFAULT_TOOLBAR_CONFIG;
 
   // Collect HTML body and inject toolbar
   const chunks: Buffer[] = [];
@@ -112,7 +116,8 @@ proxy.on('proxyRes', (proxyRes, req, res) => {
     const { body, headers: transformHeaders } = transformHtmlResponse(
       originalHtml,
       supportsGzip,
-      basePath
+      basePath,
+      toolbarConfig
     );
 
     // Build clean headers object
@@ -131,19 +136,22 @@ export function proxyToSession(
   req: IncomingMessage,
   res: ServerResponse,
   port: number,
-  basePath: string
+  basePath: string,
+  toolbarConfig: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG
 ): void {
   const target = `http://localhost:${port}`;
   log.debug(`Proxying ${req.url} to ${target}`);
 
-  // Store original Accept-Encoding and basePath for use in proxyRes handler
+  // Store original Accept-Encoding, basePath, and config for use in proxyRes handler
   type ExtendedRequest = IncomingMessage & {
     originalAcceptEncoding?: string;
     toolbarBasePath?: string;
+    toolbarConfig?: ToolbarConfig;
   };
   const extReq = req as ExtendedRequest;
   extReq.originalAcceptEncoding = req.headers['accept-encoding'] as string | undefined;
   extReq.toolbarBasePath = basePath;
+  extReq.toolbarConfig = toolbarConfig;
 
   // Request uncompressed response for HTML injection (identity = no encoding)
   req.headers['accept-encoding'] = 'identity';

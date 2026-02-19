@@ -22,13 +22,15 @@
     "test:e2e:headed": "bunx playwright test --headed",
     "test:e2e:debug": "bunx playwright test --debug",
     "validate": "bun run typecheck && bun run check && bun run test",
-    "prebuild": "node scripts/gen-version.mjs",
+    "prebuild": "node scripts/gen-version.mjs && node scripts/build-toolbar.mjs",
     "build": "tsc && tsc-alias",
+    "build:toolbar": "node scripts/build-toolbar.mjs",
     "build:binary": "bun build src/index.ts --compile --outfile ttyd-mux",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",
+    "esbuild": "^0.24.0",
     "@playwright/test": "^1.58.2",
     "@types/bun": "latest",
     "@types/http-proxy": "^1.17.14",
