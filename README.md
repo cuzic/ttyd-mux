@@ -23,6 +23,8 @@ A CLI tool for managing multiple ttyd+tmux web terminal sessions.
 - [Configuration](#configuration--設定)
 - [Architecture](#architecture--アーキテクチャ)
 - [Toolbar Features](#toolbar-features--ツールバー機能)
+- [Notifications](#notifications--通知機能)
+- [Share Links](#share-links--共有リンク)
 - [PWA Support](#pwa-support--pwa-対応)
 - [Caddy Integration](#caddy-integration--caddy-との連携)
 - [Development](#development--開発)
@@ -73,6 +75,8 @@ That's it! No configuration needed for basic usage.
 | **Touch Zoom** | Pinch to resize font / ピンチでフォントサイズ変更 |
 | **Double-tap Enter** | Quick command execution / ダブルタップで Enter |
 | **Scroll Buttons** | Easy scrollback navigation / スクロール用ボタン |
+| **Search** | Find text in terminal scrollback / スクロールバック内検索 |
+| **Push Notifications** | Bell icon for remote alerts / 通知用ベルアイコン |
 
 ### PC Features / PC 機能
 
@@ -260,6 +264,14 @@ ttyd-mux daemon stop --stop-sessions
 | `ttyd-mux list --url` | List with access URLs / URL 表示 |
 | `ttyd-mux attach [name]` | Attach to tmux session directly / tmux に直接接続 |
 
+### Share Commands / 共有コマンド
+
+| Command | Description |
+|---------|-------------|
+| `ttyd-mux share` | Create read-only share link / 読み取り専用共有リンク作成 |
+| `ttyd-mux share list` | List active shares / アクティブな共有一覧 |
+| `ttyd-mux share revoke <token>` | Revoke a share / 共有を取り消し |
+
 ### Daemon Control / デーモン制御
 
 | Command | Description |
@@ -443,6 +455,92 @@ In proxy mode, ttyd-mux injects a toolbar for improved input experience:
 - **Ctrl+Scroll Zoom**: Mouse wheel with Ctrl key / Ctrl+マウスホイールでサイズ変更
 - **Trackpad Pinch Zoom** (Mac): Two-finger pinch gesture / トラックパッドピンチ
 - **Ctrl+J Toggle**: Show/hide toolbar / ツールバー表示切替
+- **Ctrl+Shift+F**: Open search bar / 検索バーを開く
+
+---
+
+## Notifications / 通知機能
+
+Get notified when something happens in your terminal sessions.
+
+ターミナルセッションで何かが起きたときに通知を受け取れます。
+
+### Push Notifications / プッシュ通知
+
+Receive browser push notifications even when the tab is closed.
+
+タブを閉じていてもブラウザのプッシュ通知を受け取れます。
+
+**Setup / 設定:**
+1. Click the bell icon (🔔) in the toolbar / ツールバーのベルアイコンをクリック
+2. Allow notifications when prompted / 通知を許可
+3. Notifications are sent on terminal bell (`\a`) / ターミナルベル（`\a`）で通知
+
+**Use cases / 活用例:**
+```bash
+# Notify when command completes / コマンド完了時に通知
+long-running-command; echo -e '\a'
+
+# Or use bell directly / または直接ベルを使用
+sleep 300 && printf '\a'
+```
+
+### Custom Notification Patterns / カスタム通知パターン
+
+Configure patterns to trigger notifications:
+
+通知トリガーのパターンを設定:
+
+```yaml
+# ~/.config/ttyd-mux/config.yaml
+notifications:
+  triggers:
+    - type: bell  # Terminal bell (default)
+    - type: pattern
+      pattern: "ERROR|FAILED"
+      flags: "i"
+```
+
+---
+
+## Share Links / 共有リンク
+
+Share read-only access to your terminal sessions.
+
+ターミナルセッションへの読み取り専用アクセスを共有できます。
+
+### Create Share Link / 共有リンク作成
+
+```bash
+# Share current session for 1 hour (default)
+# 現在のセッションを1時間共有（デフォルト）
+ttyd-mux share
+
+# Share specific session for 24 hours
+# 特定のセッションを24時間共有
+ttyd-mux share my-session --expires 24h
+
+# Share with custom expiry
+# カスタム有効期限で共有
+ttyd-mux share --expires 30m   # 30 minutes
+ttyd-mux share --expires 7d    # 7 days
+```
+
+### Manage Shares / 共有の管理
+
+```bash
+# List active shares / アクティブな共有一覧
+ttyd-mux share list
+
+# Revoke a share / 共有を取り消し
+ttyd-mux share revoke <token>
+```
+
+### Features / 機能
+
+- **Read-only**: Viewers can see but not interact / 閲覧のみ、操作不可
+- **Time-limited**: Links expire automatically / 自動的に期限切れ
+- **Revocable**: Cancel access anytime / いつでもアクセス取り消し可能
 
 ---
 

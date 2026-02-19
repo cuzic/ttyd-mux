@@ -33,16 +33,30 @@ src/
 ├── daemon/
 │   ├── index.ts          # デーモンエントリ
 │   ├── server.ts         # HTTP サーバー作成
-│   ├── router.ts         # リクエストルーティング
+│   ├── router.ts         # リクエストルーティング + 静的ファイル配信
 │   ├── api-handler.ts    # REST API ハンドラ
 │   ├── http-proxy.ts     # HTTP プロキシ + ツールバー注入
 │   ├── ws-proxy.ts       # WebSocket プロキシ
 │   ├── portal.ts         # ポータル HTML 生成
+│   ├── pwa.ts            # PWA マニフェスト、Service Worker
 │   ├── toolbar/          # ツールバーモジュール
 │   │   ├── index.ts      # エクスポート、inject 関数
 │   │   ├── config.ts     # 設定定数
 │   │   ├── styles.ts     # CSS
-│   │   └── template.ts   # HTML テンプレート
+│   │   ├── template.ts   # HTML テンプレート
+│   │   └── client/       # ブラウザ側 TypeScript（esbuild でバンドル）
+│   │       ├── index.ts  # エントリポイント
+│   │       ├── FontSizeManager.ts
+│   │       ├── SearchManager.ts
+│   │       ├── NotificationManager.ts
+│   │       └── ...
+│   ├── notification/     # プッシュ通知
+│   │   ├── index.ts      # エクスポート
+│   │   ├── types.ts      # 型定義
+│   │   ├── matcher.ts    # パターンマッチング
+│   │   ├── sender.ts     # Web Push 送信
+│   │   └── vapid.ts      # VAPID キー管理
+│   ├── share-manager.ts  # 読み取り専用共有リンク管理
 │   ├── session-manager.ts # ttyd プロセス管理（DI対応）
 │   └── session-resolver.ts # セッション名解決
 ├── client/
@@ -63,14 +77,17 @@ src/
 │   ├── process-runner.ts # ProcessRunner インターフェース（DI用）
 │   ├── socket-client.ts  # SocketClient インターフェース（DI用）
 │   └── tmux-client.ts    # TmuxClient インターフェース（DI用）
-└── commands/
-    ├── up.ts, down.ts    # メインコマンド
-    ├── start.ts, stop.ts, status.ts
-    ├── attach.ts
-    ├── daemon.ts, shutdown.ts
-    ├── doctor.ts         # 診断コマンド
-    ├── caddy.ts          # Caddy 連携コマンド
-    └── deploy.ts         # デプロイコマンド（static モード用）
+├── commands/
+│   ├── up.ts, down.ts    # メインコマンド
+│   ├── start.ts, stop.ts, status.ts
+│   ├── attach.ts
+│   ├── daemon.ts, shutdown.ts
+│   ├── doctor.ts         # 診断コマンド
+│   ├── caddy.ts          # Caddy 連携コマンド
+│   ├── share.ts          # 読み取り専用共有コマンド
+│   └── deploy.ts         # デプロイコマンド（static モード用）
+└── scripts/
+    └── build-toolbar.mjs # ツールバー JS バンドル生成
 ```
 
 **パスエイリアス**: `@/` で `src/` ディレクトリを参照可能（例: `import { loadConfig } from "@/config/config.js"`）
@@ -175,6 +192,8 @@ interface Config {
   proxy_mode: 'proxy' | 'static';  // プロキシモード
   hostname?: string;      // Caddy 連携用ホスト名
   caddy_admin_api: string; // Caddy Admin API URL
+  toolbar: ToolbarConfig; // ツールバー設定
+  notifications: NotificationConfig; // 通知設定
   sessions?: SessionDefinition[];
 }
 
@@ -196,9 +215,13 @@ interface SessionState {
 - ツールバーによる入力支援:
   - モバイル: 日本語 IME 入力、タッチピンチズーム、ダブルタップ Enter、最小化モード
   - PC: Ctrl+スクロール / トラックパッドピンチでフォントサイズ変更、Ctrl+J でトグル
+  - Ctrl+Shift+F でスクロールバック検索
   - 初回利用時のオンボーディングヒント
+- プッシュ通知（ターミナルベル `\a` で通知）
+- 読み取り専用共有リンク（`ttyd-mux share`）
 - シンプルな Caddy 設定（単一ルート）
 - Unix ソケット経由のリバースプロキシ対応 (`listen_sockets`)
+- toolbar.js は静的ファイルとして配信（ETag キャッシュ対応）
 
 ### static モード
 - Caddy から ttyd に直接ルーティング
