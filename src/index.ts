@@ -14,6 +14,7 @@ import { deployCommand } from './commands/deploy.js';
 import { doctorCommand } from './commands/doctor.js';
 import { downCommand } from './commands/down.js';
 import { reloadCommand } from './commands/reload.js';
+import { restartCommand } from './commands/restart.js';
 import { shutdownCommand } from './commands/shutdown.js';
 import { startCommand } from './commands/start.js';
 import { statusCommand } from './commands/status.js';
@@ -94,6 +95,12 @@ program
   .description('Reload daemon configuration without restart')
   .option('-c, --config <path>', 'Config file path')
   .action((options) => reloadCommand(options));
+
+program
+  .command('restart')
+  .description('Restart the daemon (stop and start)')
+  .option('-c, --config <path>', 'Config file path')
+  .action((options) => restartCommand(options));
 
 program
   .command('doctor')

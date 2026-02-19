@@ -4,6 +4,7 @@ import { type ProcessRunner, defaultProcessRunner } from '@/utils/process-runner
 import { type SocketClient, defaultSocketClient } from '@/utils/socket-client.js';
 
 const DAEMON_START_TIMEOUT = 5000;
+const DAEMON_STOP_TIMEOUT = 5000;
 const DAEMON_CHECK_INTERVAL = 100;
 
 /**
@@ -261,4 +262,42 @@ export async function shutdownDaemon(options: ShutdownDaemonOptions = {}): Promi
       reject(err);
     });
   });
+}
+
+/**
+ * Wait for daemon to stop
+ */
+async function waitForDaemonStop(): Promise<boolean> {
+  const startTime = Date.now();
+  while (Date.now() - startTime < DAEMON_STOP_TIMEOUT) {
+    if (!(await isDaemonRunning())) {
+      return true;
+    }
+    await sleep(DAEMON_CHECK_INTERVAL);
+  }
+  return false;
+}
+
+export interface RestartDaemonOptions {
+  /** Config file path */
+  configPath?: string;
+}
+
+/**
+ * Restart daemon (stop and start)
+ */
+export async function restartDaemon(options: RestartDaemonOptions = {}): Promise<void> {
+  const wasRunning = await isDaemonRunning();
+
+  if (wasRunning) {
+    await shutdownDaemon();
+
+    if (!(await waitForDaemonStop())) {
+      throw new Error(
+        `Failed to stop daemon: timeout after ${DAEMON_STOP_TIMEOUT / 1000} seconds.`
+      );
+    }
+  }
+
+  await ensureDaemon(options.configPath);
 }

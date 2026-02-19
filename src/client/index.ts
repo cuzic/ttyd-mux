@@ -6,7 +6,8 @@ export {
   resetDaemonClientDeps,
   isDaemonRunning,
   ensureDaemon,
-  shutdownDaemon
+  shutdownDaemon,
+  restartDaemon
 } from './daemon-client.js';
 
 // Re-export all from api-client
