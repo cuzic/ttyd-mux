@@ -1,3 +1,6 @@
 # Bun configuration
-# Run 'bun test src/' for unit tests
-# Run 'bun run test:e2e' for Playwright tests
+
+[test]
+# Only run tests in src/ directory
+# e2e tests use Playwright and should be run with 'bun run test:e2e'
+root = "./src"
