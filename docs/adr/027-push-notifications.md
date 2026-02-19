@@ -47,18 +47,21 @@ notifications:
   bell_notification: false
 ```
 
-#### Client-Side Bell Detection
+#### Bell Detection Architecture
 
-Bell detection uses xterm.js's `term.onBell()` event on the client side, which is more reliable than server-side pattern matching because:
+Bell detection uses a dual approach:
 
-1. xterm.js properly parses terminal escape sequences
-2. The `onBell` event only fires for actual bell characters, not false positives
-3. Visual bell feedback (screen flash) is also applied
+1. **Server-side detection** (for push notifications):
+   - WebSocket proxy monitors output messages for `\x07` byte
+   - Works even when browser tab is closed or user is away
+   - Triggers push notification with cooldown
 
-When the bell event fires:
-1. Client sends `POST /api/notifications/bell` with session name
-2. Server applies cooldown and sends push notification
-3. Visual bell effect flashes the terminal briefly
+2. **Client-side detection** (for visual feedback):
+   - Uses xterm.js `term.onBell()` event
+   - Shows visual bell effect (screen flash)
+   - Only works when terminal tab is open
+
+This ensures push notifications work reliably while also providing immediate visual feedback when viewing the terminal.
 
 ### Architecture
 

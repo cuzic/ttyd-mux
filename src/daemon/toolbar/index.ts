@@ -1048,8 +1048,9 @@ export function getToolbarScript(config: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG)
     }
   });
 
-  // ========== Bell notification ==========
-  // Detect terminal bell via xterm.js onBell event
+  // ========== Visual bell ==========
+  // Show visual feedback when terminal bell is detected
+  // Note: Push notifications are handled server-side by detecting \\x07 in WebSocket output
   function setupBellHandler() {
     const term = findTerminal();
     if (!term || !term.onBell) {
@@ -1059,9 +1060,9 @@ export function getToolbarScript(config: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG)
     }
 
     term.onBell(function() {
-      console.log('[Toolbar] Bell detected');
+      console.log('[Toolbar] Bell detected (visual feedback)');
 
-      // Visual bell effect (optional)
+      // Visual bell effect - flash the terminal
       const termEl = term.element;
       if (termEl) {
         termEl.classList.add('bell-flash');
@@ -1069,26 +1070,9 @@ export function getToolbarScript(config: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG)
           termEl.classList.remove('bell-flash');
         }, 100);
       }
-
-      // Send bell notification trigger to server
-      // Extract session name from URL path
-      const pathParts = window.location.pathname.split('/');
-      const basePath = pathParts.slice(0, 2).join('/'); // e.g., /ttyd-mux
-      const sessionName = pathParts[2] || '';
-
-      if (sessionName) {
-        fetch(basePath + '/api/notifications/bell', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionName: sessionName })
-        }).catch(function(err) {
-          // Silently ignore errors (notifications are optional)
-          console.debug('[Toolbar] Bell notification failed:', err);
-        });
-      }
     });
 
-    console.log('[Toolbar] Bell handler registered');
+    console.log('[Toolbar] Visual bell handler registered');
   }
 
   // Setup bell handler after terminal is ready
