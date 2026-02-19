@@ -20,6 +20,7 @@ export const toolbarHtml = `
     <button id="ttyd-toolbar-zoomin">A+</button>
     <button id="ttyd-toolbar-copy">Copy</button>
     <button id="ttyd-toolbar-copyall">All</button>
+    <button id="ttyd-toolbar-search">🔍</button>
     <button id="ttyd-toolbar-send">Send</button>
     <button id="ttyd-toolbar-run">Run</button>
     <button id="ttyd-toolbar-auto" class="modifier">Auto</button>
@@ -28,6 +29,15 @@ export const toolbarHtml = `
   <div id="ttyd-toolbar-input-row">
     <textarea id="ttyd-toolbar-input" rows="1" placeholder="日本語入力 (Enter: 送信)"></textarea>
   </div>
+</div>
+<div id="ttyd-search-bar" class="hidden">
+  <input id="ttyd-search-input" type="text" placeholder="検索..." />
+  <span id="ttyd-search-count">0/0</span>
+  <button id="ttyd-search-prev" title="前へ (Shift+Enter)">◀</button>
+  <button id="ttyd-search-next" title="次へ (Enter)">▶</button>
+  <button id="ttyd-search-case" class="modifier" title="大文字小文字を区別">Aa</button>
+  <button id="ttyd-search-regex" class="modifier" title="正規表現">.*</button>
+  <button id="ttyd-search-close" title="閉じる (Esc)">✕</button>
 </div>
 <button id="ttyd-toolbar-toggle">⌨</button>
 `;

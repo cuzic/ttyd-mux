@@ -61,12 +61,30 @@ export function getToolbarScript(config: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG)
   const pageUpBtn = document.getElementById('ttyd-toolbar-pageup');
   const pageDownBtn = document.getElementById('ttyd-toolbar-pagedown');
 
+  // Search bar elements
+  const searchBar = document.getElementById('ttyd-search-bar');
+  const searchInput = document.getElementById('ttyd-search-input');
+  const searchCount = document.getElementById('ttyd-search-count');
+  const searchPrevBtn = document.getElementById('ttyd-search-prev');
+  const searchNextBtn = document.getElementById('ttyd-search-next');
+  const searchCaseBtn = document.getElementById('ttyd-search-case');
+  const searchRegexBtn = document.getElementById('ttyd-search-regex');
+  const searchCloseBtn = document.getElementById('ttyd-search-close');
+  const searchToolbarBtn = document.getElementById('ttyd-toolbar-search');
+
   let ws = null;
   let ctrlActive = false;
   let altActive = false;
   let shiftActive = false;
   let autoRunActive = false;
   let scrollActive = false;
+
+  // Search state
+  let searchAddon = null;
+  let searchCaseSensitive = false;
+  let searchRegex = false;
+  let currentMatchIndex = 0;
+  let totalMatches = 0;
 
   // Detect mobile device
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -311,6 +329,158 @@ export function getToolbarScript(config: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG)
     });
   }
 
+  // ========== Search functionality ==========
+
+  function loadSearchAddon() {
+    if (searchAddon) return Promise.resolve(searchAddon);
+    if (window.SearchAddon) {
+      const term = findTerminal();
+      if (term) {
+        searchAddon = new window.SearchAddon.SearchAddon();
+        term.loadAddon(searchAddon);
+        console.log('[Toolbar] SearchAddon loaded');
+        return Promise.resolve(searchAddon);
+      }
+    }
+    // Load SearchAddon from CDN
+    return new Promise(function(resolve, reject) {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/@xterm/addon-search@0.15.0/lib/addon-search.min.js';
+      script.onload = function() {
+        const term = findTerminal();
+        if (term && window.SearchAddon) {
+          searchAddon = new window.SearchAddon.SearchAddon();
+          term.loadAddon(searchAddon);
+          console.log('[Toolbar] SearchAddon loaded from CDN');
+          resolve(searchAddon);
+        } else {
+          reject(new Error('Failed to initialize SearchAddon'));
+        }
+      };
+      script.onerror = function() {
+        reject(new Error('Failed to load SearchAddon'));
+      };
+      document.head.appendChild(script);
+    });
+  }
+
+  function toggleSearchBar(show) {
+    if (typeof show === 'boolean') {
+      searchBar.classList.toggle('hidden', !show);
+    } else {
+      searchBar.classList.toggle('hidden');
+    }
+
+    if (!searchBar.classList.contains('hidden')) {
+      loadSearchAddon().then(function() {
+        searchInput.focus();
+        searchInput.select();
+      }).catch(function(err) {
+        console.error('[Toolbar] Failed to load search:', err);
+      });
+    } else {
+      // Clear search highlights when closing
+      if (searchAddon && searchAddon.clearDecorations) {
+        searchAddon.clearDecorations();
+      }
+      updateMatchCount(0, 0);
+      const terminal = document.querySelector('.xterm-helper-textarea');
+      if (terminal) terminal.focus();
+    }
+  }
+
+  function updateMatchCount(current, total) {
+    currentMatchIndex = current;
+    totalMatches = total;
+    if (total === 0) {
+      searchCount.textContent = '0/0';
+    } else {
+      searchCount.textContent = current + '/' + total;
+    }
+  }
+
+  function countMatches(searchTerm) {
+    if (!searchAddon || !searchTerm) {
+      updateMatchCount(0, 0);
+      return;
+    }
+    const term = findTerminal();
+    if (!term || !term.buffer || !term.buffer.active) {
+      updateMatchCount(0, 0);
+      return;
+    }
+    // Count matches in buffer
+    const buffer = term.buffer.active;
+    const flags = searchCaseSensitive ? 'g' : 'gi';
+    let count = 0;
+    let pattern;
+    try {
+      pattern = searchRegex ? new RegExp(searchTerm, flags) : new RegExp(searchTerm.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&'), flags);
+    } catch (e) {
+      updateMatchCount(0, 0);
+      return;
+    }
+    for (let i = 0; i < buffer.length; i++) {
+      const line = buffer.getLine(i);
+      if (line) {
+        const text = line.translateToString(true);
+        const matches = text.match(pattern);
+        if (matches) count += matches.length;
+      }
+    }
+    updateMatchCount(currentMatchIndex, count);
+  }
+
+  function findNext() {
+    if (!searchAddon) return false;
+    const searchTerm = searchInput.value;
+    if (!searchTerm) return false;
+
+    const options = {
+      caseSensitive: searchCaseSensitive,
+      regex: searchRegex,
+      incremental: false
+    };
+    const found = searchAddon.findNext(searchTerm, options);
+    if (found) {
+      currentMatchIndex = Math.min(currentMatchIndex + 1, totalMatches);
+      if (currentMatchIndex > totalMatches) currentMatchIndex = 1;
+      updateMatchCount(currentMatchIndex, totalMatches);
+    }
+    return found;
+  }
+
+  function findPrevious() {
+    if (!searchAddon) return false;
+    const searchTerm = searchInput.value;
+    if (!searchTerm) return false;
+
+    const options = {
+      caseSensitive: searchCaseSensitive,
+      regex: searchRegex
+    };
+    const found = searchAddon.findPrevious(searchTerm, options);
+    if (found) {
+      currentMatchIndex = Math.max(currentMatchIndex - 1, 1);
+      if (currentMatchIndex < 1) currentMatchIndex = totalMatches;
+      updateMatchCount(currentMatchIndex, totalMatches);
+    }
+    return found;
+  }
+
+  function doSearch() {
+    const searchTerm = searchInput.value;
+    if (!searchTerm) {
+      updateMatchCount(0, 0);
+      return;
+    }
+    loadSearchAddon().then(function() {
+      countMatches(searchTerm);
+      currentMatchIndex = 0;
+      findNext();
+    });
+  }
+
   function submitInput() {
     const text = input.value;
     if (!text) return;
@@ -453,6 +623,66 @@ export function getToolbarScript(config: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG)
     sendPageDown();
   });
 
+  // Search bar event listeners
+  searchToolbarBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    toggleSearchBar();
+  });
+
+  searchCloseBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    toggleSearchBar(false);
+  });
+
+  searchNextBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    findNext();
+  });
+
+  searchPrevBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    findPrevious();
+  });
+
+  searchCaseBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    searchCaseSensitive = !searchCaseSensitive;
+    searchCaseBtn.classList.toggle('active', searchCaseSensitive);
+    doSearch();
+  });
+
+  searchRegexBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    searchRegex = !searchRegex;
+    searchRegexBtn.classList.toggle('active', searchRegex);
+    doSearch();
+  });
+
+  searchInput.addEventListener('input', function() {
+    doSearch();
+  });
+
+  searchInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.isComposing) {
+      e.preventDefault();
+      if (e.shiftKey) {
+        findPrevious();
+      } else {
+        findNext();
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      toggleSearchBar(false);
+    } else if (e.key === 'F3') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        findPrevious();
+      } else {
+        findNext();
+      }
+    }
+  });
+
   scrollBtn.addEventListener('click', function(e) {
     e.preventDefault();
     scrollActive = !scrollActive;
@@ -504,6 +734,11 @@ export function getToolbarScript(config: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG)
     if (e.ctrlKey && e.key === 'j') {
       e.preventDefault();
       toggleToolbar();
+    }
+    // Ctrl+Shift+F to toggle search bar
+    if (e.ctrlKey && e.shiftKey && e.key === 'F') {
+      e.preventDefault();
+      toggleSearchBar();
     }
   });
 

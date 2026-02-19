@@ -458,3 +458,104 @@ describe('zoom functionality', () => {
     expect(script).toContain('saveFontSize(clampedSize)');
   });
 });
+
+// =============================================================================
+// Search functionality tests (Issue #3)
+// =============================================================================
+
+describe('toolbar/search - template', () => {
+  test('contains search button in toolbar', () => {
+    expect(toolbarHtml).toContain('id="ttyd-toolbar-search"');
+  });
+
+  test('contains search bar container', () => {
+    expect(toolbarHtml).toContain('id="ttyd-search-bar"');
+  });
+
+  test('contains search input field', () => {
+    expect(toolbarHtml).toContain('id="ttyd-search-input"');
+  });
+
+  test('contains search navigation buttons', () => {
+    expect(toolbarHtml).toContain('id="ttyd-search-prev"');
+    expect(toolbarHtml).toContain('id="ttyd-search-next"');
+  });
+
+  test('contains search close button', () => {
+    expect(toolbarHtml).toContain('id="ttyd-search-close"');
+  });
+
+  test('contains match count display', () => {
+    expect(toolbarHtml).toContain('id="ttyd-search-count"');
+  });
+
+  test('contains case sensitivity toggle', () => {
+    expect(toolbarHtml).toContain('id="ttyd-search-case"');
+  });
+
+  test('contains regex toggle', () => {
+    expect(toolbarHtml).toContain('id="ttyd-search-regex"');
+  });
+});
+
+describe('toolbar/search - styles', () => {
+  test('contains search bar styles', () => {
+    expect(toolbarStyles).toContain('#ttyd-search-bar');
+  });
+
+  test('contains search input styles', () => {
+    expect(toolbarStyles).toContain('#ttyd-search-input');
+  });
+
+  test('contains search bar hidden state', () => {
+    expect(toolbarStyles).toContain('#ttyd-search-bar.hidden');
+  });
+});
+
+describe('toolbar/search - script', () => {
+  const script = getToolbarScript();
+
+  test('contains search bar element reference', () => {
+    expect(script).toContain('const searchBar');
+  });
+
+  test('contains search input element reference', () => {
+    expect(script).toContain('const searchInput');
+  });
+
+  test('contains search addon loading', () => {
+    expect(script).toContain('SearchAddon');
+  });
+
+  test('contains Ctrl+Shift+F keyboard shortcut', () => {
+    expect(script).toContain("e.ctrlKey && e.shiftKey && e.key === 'F'");
+  });
+
+  test('contains toggleSearchBar function', () => {
+    expect(script).toContain('function toggleSearchBar');
+  });
+
+  test('contains findNext function call', () => {
+    expect(script).toContain('findNext');
+  });
+
+  test('contains findPrevious function call', () => {
+    expect(script).toContain('findPrevious');
+  });
+
+  test('contains search close on Escape', () => {
+    expect(script).toContain("e.key === 'Escape'");
+  });
+
+  test('contains updateMatchCount function', () => {
+    expect(script).toContain('function updateMatchCount');
+  });
+
+  test('handles Enter key for next match', () => {
+    expect(script).toContain("e.key === 'Enter'");
+  });
+
+  test('handles Shift+Enter for previous match', () => {
+    expect(script).toContain('e.shiftKey');
+  });
+});
