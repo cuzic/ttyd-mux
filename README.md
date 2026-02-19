@@ -110,9 +110,11 @@ ttyd-mux attach [name]          # Attach directly to tmux session / tmuxセッ�
 ### Daemon Control / デーモン制御
 
 ```bash
-ttyd-mux daemon                 # Start daemon / デーモン起動
-ttyd-mux daemon -f              # Start in foreground (debug) / フォアグラウンドで起動（デバッグ用）
-ttyd-mux shutdown               # Stop daemon / デーモン終了
+ttyd-mux daemon start           # Start daemon / デーモン起動
+ttyd-mux daemon start -f        # Start in foreground (debug) / フォアグラウンドで起動（デバッグ用）
+ttyd-mux daemon stop            # Stop daemon / デーモン終了
+ttyd-mux daemon reload          # Reload config without restart / 再起動なしで設定再読込
+ttyd-mux daemon restart         # Restart daemon / デーモン再起動
 ```
 
 ### Diagnostics / 診断
