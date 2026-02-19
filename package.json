@@ -1,6 +1,6 @@
 {
   "name": "ttyd-mux",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "ttyd session multiplexer - manage multiple ttyd+tmux web terminal sessions / 複数の ttyd+tmux Web ターミナルセッションを管理する CLI ツール",
   "type": "module",
   "main": "./dist/index.js",
