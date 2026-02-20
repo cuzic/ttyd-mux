@@ -44,6 +44,12 @@ describe('parseExpiresIn', () => {
     expect(parseExpiresIn('invalid')).toBe(3600000);
     expect(parseExpiresIn('abc')).toBe(3600000);
   });
+
+  test('defaults to 1 hour for unknown unit', () => {
+    // Valid format but unknown unit (e.g., 'x' is not h/m/d)
+    expect(parseExpiresIn('1x')).toBe(3600000);
+    expect(parseExpiresIn('30s')).toBe(3600000); // seconds not supported
+  });
 });
 
 describe('ShareManager', () => {
@@ -91,6 +97,11 @@ describe('ShareManager', () => {
     test('stores the share', () => {
       const share = manager.createShare('test-session');
       expect(shares.has(share.token)).toBe(true);
+    });
+
+    test('creates a share with password', () => {
+      const share = manager.createShare('test-session', { password: 'secret123' });
+      expect(share.password).toBe('secret123');
     });
   });
 
