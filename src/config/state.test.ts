@@ -2,7 +2,8 @@
 import { TEST_STATE_DIR, cleanupTestState, resetTestState } from '@/test-setup.js';
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { existsSync } from 'node:fs';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 describe('state', () => {
   beforeEach(() => {
@@ -45,6 +46,19 @@ describe('state', () => {
       expect(state.daemon?.pid).toBe(1234);
       expect(state.daemon?.port).toBe(7680);
     });
+
+    test('returns default state when JSON is invalid', async () => {
+      const { loadState, getStateDir } = await import('./state.js');
+      const stateFile = join(getStateDir(), 'state.json');
+
+      // Write invalid JSON to state file
+      writeFileSync(stateFile, 'invalid json content');
+
+      const state = loadState();
+
+      expect(state.daemon).toBeNull();
+      expect(state.sessions).toEqual([]);
+    });
   });
 
   describe('saveState', () => {
@@ -55,6 +69,22 @@ describe('state', () => {
       saveState({ daemon: null, sessions: [] });
 
       expect(existsSync(stateFile)).toBe(true);
+    });
+
+    test('creates state directory if it does not exist', async () => {
+      const { saveState, getStateDir } = await import('./state.js');
+      const stateDir = getStateDir();
+
+      // Remove the test state directory
+      if (existsSync(stateDir)) {
+        rmSync(stateDir, { recursive: true });
+      }
+
+      expect(existsSync(stateDir)).toBe(false);
+
+      saveState({ daemon: null, sessions: [] });
+
+      expect(existsSync(stateDir)).toBe(true);
     });
   });
 
@@ -209,6 +239,132 @@ describe('state', () => {
 
       expect(path).toBe('/ttyd-mux/my-session');
     });
+  });
+});
+
+describe('share state operations', () => {
+  beforeEach(() => {
+    resetTestState();
+  });
+
+  afterEach(() => {
+    cleanupTestState();
+  });
+
+  test('addShare and getShare', async () => {
+    const { addShare, getShare, removeShare } = await import('./state.js');
+    const share = {
+      token: 'test-token-123',
+      sessionName: 'test-session',
+      createdAt: '2024-01-01T00:00:00Z',
+      expiresAt: '2024-01-02T00:00:00Z'
+    };
+
+    addShare(share);
+    const result = getShare('test-token-123');
+
+    expect(result?.token).toBe('test-token-123');
+    expect(result?.sessionName).toBe('test-session');
+
+    removeShare('test-token-123');
+    expect(getShare('test-token-123')).toBeUndefined();
+  });
+
+  test('getAllShares returns all shares', async () => {
+    const { addShare, getAllShares } = await import('./state.js');
+
+    addShare({
+      token: 'token-1',
+      sessionName: 'session-1',
+      createdAt: '2024-01-01T00:00:00Z',
+      expiresAt: '2024-01-02T00:00:00Z'
+    });
+    addShare({
+      token: 'token-2',
+      sessionName: 'session-2',
+      createdAt: '2024-01-01T00:00:00Z',
+      expiresAt: '2024-01-02T00:00:00Z'
+    });
+
+    const shares = getAllShares();
+
+    expect(shares.length).toBe(2);
+    expect(shares.map((s) => s.token).sort()).toEqual(['token-1', 'token-2']);
+  });
+
+  test('removeShare does nothing when shares is undefined', async () => {
+    const { removeShare, getAllShares } = await import('./state.js');
+
+    // Remove from empty state (no shares array)
+    removeShare('nonexistent');
+
+    expect(getAllShares()).toEqual([]);
+  });
+});
+
+describe('push subscription operations', () => {
+  beforeEach(() => {
+    resetTestState();
+  });
+
+  afterEach(() => {
+    cleanupTestState();
+  });
+
+  test('addPushSubscription and getPushSubscription', async () => {
+    const { addPushSubscription, getPushSubscription, removePushSubscription } = await import('./state.js');
+    const subscription = {
+      id: 'sub-123',
+      endpoint: 'https://example.com/push',
+      keys: {
+        p256dh: 'test-p256dh-key',
+        auth: 'test-auth-key'
+      },
+      sessionName: 'test-session',
+      createdAt: '2024-01-01T00:00:00Z'
+    };
+
+    addPushSubscription(subscription);
+    const result = getPushSubscription('sub-123');
+
+    expect(result?.id).toBe('sub-123');
+    expect(result?.endpoint).toBe('https://example.com/push');
+
+    removePushSubscription('sub-123');
+    expect(getPushSubscription('sub-123')).toBeUndefined();
+  });
+
+  test('getAllPushSubscriptions returns all subscriptions', async () => {
+    const { addPushSubscription, getAllPushSubscriptions } = await import('./state.js');
+
+    addPushSubscription({
+      id: 'sub-1',
+      endpoint: 'https://example.com/push1',
+      keys: { p256dh: 'key1', auth: 'auth1' },
+      sessionName: 'session-1',
+      createdAt: '2024-01-01T00:00:00Z'
+    });
+    addPushSubscription({
+      id: 'sub-2',
+      endpoint: 'https://example.com/push2',
+      keys: { p256dh: 'key2', auth: 'auth2' },
+      sessionName: 'session-2',
+      createdAt: '2024-01-01T00:00:00Z'
+    });
+
+    const subscriptions = getAllPushSubscriptions();
+
+    expect(subscriptions.length).toBe(2);
+    expect(subscriptions.map((s) => s.id).sort()).toEqual(['sub-1', 'sub-2']);
+  });
+
+  test('removePushSubscription does nothing when pushSubscriptions is undefined', async () => {
+    const { removePushSubscription, getAllPushSubscriptions } = await import('./state.js');
+
+    // Remove from empty state
+    removePushSubscription('nonexistent');
+
+    expect(getAllPushSubscriptions()).toEqual([]);
   });
 });
 
