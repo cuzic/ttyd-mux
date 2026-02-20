@@ -17,6 +17,11 @@ import { getErrorMessage } from '@/utils/errors.js';
 import { createLogger } from '@/utils/logger.js';
 import { isValidSessionName, sanitizeSessionName } from '@/utils/tmux-client.js';
 import {
+  getAllowedDirectories,
+  listSubdirectories,
+  validateDirectoryPath
+} from './directory-browser.js';
+import {
   extractBoundary,
   handleFileDownload,
   handleFileList,
@@ -671,6 +676,81 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
       })
       .catch((error) => {
         sendJson(res, 413, { error: getErrorMessage(error) });
+      });
+    return;
+  }
+
+  // === Directory Browser API ===
+
+  // GET /api/directories - Get allowed base directories
+  if (path === '/api/directories' && method === 'GET') {
+    const dirBrowserConfig = config.directory_browser;
+    if (!dirBrowserConfig?.enabled) {
+      sendJson(res, 403, { error: 'Directory browser is disabled' });
+      return;
+    }
+
+    const directories = getAllowedDirectories(dirBrowserConfig);
+    sendJson(res, 200, { directories });
+    return;
+  }
+
+  // GET /api/directories/list?base=<index>&path=<subpath> - List subdirectories
+  if (path.startsWith('/api/directories/list') && method === 'GET') {
+    const dirBrowserConfig = config.directory_browser;
+    if (!dirBrowserConfig?.enabled) {
+      sendJson(res, 403, { error: 'Directory browser is disabled' });
+      return;
+    }
+
+    const queryStart = path.indexOf('?');
+    const params = new URLSearchParams(queryStart >= 0 ? path.slice(queryStart + 1) : '');
+    const baseParam = params.get('base');
+    const subPath = params.get('path') || '';
+
+    if (baseParam === null) {
+      sendJson(res, 400, { error: 'base parameter is required' });
+      return;
+    }
+
+    const baseIndex = Number.parseInt(baseParam, 10);
+    if (Number.isNaN(baseIndex) || baseIndex < 0) {
+      sendJson(res, 400, { error: 'Invalid base index' });
+      return;
+    }
+
+    const result = listSubdirectories(dirBrowserConfig, baseIndex, subPath);
+    if (!result) {
+      sendJson(res, 404, { error: 'Directory not found or access denied' });
+      return;
+    }
+
+    sendJson(res, 200, result);
+    return;
+  }
+
+  // POST /api/directories/validate - Validate a directory path for session creation
+  if (path === '/api/directories/validate' && method === 'POST') {
+    const dirBrowserConfig = config.directory_browser;
+    if (!dirBrowserConfig?.enabled) {
+      sendJson(res, 403, { error: 'Directory browser is disabled' });
+      return;
+    }
+
+    readBodyWithLimit(req, MAX_JSON_BODY_SIZE)
+      .then((body) => {
+        const parsed = JSON.parse(body) as { path: string };
+
+        if (!parsed.path) {
+          sendJson(res, 400, { error: 'path is required' });
+          return;
+        }
+
+        const isValid = validateDirectoryPath(dirBrowserConfig, parsed.path);
+        sendJson(res, 200, { valid: isValid });
+      })
+      .catch((error) => {
+        sendJson(res, 400, { error: getErrorMessage(error) });
       });
     return;
   }

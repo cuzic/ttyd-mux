@@ -130,6 +130,19 @@ export const DEFAULT_PREVIEW_CONFIG: PreviewConfig = {
   allowed_extensions: ['.html', '.htm']
 };
 
+export const DirectoryBrowserConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  allowed_directories: z.array(z.string()).default([])
+});
+
+export type DirectoryBrowserConfig = z.infer<typeof DirectoryBrowserConfigSchema>;
+
+/** Default directory browser configuration */
+export const DEFAULT_DIRECTORY_BROWSER_CONFIG: DirectoryBrowserConfig = {
+  enabled: false,
+  allowed_directories: []
+};
+
 export const ConfigSchema = z.object({
   base_path: z.string().startsWith('/').default('/ttyd-mux'),
   base_port: z.number().int().min(1024).max(65535).default(7600),
@@ -146,7 +159,8 @@ export const ConfigSchema = z.object({
   notifications: NotificationConfigSchema.default(DEFAULT_NOTIFICATION_CONFIG),
   file_transfer: FileTransferConfigSchema.default(DEFAULT_FILE_TRANSFER_CONFIG),
   tabs: TabsConfigSchema.default(DEFAULT_TABS_CONFIG),
-  preview: PreviewConfigSchema.default(DEFAULT_PREVIEW_CONFIG)
+  preview: PreviewConfigSchema.default(DEFAULT_PREVIEW_CONFIG),
+  directory_browser: DirectoryBrowserConfigSchema.default(DEFAULT_DIRECTORY_BROWSER_CONFIG)
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
