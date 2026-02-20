@@ -11,7 +11,17 @@ import {
   createMockTimer
 } from './deps.js';
 import type { FileChangeEvent } from './types.js';
-import { FileWatcherService } from './watcher.js';
+import {
+  FileWatcherService,
+  cleanupWatchers,
+  configureWatcher,
+  getWatcherStats,
+  onFileChange,
+  resetDefaultService,
+  unwatchAllForClient,
+  unwatchFile,
+  watchFile
+} from './watcher.js';
 
 describe('FileWatcherService', () => {
   let service: FileWatcherService<string>;
@@ -323,5 +333,67 @@ describe('FileWatcherService', () => {
 
       expect(result).toBe(false);
     });
+  });
+});
+
+describe('Backward-compatible functions', () => {
+  beforeEach(() => {
+    resetDefaultService();
+  });
+
+  afterEach(() => {
+    cleanupWatchers();
+  });
+
+  test('watchFile should use default service', () => {
+    // Will fail because default service uses real fs
+    const result = watchFile('/nonexistent', 'index.html', 'test', {});
+    expect(result).toBe(false);
+  });
+
+  test('unwatchFile should not throw for unknown file', () => {
+    expect(() => unwatchFile('/session', 'unknown.html', {})).not.toThrow();
+  });
+
+  test('unwatchAllForClient should not throw', () => {
+    expect(() => unwatchAllForClient({})).not.toThrow();
+  });
+
+  test('onFileChange should register listener', () => {
+    const unsubscribe = onFileChange(() => {});
+    expect(typeof unsubscribe).toBe('function');
+    unsubscribe();
+  });
+
+  test('configureWatcher should configure default service', () => {
+    expect(() => configureWatcher({ debounceMs: 500 })).not.toThrow();
+  });
+
+  test('getWatcherStats should return stats', () => {
+    const stats = getWatcherStats();
+    expect(stats).toHaveProperty('watchedFiles');
+    expect(stats).toHaveProperty('activeClients');
+  });
+
+  test('cleanupWatchers should cleanup default service', () => {
+    // Initialize
+    getWatcherStats();
+
+    // Cleanup
+    cleanupWatchers();
+
+    // Should not throw when called again
+    expect(() => cleanupWatchers()).not.toThrow();
+  });
+
+  test('resetDefaultService should reset service', () => {
+    // Initialize
+    getWatcherStats();
+
+    // Reset
+    resetDefaultService();
+
+    // Should not throw when called again
+    expect(() => resetDefaultService()).not.toThrow();
   });
 });
