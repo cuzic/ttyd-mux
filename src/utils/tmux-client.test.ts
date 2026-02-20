@@ -190,6 +190,60 @@ describe('createTmuxClient', () => {
       const client = createTmuxClient(mockRunner);
       expect(() => client.ensureSession('invalid;rm -rf /')).toThrow('Invalid session name');
     });
+
+    test('throws error when session creation fails', () => {
+      const mockRunner = createMockProcessRunner({
+        spawnSync: (_cmd: string, args: string[]) => {
+          if (args.includes('has-session')) {
+            return { status: 1, stdout: '', stderr: '', pid: 0, output: [], signal: null };
+          }
+          if (args.includes('new-session')) {
+            // Return non-zero status to simulate failure
+            return { status: 1, stdout: '', stderr: 'error', pid: 0, output: [], signal: null };
+          }
+          return { status: 0, stdout: '', stderr: '', pid: 0, output: [], signal: null };
+        }
+      });
+
+      const client = createTmuxClient(mockRunner);
+      expect(() => client.ensureSession('fail-session')).toThrow('Failed to create tmux session');
+    });
+  });
+
+  describe('killSession', () => {
+    test('returns true when session is killed successfully', () => {
+      const mockRunner = createMockProcessRunner({
+        spawnSync: (_cmd: string, args: string[]) => {
+          if (args.includes('kill-session')) {
+            return { status: 0, stdout: '', stderr: '', pid: 0, output: [], signal: null };
+          }
+          return { status: 0, stdout: '', stderr: '', pid: 0, output: [], signal: null };
+        }
+      });
+
+      const client = createTmuxClient(mockRunner);
+      expect(client.killSession('my-session')).toBe(true);
+    });
+
+    test('returns false when session kill fails', () => {
+      const mockRunner = createMockProcessRunner({
+        spawnSync: (_cmd: string, args: string[]) => {
+          if (args.includes('kill-session')) {
+            return { status: 1, stdout: '', stderr: 'no session', pid: 0, output: [], signal: null };
+          }
+          return { status: 0, stdout: '', stderr: '', pid: 0, output: [], signal: null };
+        }
+      });
+
+      const client = createTmuxClient(mockRunner);
+      expect(client.killSession('nonexistent-session')).toBe(false);
+    });
+
+    test('returns false for invalid session name', () => {
+      const mockRunner = createMockProcessRunner();
+      const client = createTmuxClient(mockRunner);
+      expect(client.killSession('invalid;name')).toBe(false);
+    });
   });
 });
 
