@@ -38,6 +38,74 @@ import { getNotificationService } from './ws-proxy.js';
 
 const log = createLogger('api');
 
+/** Maximum request body size for JSON payloads (1MB) */
+const MAX_JSON_BODY_SIZE = 1 * 1024 * 1024;
+
+/** Maximum request body size for file uploads (100MB) - matches file_transfer config */
+const MAX_UPLOAD_BODY_SIZE = 100 * 1024 * 1024;
+
+/**
+ * Read request body with size limit to prevent DoS attacks
+ * @param req - Incoming HTTP request
+ * @param maxSize - Maximum allowed body size in bytes
+ * @returns Promise that resolves to body string or rejects with error
+ */
+function readBodyWithLimit(req: IncomingMessage, maxSize: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    let size = 0;
+
+    req.on('data', (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > maxSize) {
+        req.destroy();
+        reject(new Error(`Request body too large (max: ${maxSize} bytes)`));
+        return;
+      }
+      body += chunk.toString();
+    });
+
+    req.on('end', () => {
+      resolve(body);
+    });
+
+    req.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+/**
+ * Read request body as Buffer with size limit
+ * @param req - Incoming HTTP request
+ * @param maxSize - Maximum allowed body size in bytes
+ * @returns Promise that resolves to body Buffer or rejects with error
+ */
+function readBufferWithLimit(req: IncomingMessage, maxSize: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+
+    req.on('data', (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > maxSize) {
+        req.destroy();
+        reject(new Error(`Request body too large (max: ${maxSize} bytes)`));
+        return;
+      }
+      chunks.push(chunk);
+    });
+
+    req.on('end', () => {
+      resolve(Buffer.concat(chunks));
+    });
+
+    req.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
 /** Regex to match DELETE /api/sessions/:name */
 const DELETE_SESSION_REGEX = /^\/api\/sessions\/(.+)$/;
 
@@ -112,12 +180,8 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
 
   // POST /api/sessions
   if (path === '/api/sessions' && method === 'POST') {
-    let body = '';
-    req.on('data', (chunk) => {
-      body += chunk.toString();
-    });
-    req.on('end', async () => {
-      try {
+    readBodyWithLimit(req, MAX_JSON_BODY_SIZE)
+      .then(async (body) => {
         const parsed = JSON.parse(body) as {
           name?: string;
           dir: string;
@@ -148,10 +212,10 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
 
         const session = await sessionManager.startSession(options);
         sendJson(res, 201, { ...session, fullPath });
-      } catch (error) {
+      })
+      .catch((error) => {
         sendJson(res, 400, { error: getErrorMessage(error) });
-      }
-    });
+      });
     return;
   }
 
@@ -173,22 +237,22 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
 
   // POST /api/shutdown
   if (path === '/api/shutdown' && method === 'POST') {
-    let body = '';
-    req.on('data', (chunk) => {
-      body += chunk.toString();
-    });
-    req.on('end', () => {
-      const options = body
-        ? (JSON.parse(body) as { stopSessions?: boolean; killTmux?: boolean })
-        : {};
-      if (options.stopSessions) {
-        sessionManager.stopAllSessions({ killTmux: options.killTmux });
-      }
-      sendJson(res, 200, { success: true });
-      setTimeout(() => {
-        process.exit(0);
-      }, 100);
-    });
+    readBodyWithLimit(req, MAX_JSON_BODY_SIZE)
+      .then((body) => {
+        const options = body
+          ? (JSON.parse(body) as { stopSessions?: boolean; killTmux?: boolean })
+          : {};
+        if (options.stopSessions) {
+          sessionManager.stopAllSessions({ killTmux: options.killTmux });
+        }
+        sendJson(res, 200, { success: true });
+        setTimeout(() => {
+          process.exit(0);
+        }, 100);
+      })
+      .catch((error) => {
+        sendJson(res, 400, { error: getErrorMessage(error) });
+      });
     return;
   }
 
@@ -203,12 +267,8 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
 
   // POST /api/shares - Create a share
   if (path === '/api/shares' && method === 'POST') {
-    let body = '';
-    req.on('data', (chunk) => {
-      body += chunk.toString();
-    });
-    req.on('end', () => {
-      try {
+    readBodyWithLimit(req, MAX_JSON_BODY_SIZE)
+      .then((body) => {
         const parsed = JSON.parse(body) as {
           sessionName: string;
           expiresIn?: string;
@@ -225,10 +285,10 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
           expiresIn: parsed.expiresIn ?? '1h'
         });
         sendJson(res, 201, share);
-      } catch (error) {
+      })
+      .catch((error) => {
         sendJson(res, 400, { error: getErrorMessage(error) });
-      }
-    });
+      });
     return;
   }
 
@@ -273,12 +333,8 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
 
   // POST /api/notifications/subscribe - Subscribe to push notifications
   if (path === '/api/notifications/subscribe' && method === 'POST') {
-    let body = '';
-    req.on('data', (chunk) => {
-      body += chunk.toString();
-    });
-    req.on('end', () => {
-      try {
+    readBodyWithLimit(req, MAX_JSON_BODY_SIZE)
+      .then((body) => {
         const parsed = JSON.parse(body) as {
           endpoint: string;
           keys: { p256dh: string; auth: string };
@@ -308,10 +364,10 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
           parsed.sessionName
         );
         sendJson(res, 201, subscription);
-      } catch (error) {
+      })
+      .catch((error) => {
         sendJson(res, 400, { error: getErrorMessage(error) });
-      }
-    });
+      });
     return;
   }
 
@@ -336,12 +392,8 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
 
   // POST /api/notifications/bell - Trigger bell notification (from client-side xterm.js onBell)
   if (path === '/api/notifications/bell' && method === 'POST') {
-    let body = '';
-    req.on('data', (chunk) => {
-      body += chunk.toString();
-    });
-    req.on('end', async () => {
-      try {
+    readBodyWithLimit(req, MAX_JSON_BODY_SIZE)
+      .then(async (body) => {
         const parsed = JSON.parse(body) as { sessionName: string };
         const { sessionName } = parsed;
 
@@ -360,10 +412,10 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
         log.info(`Bell notification triggered for session: ${sessionName}`);
         await notificationService.processOutput(sessionName, '\x07');
         sendJson(res, 200, { success: true, sent: true });
-      } catch (error) {
+      })
+      .catch((error) => {
         sendJson(res, 400, { error: getErrorMessage(error) });
-      }
-    });
+      });
     return;
   }
 
@@ -417,50 +469,50 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
       return;
     }
 
-    // Read request body
-    const chunks: Buffer[] = [];
-    req.on('data', (chunk: Buffer) => {
-      chunks.push(chunk);
-    });
-    req.on('end', async () => {
-      const body = Buffer.concat(chunks);
-      const contentType = req.headers['content-type'] || '';
+    // Read request body with size limit
+    const maxSize = config.file_transfer?.max_file_size ?? MAX_UPLOAD_BODY_SIZE;
+    readBufferWithLimit(req, maxSize)
+      .then(async (body) => {
+        const contentType = req.headers['content-type'] || '';
 
-      let filename: string;
-      let content: Buffer;
+        let filename: string;
+        let content: Buffer;
 
-      // Handle multipart form data
-      if (contentType.includes('multipart/form-data')) {
-        const boundary = extractBoundary(contentType);
-        if (!boundary) {
-          sendJson(res, 400, { error: 'Invalid multipart boundary' });
-          return;
+        // Handle multipart form data
+        if (contentType.includes('multipart/form-data')) {
+          const boundary = extractBoundary(contentType);
+          if (!boundary) {
+            sendJson(res, 400, { error: 'Invalid multipart boundary' });
+            return;
+          }
+
+          const parsed = parseMultipartFile(body, boundary);
+          if (!parsed) {
+            sendJson(res, 400, { error: 'Failed to parse multipart data' });
+            return;
+          }
+
+          filename = uploadPath ? `${uploadPath}/${parsed.filename}` : parsed.filename;
+          content = parsed.content;
+        } else {
+          // Direct upload with path in query
+          if (!uploadPath) {
+            sendJson(res, 400, { error: 'path parameter is required for direct upload' });
+            return;
+          }
+          filename = uploadPath;
+          content = body;
         }
 
-        const parsed = parseMultipartFile(body, boundary);
-        if (!parsed) {
-          sendJson(res, 400, { error: 'Failed to parse multipart data' });
-          return;
-        }
-
-        filename = uploadPath ? `${uploadPath}/${parsed.filename}` : parsed.filename;
-        content = parsed.content;
-      } else {
-        // Direct upload with path in query
-        if (!uploadPath) {
-          sendJson(res, 400, { error: 'path parameter is required for direct upload' });
-          return;
-        }
-        filename = uploadPath;
-        content = body;
-      }
-
-      const manager = createFileTransferManager({
-        baseDir: session.dir,
-        config: config.file_transfer
+        const manager = createFileTransferManager({
+          baseDir: session.dir,
+          config: config.file_transfer
+        });
+        await handleFileUpload(manager, filename, content, res);
+      })
+      .catch((error) => {
+        sendJson(res, 413, { error: getErrorMessage(error) });
       });
-      await handleFileUpload(manager, filename, content, res);
-    });
     return;
   }
 
@@ -577,13 +629,10 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
       return;
     }
 
-    // Read request body
-    let body = '';
-    req.on('data', (chunk) => {
-      body += chunk.toString();
-    });
-    req.on('end', async () => {
-      try {
+    // Read request body with size limit (clipboard images are base64 encoded, so limit is larger)
+    const maxSize = config.file_transfer?.max_file_size ?? MAX_UPLOAD_BODY_SIZE;
+    readBodyWithLimit(req, maxSize)
+      .then(async (body) => {
         const parsed = JSON.parse(body) as {
           images: ClipboardImageInput[];
         };
@@ -617,10 +666,10 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
           `Saved ${result.paths?.length || 0} clipboard image(s) for session: ${sessionName}`
         );
         sendJson(res, 200, { success: true, paths: result.paths });
-      } catch (error) {
-        sendJson(res, 400, { error: getErrorMessage(error) });
-      }
-    });
+      })
+      .catch((error) => {
+        sendJson(res, 413, { error: getErrorMessage(error) });
+      });
     return;
   }
 

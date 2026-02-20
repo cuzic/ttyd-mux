@@ -84,6 +84,21 @@ export function setSecurityHeaders(res: ServerResponse): void {
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=()');
 }
 
+/** Localhost addresses for origin validation */
+const LOCALHOST_ADDRESSES = ['127.0.0.1', '::1', '::ffff:127.0.0.1', 'localhost'];
+
+/**
+ * Check if a remote address is localhost
+ */
+function isLocalhostAddress(address: string | undefined): boolean {
+  if (!address) {
+    return false;
+  }
+  return LOCALHOST_ADDRESSES.some(
+    (localhost) => address === localhost || address.endsWith(localhost)
+  );
+}
+
 /**
  * Validate Origin header for state-changing requests (CSRF protection)
  * Returns true if the request is allowed, false otherwise
@@ -103,9 +118,15 @@ export function validateOrigin(req: IncomingMessage, config: Config): boolean {
   if (!origin) {
     const referer = req.headers['referer'];
     if (!referer) {
-      // No origin info - allow for same-origin requests (e.g., curl, Postman)
-      // This is a trade-off between security and usability
-      return true;
+      // No origin info - only allow for localhost connections (e.g., curl, Postman)
+      // This prevents CSRF attacks while allowing local API tools
+      const remoteAddress = req.socket?.remoteAddress;
+      if (isLocalhostAddress(remoteAddress)) {
+        return true;
+      }
+      // Deny requests from remote hosts without Origin/Referer
+      log.warn(`Blocked request without Origin/Referer from: ${remoteAddress}`);
+      return false;
     }
     try {
       const refererUrl = new URL(referer);

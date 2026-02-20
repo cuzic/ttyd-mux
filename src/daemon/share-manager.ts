@@ -2,7 +2,7 @@
  * Share Manager - Manages read-only share links for terminal sessions
  */
 
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 /**
  * Share state stored in state.json
@@ -12,7 +12,8 @@ export interface ShareState {
   sessionName: string;
   createdAt: string;
   expiresAt: string;
-  password?: string; // For future: hashed password if set
+  /** Hashed password with salt (format: "salt:hash") */
+  passwordHash?: string;
 }
 
 /**
@@ -50,6 +51,45 @@ export interface ShareManager {
  */
 export function generateSecureToken(): string {
   return randomBytes(16).toString('hex');
+}
+
+/**
+ * Hash a password with a random salt
+ * Returns format: "salt:hash" where both are hex strings
+ */
+export function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString('hex');
+  const hash = createHash('sha256')
+    .update(salt + password)
+    .digest('hex');
+  return `${salt}:${hash}`;
+}
+
+/**
+ * Verify a password against a hashed password
+ * Uses timing-safe comparison to prevent timing attacks
+ */
+export function verifyPassword(password: string, storedHash: string): boolean {
+  const parts = storedHash.split(':');
+  if (parts.length !== 2) {
+    return false;
+  }
+
+  const [salt, expectedHash] = parts;
+  if (!salt || !expectedHash) {
+    return false;
+  }
+
+  const actualHash = createHash('sha256')
+    .update(salt + password)
+    .digest('hex');
+
+  // Use timing-safe comparison to prevent timing attacks
+  try {
+    return timingSafeEqual(Buffer.from(actualHash, 'hex'), Buffer.from(expectedHash, 'hex'));
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -109,8 +149,8 @@ export function createShareManager(store: ShareStore): ShareManager {
       };
 
       if (options.password) {
-        // For now, store password as-is (TODO: hash in future)
-        share.password = options.password;
+        // Hash the password before storing
+        share.passwordHash = hashPassword(options.password);
       }
 
       store.addShare(share);

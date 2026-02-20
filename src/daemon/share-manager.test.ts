@@ -3,7 +3,9 @@ import {
   type ShareManager,
   createShareManager,
   generateSecureToken,
-  parseExpiresIn
+  hashPassword,
+  parseExpiresIn,
+  verifyPassword
 } from './share-manager.js';
 
 describe('generateSecureToken', () => {
@@ -19,6 +21,39 @@ describe('generateSecureToken', () => {
       tokens.add(generateSecureToken());
     }
     expect(tokens.size).toBe(100);
+  });
+});
+
+describe('hashPassword and verifyPassword', () => {
+  test('hashPassword returns salt:hash format', () => {
+    const hash = hashPassword('test123');
+    expect(hash).toMatch(/^[a-f0-9]+:[a-f0-9]+$/);
+    const parts = hash.split(':');
+    expect(parts).toHaveLength(2);
+    expect(parts[0]).toHaveLength(32); // 16 bytes = 32 hex chars
+    expect(parts[1]).toHaveLength(64); // SHA-256 = 64 hex chars
+  });
+
+  test('hashPassword generates unique hashes for same password', () => {
+    const hash1 = hashPassword('test123');
+    const hash2 = hashPassword('test123');
+    expect(hash1).not.toBe(hash2); // Different salts
+  });
+
+  test('verifyPassword returns true for correct password', () => {
+    const hash = hashPassword('secret');
+    expect(verifyPassword('secret', hash)).toBe(true);
+  });
+
+  test('verifyPassword returns false for wrong password', () => {
+    const hash = hashPassword('secret');
+    expect(verifyPassword('wrong', hash)).toBe(false);
+  });
+
+  test('verifyPassword returns false for invalid hash format', () => {
+    expect(verifyPassword('test', 'invalid')).toBe(false);
+    expect(verifyPassword('test', '')).toBe(false);
+    expect(verifyPassword('test', ':')).toBe(false);
   });
 });
 
@@ -99,9 +134,14 @@ describe('ShareManager', () => {
       expect(shares.has(share.token)).toBe(true);
     });
 
-    test('creates a share with password', () => {
+    test('creates a share with hashed password', () => {
       const share = manager.createShare('test-session', { password: 'secret123' });
-      expect(share.password).toBe('secret123');
+      expect(share.passwordHash).toBeDefined();
+      expect(share.passwordHash).toMatch(/^[a-f0-9]+:[a-f0-9]+$/);
+      // Verify the password can be verified
+      const passwordHash = share.passwordHash ?? '';
+      expect(verifyPassword('secret123', passwordHash)).toBe(true);
+      expect(verifyPassword('wrong', passwordHash)).toBe(false);
     });
   });
 
