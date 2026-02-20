@@ -298,10 +298,10 @@ export function createFileTransferManager(
     }
   }
 
-  async function listFiles(relativePath: string): Promise<ListResult> {
+  function listFiles(relativePath: string): Promise<ListResult> {
     // Check if transfer is enabled
     if (!config.enabled) {
-      return { success: false, error: 'disabled' };
+      return Promise.resolve({ success: false, error: 'disabled' });
     }
 
     // Handle "." as current directory
@@ -310,12 +310,12 @@ export function createFileTransferManager(
     // Validate and resolve path
     const resolvedPath = pathToResolve ? resolveFilePath(baseDir, pathToResolve) : baseDir;
     if (!resolvedPath) {
-      return { success: false, error: 'invalid_path' };
+      return Promise.resolve({ success: false, error: 'invalid_path' });
     }
 
     // Check if directory exists
     if (!existsSync(resolvedPath)) {
-      return { success: false, error: 'not_found' };
+      return Promise.resolve({ success: false, error: 'not_found' });
     }
 
     try {
@@ -334,13 +334,13 @@ export function createFileTransferManager(
         });
       }
 
-      return {
+      return Promise.resolve({
         success: true,
         files
-      };
+      });
     } catch (err) {
       log.error(`Failed to list files: ${relativePath}`, err);
-      return { success: false, error: 'unknown' };
+      return Promise.resolve({ success: false, error: 'unknown' });
     }
   }
 
@@ -354,6 +354,10 @@ export function createFileTransferManager(
 // =============================================================================
 // Clipboard image saving
 // =============================================================================
+
+// Regex patterns for timestamp formatting
+const TIMESTAMP_CHARS_REGEX = /[-:]/g;
+const TIMESTAMP_MILLIS_REGEX = /\.\d{3}Z/;
 
 /**
  * Get file extension from MIME type
@@ -378,9 +382,9 @@ function generateClipboardFilename(mimeType: string, index: number): string {
   const now = new Date();
   const timestamp = now
     .toISOString()
-    .replace(/[-:]/g, '')
+    .replace(TIMESTAMP_CHARS_REGEX, '')
     .replace('T', '-')
-    .replace(/\.\d{3}Z/, '');
+    .replace(TIMESTAMP_MILLIS_REGEX, '');
   const ext = getExtensionFromMimeType(mimeType);
   const suffix = index > 0 ? `-${String(index + 1).padStart(3, '0')}` : '';
   return `clipboard-${timestamp}${suffix}.${ext}`;
@@ -410,7 +414,9 @@ export async function saveClipboardImages(
   try {
     for (let i = 0; i < images.length; i++) {
       const image = images[i];
-      if (!image) continue;
+      if (!image) {
+        continue;
+      }
 
       // Decode base64 data
       const buffer = Buffer.from(image.data, 'base64');

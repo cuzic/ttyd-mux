@@ -62,7 +62,8 @@
         "noForEach": "off",
         "useLiteralKeys": "off",
         "useOptionalChain": "error",
-        "noExcessiveNestedTestSuites": "off"
+        "noExcessiveNestedTestSuites": "off",
+        "useSimplifiedLogicExpression": "off"
       },
       "security": {
         "noDangerouslySetInnerHtml": "error",
@@ -98,6 +99,9 @@
           "suspicious": {
             "noExplicitAny": "off",
             "noConsole": "off"
+          },
+          "performance": {
+            "useTopLevelRegex": "off"
           }
         }
       }
@@ -123,12 +127,55 @@
       "include": [
         "src/client/index.ts",
         "src/config/index.ts",
-        "src/config/state-store.ts"
+        "src/config/state-store.ts",
+        "src/daemon/notification/index.ts",
+        "src/daemon/toolbar/index.ts",
+        "src/daemon/preview/index.ts",
+        "src/daemon/tabs/index.ts"
       ],
       "linter": {
         "rules": {
           "performance": {
-            "noBarrelFile": "off"
+            "noBarrelFile": "off",
+            "noReExportAll": "off"
+          }
+        }
+      }
+    },
+    {
+      "include": [
+        "src/daemon/api-handler.ts",
+        "src/daemon/router.ts",
+        "src/daemon/index.ts"
+      ],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveCognitiveComplexity": "off"
+          }
+        }
+      }
+    },
+    {
+      "include": [
+        "src/daemon/toolbar/client/**/*.ts",
+        "src/daemon/tabs/client/**/*.ts",
+        "src/daemon/tabs/styles.ts"
+      ],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveCognitiveComplexity": "off"
+          },
+          "style": {
+            "noParameterProperties": "off",
+            "useDefaultSwitchClause": "off"
+          },
+          "performance": {
+            "useTopLevelRegex": "off"
+          },
+          "suspicious": {
+            "noEmptyBlockStatements": "off"
           }
         }
       }

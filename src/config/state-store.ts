@@ -108,7 +108,9 @@ export function createInMemoryStateStore(initialState?: Partial<State>): StateSt
     },
 
     addShare: (share: ShareState) => {
-      if (!state.shares) state.shares = [];
+      if (!state.shares) {
+        state.shares = [];
+      }
       state.shares = state.shares.filter((s) => s.token !== share.token);
       state.shares.push(share);
     },
@@ -121,7 +123,9 @@ export function createInMemoryStateStore(initialState?: Partial<State>): StateSt
     getAllShares: () => [...(state.shares ?? [])],
 
     addPushSubscription: (subscription: PushSubscriptionState) => {
-      if (!state.pushSubscriptions) state.pushSubscriptions = [];
+      if (!state.pushSubscriptions) {
+        state.pushSubscriptions = [];
+      }
       state.pushSubscriptions = state.pushSubscriptions.filter(
         (s) => s.endpoint !== subscription.endpoint
       );

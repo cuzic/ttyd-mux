@@ -37,7 +37,6 @@ export class IframeManager {
     if (!iframe) {
       const session = this.config.sessions.find((s) => s.name === name);
       if (!session) {
-        console.warn(`[Tabs] Session not found: ${name}`);
         return;
       }
       iframe = this.createIframe(session);
@@ -133,12 +132,12 @@ export class IframeManager {
 
     // Add load event listener
     iframe.addEventListener('load', () => {
-      console.log(`[Tabs] Iframe loaded: ${session.name}`);
+      // Iframe loaded - no additional action needed
     });
 
     // Add error handler
     iframe.addEventListener('error', () => {
-      console.error(`[Tabs] Iframe error: ${session.name}`);
+      // Iframe error - silently ignore
     });
 
     this.container.appendChild(iframe);

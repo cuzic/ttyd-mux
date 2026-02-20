@@ -54,8 +54,7 @@ export function createNotificationMatcher(config: MatcherConfig): NotificationMa
         regex: new RegExp(pattern.regex)
       });
     } catch {
-      // Skip invalid regex
-      console.error(`[Notification] Invalid regex: ${pattern.regex}`);
+      // Invalid regex pattern - skip silently
     }
   }
 

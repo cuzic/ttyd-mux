@@ -73,7 +73,9 @@ export class FileTransferManager {
    * Setup event listeners
    */
   private setupEventListeners(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     // Download button - opens file browser modal
     this.elements.downloadBtn.addEventListener('click', (e) => {
@@ -105,7 +107,7 @@ export class FileTransferManager {
       const files = this.elements?.uploadInput.files;
       if (files && files.length > 0) {
         await this.uploadFiles(files);
-        this.elements!.uploadInput.value = '';
+        this.elements?.uploadInput.value = '';
       }
     });
 
@@ -134,7 +136,9 @@ export class FileTransferManager {
    * Show download mode (file browser)
    */
   async showDownloadMode(): Promise<void> {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     this.previewMode = false;
     this.previewCallback = null;
@@ -148,7 +152,9 @@ export class FileTransferManager {
    * Open file browser for preview file selection
    */
   async openForPreview(callback: (path: string) => void): Promise<void> {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     this.previewMode = true;
     this.previewCallback = callback;
@@ -162,7 +168,9 @@ export class FileTransferManager {
    * Hide the modal
    */
   hide(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
     this.elements.modal.classList.add('hidden');
   }
 
@@ -170,9 +178,11 @@ export class FileTransferManager {
    * Load and display file list
    */
   private async loadFileList(): Promise<void> {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
-    const { fileList, breadcrumb } = this.elements;
+    const { fileList } = this.elements;
 
     // Show loading
     fileList.innerHTML = '<div class="ttyd-file-loading">読み込み中...</div>';
@@ -191,7 +201,6 @@ export class FileTransferManager {
       this.renderFileList(data.files);
       this.renderBreadcrumb();
     } catch (error) {
-      console.error('[Toolbar] Failed to load file list:', error);
       fileList.innerHTML = `<div class="ttyd-file-error">エラー: ${error instanceof Error ? error.message : 'Unknown error'}</div>`;
     }
   }
@@ -200,7 +209,9 @@ export class FileTransferManager {
    * Render file list
    */
   private renderFileList(files: FileInfo[]): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     const { fileList } = this.elements;
     fileList.innerHTML = '';
@@ -317,7 +328,9 @@ export class FileTransferManager {
    * Render breadcrumb navigation
    */
   private renderBreadcrumb(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     const { breadcrumb } = this.elements;
     breadcrumb.innerHTML = '';
@@ -379,10 +392,7 @@ export class FileTransferManager {
       a.download = fileName;
       a.click();
       URL.revokeObjectURL(downloadUrl);
-
-      console.log('[Toolbar] Downloaded file:', fileName);
     } catch (error) {
-      console.error('[Toolbar] Failed to download file:', error);
       alert(
         `ダウンロードに失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
@@ -422,10 +432,7 @@ export class FileTransferManager {
         const error = await response.json();
         throw new Error(error.error || 'Upload failed');
       }
-
-      console.log('[Toolbar] Uploaded file:', file.name);
     } catch (error) {
-      console.error('[Toolbar] Failed to upload file:', error);
       alert(
         `アップロードに失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
@@ -436,10 +443,12 @@ export class FileTransferManager {
    * Format file size for display
    */
   private formatSize(bytes: number): string {
-    if (bytes === 0) return '0 B';
+    if (bytes === 0) {
+      return '0 B';
+    }
     const units = ['B', 'KB', 'MB', 'GB'];
     const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-    const size = bytes / Math.pow(1024, i);
+    const size = bytes / 1024 ** i;
     return `${size.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
   }
 }

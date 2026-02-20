@@ -373,7 +373,9 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
       baseDir: session.dir,
       config: config.file_transfer
     });
-    void handleFileDownload(manager, filePath, res);
+    handleFileDownload(manager, filePath, res).catch(() => {
+      sendJson(res, 500, { error: 'Internal server error' });
+    });
     return;
   }
 
@@ -466,7 +468,9 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
       baseDir: session.dir,
       config: config.file_transfer
     });
-    void handleFileList(manager, listPath, res);
+    handleFileList(manager, listPath, res).catch(() => {
+      sendJson(res, 500, { error: 'Internal server error' });
+    });
     return;
   }
 
@@ -513,7 +517,7 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
     });
 
     // Use download handler but set HTML content type
-    void (async () => {
+    (async () => {
       const result = await manager.downloadFile(filePath);
       if (!result.success || !result.data) {
         sendJson(res, 404, { error: result.error || 'File not found' });
@@ -528,7 +532,9 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
         'X-Frame-Options': 'SAMEORIGIN'
       });
       res.end(result.data);
-    })();
+    })().catch(() => {
+      sendJson(res, 500, { error: 'Internal server error' });
+    });
     return;
   }
 

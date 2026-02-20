@@ -49,15 +49,12 @@ export class FileWatcherClient {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${protocol}//${window.location.host}${this.config.base_path}/api/preview/ws`;
 
-    console.log('[FileWatcher] Connecting to:', url);
-
     try {
       this.ws = new WebSocket(url);
 
       this.ws.onopen = () => {
         this.state = 'connected';
         this.reconnectAttempts = 0;
-        console.log('[FileWatcher] Connected');
 
         // Re-subscribe to previously watched files
         for (const key of this.watchedFiles) {
@@ -75,16 +72,13 @@ export class FileWatcherClient {
       this.ws.onclose = () => {
         this.state = 'disconnected';
         this.ws = null;
-        console.log('[FileWatcher] Disconnected');
         this.scheduleReconnect();
       };
 
-      this.ws.onerror = (error) => {
-        console.error('[FileWatcher] WebSocket error:', error);
+      this.ws.onerror = (_error) => {
         this.ws?.close();
       };
-    } catch (error) {
-      console.error('[FileWatcher] Failed to connect:', error);
+    } catch (_error) {
       this.state = 'disconnected';
       this.scheduleReconnect();
     }
@@ -106,7 +100,6 @@ export class FileWatcherClient {
 
     this.state = 'disconnected';
     this.watchedFiles.clear();
-    console.log('[FileWatcher] Disconnected');
   }
 
   /**
@@ -208,17 +201,16 @@ export class FileWatcherClient {
       const event = JSON.parse(data) as FileChangeEvent;
 
       if (event.type === 'change') {
-        console.log('[FileWatcher] File changed:', event.session, event.path);
         for (const listener of this.changeListeners) {
           try {
             listener(event);
-          } catch (error) {
-            console.error('[FileWatcher] Error in change listener:', error);
+          } catch (_error) {
+            // Listener error - silently ignore
           }
         }
       }
-    } catch (error) {
-      console.error('[FileWatcher] Failed to parse message:', error);
+    } catch (_error) {
+      // Message parse error - silently ignore
     }
   }
 
@@ -227,7 +219,6 @@ export class FileWatcherClient {
    */
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('[FileWatcher] Max reconnect attempts reached');
       return;
     }
 
@@ -236,10 +227,8 @@ export class FileWatcherClient {
       return;
     }
 
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
+    const delay = this.reconnectDelay * 2 ** this.reconnectAttempts;
     this.reconnectAttempts++;
-
-    console.log(`[FileWatcher] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
 
     this.reconnectTimer = window.setTimeout(() => {
       this.reconnectTimer = null;

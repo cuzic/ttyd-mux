@@ -142,6 +142,10 @@ interface ParsedFile {
   content: Buffer;
 }
 
+// Regex patterns for multipart parsing
+const FILENAME_REGEX = /filename="([^"]+)"/;
+const BOUNDARY_REGEX = /boundary=(?:"([^"]+)"|([^;]+))/;
+
 /**
  * Parse multipart form data to extract file
  */
@@ -168,7 +172,7 @@ export function parseMultipartFile(body: Buffer, boundary: string): ParsedFile |
   const headerStr = body.slice(start, headerEnd).toString();
 
   // Extract filename from Content-Disposition
-  const filenameMatch = headerStr.match(/filename="([^"]+)"/);
+  const filenameMatch = headerStr.match(FILENAME_REGEX);
   if (!filenameMatch?.[1]) {
     return null;
   }
@@ -197,6 +201,6 @@ export function parseMultipartFile(body: Buffer, boundary: string): ParsedFile |
  * Extract boundary from Content-Type header
  */
 export function extractBoundary(contentType: string): string | null {
-  const match = contentType.match(/boundary=(?:"([^"]+)"|([^;]+))/);
+  const match = contentType.match(BOUNDARY_REGEX);
   return match ? (match[1] ?? match[2] ?? null) : null;
 }

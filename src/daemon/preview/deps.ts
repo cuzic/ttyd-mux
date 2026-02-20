@@ -41,14 +41,16 @@ export const defaultFileSystemDeps: FileSystemDeps = {
 };
 
 /** Create mock file system for testing */
-export function createMockFileSystem(
-  overrides: Partial<FileSystemDeps> = {}
-): FileSystemDeps {
+export function createMockFileSystem(overrides: Partial<FileSystemDeps> = {}): FileSystemDeps {
   return {
     existsSync: () => true,
     watch: () => ({
-      close: () => {},
-      on: () => {}
+      close: () => {
+        // Mock close - no-op
+      },
+      on: () => {
+        // Mock on - no-op
+      }
     }),
     ...overrides
   };
@@ -139,9 +141,7 @@ export interface SessionManagerDeps {
 }
 
 /** Create mock session manager for testing */
-export function createMockSessionManager(
-  sessions: SessionState[] = []
-): SessionManagerDeps {
+export function createMockSessionManager(sessions: SessionState[] = []): SessionManagerDeps {
   return {
     listSessions: () => sessions
   };

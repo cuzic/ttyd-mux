@@ -7,11 +7,7 @@
 
 import { normalize } from 'node:path';
 import { createLogger } from '@/utils/logger.js';
-import {
-  type FileWatcherDeps,
-  type WatchHandle,
-  defaultFileWatcherDeps
-} from './deps.js';
+import { type FileWatcherDeps, type WatchHandle, defaultFileWatcherDeps } from './deps.js';
 import type { FileChangeEvent, PreviewOptions } from './types.js';
 
 const log = createLogger('preview-watcher');
@@ -43,7 +39,10 @@ export class FileWatcherService<TClient = unknown> {
   private watchedFiles = new Map<string, WatchedFile<TClient>>();
   private changeListeners: Array<(event: FileChangeEvent) => void> = [];
 
-  constructor(deps: FileWatcherDeps = defaultFileWatcherDeps, options: PreviewOptions = DEFAULT_OPTIONS) {
+  constructor(
+    deps: FileWatcherDeps = defaultFileWatcherDeps,
+    options: PreviewOptions = DEFAULT_OPTIONS
+  ) {
     this.deps = deps;
     this.options = options;
   }
@@ -243,9 +242,7 @@ export class FileWatcherService<TClient = unknown> {
       return true;
     }
     const lowerPath = path.toLowerCase();
-    return this.options.allowedExtensions.some((ext) =>
-      lowerPath.endsWith(ext.toLowerCase())
-    );
+    return this.options.allowedExtensions.some((ext) => lowerPath.endsWith(ext.toLowerCase()));
   }
 
   /**

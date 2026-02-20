@@ -27,6 +27,9 @@ let toolbarJsEtag: string | null = null;
 let tabsJsCache: string | null = null;
 let tabsJsEtag: string | null = null;
 
+// Regex for stripping trailing slashes
+const TRAILING_SLASH_REGEX = /\/$/;
+
 /**
  * Generate ETag from content using MD5 hash
  * @param content - Content to hash
@@ -344,7 +347,7 @@ export function handleRequest(config: Config, req: IncomingMessage, res: ServerR
       }
     } else if (url.startsWith(`${tabsPath}/`)) {
       // /tabs/{session} - show tabs view with specific session
-      const sessionPart = url.slice(tabsPath.length + 1).replace(/\/$/, '');
+      const sessionPart = url.slice(tabsPath.length + 1).replace(TRAILING_SLASH_REGEX, '');
       const sessionName = decodeURIComponent(sessionPart);
       if (method === 'GET' && sessionName) {
         log.debug(`Serving tabs page for session: ${sessionName}`);

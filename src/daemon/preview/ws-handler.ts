@@ -77,7 +77,9 @@ export class PreviewWsHandler {
    * Initialize change event forwarding
    */
   private initializeChangeListener(): void {
-    if (this.changeListenerInitialized) return;
+    if (this.changeListenerInitialized) {
+      return;
+    }
     this.changeListenerInitialized = true;
 
     this.deps.fileWatcher.onFileChange((event: FileChangeEvent) => {
@@ -129,10 +131,11 @@ export class PreviewWsHandler {
           break;
         }
 
-        case 'unwatch':
+        case 'unwatch': {
           this.deps.fileWatcher.unwatchFile(session.dir, message.path, ws);
           log.debug(`Client unsubscribed from: ${message.session}/${message.path}`);
           break;
+        }
 
         default:
           log.warn(`Unknown action: ${(message as { action: string }).action}`);
@@ -212,11 +215,7 @@ function getDefaultHandler(): PreviewWsHandler {
 }
 
 /** Handle WebSocket upgrade for preview endpoint (backward compatible) */
-export function handlePreviewUpgrade(
-  req: IncomingMessage,
-  socket: Socket,
-  head: Buffer
-): void {
+export function handlePreviewUpgrade(req: IncomingMessage, socket: Socket, head: Buffer): void {
   getDefaultHandler().handleUpgrade(req, socket, head);
 }
 

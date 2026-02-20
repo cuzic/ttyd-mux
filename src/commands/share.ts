@@ -16,7 +16,7 @@ export interface ShareListOptions {
   json?: boolean;
 }
 
-export type ShareRevokeOptions = {};
+export type ShareRevokeOptions = Record<string, never>;
 
 // Create a ShareManager with file-system backed store
 function getShareManager() {
@@ -68,7 +68,7 @@ export async function shareCommand(sessionName: string, options: ShareOptions): 
 /**
  * List all active shares
  */
-export async function shareListCommand(options: ShareListOptions): Promise<void> {
+export function shareListCommand(options: ShareListOptions): void {
   const manager = getShareManager();
   const shares = manager.listShares();
 
@@ -99,10 +99,7 @@ export async function shareListCommand(options: ShareListOptions): Promise<void>
 /**
  * Revoke a share
  */
-export async function shareRevokeCommand(
-  token: string,
-  _options: ShareRevokeOptions
-): Promise<void> {
+export function shareRevokeCommand(token: string, _options: ShareRevokeOptions): void {
   const manager = getShareManager();
   const success = manager.revokeShare(token);
 

@@ -17,6 +17,39 @@ export interface ReloadResult {
   error?: string;
 }
 
+// Settings that can be hot-reloaded (simple equality check)
+const HOT_RELOADABLE_KEYS = [
+  'proxy_mode',
+  'hostname',
+  'caddy_admin_api',
+  'tmux_mode',
+  'auto_attach'
+] as const;
+
+// Settings that require restart (simple equality check)
+const RESTART_REQUIRED_KEYS = ['daemon_port', 'base_path', 'base_port'] as const;
+
+// Settings that require restart (JSON comparison)
+const RESTART_REQUIRED_ARRAY_KEYS = ['listen_addresses', 'listen_sockets'] as const;
+
+// Toolbar keys to check
+const TOOLBAR_KEYS = [
+  'font_size_default_mobile',
+  'font_size_default_pc',
+  'font_size_min',
+  'font_size_max',
+  'double_tap_delay'
+] as const;
+
+function checkSessionChanges(oldConfig: Config, newConfig: Config): boolean {
+  const oldSessionNames = new Set(oldConfig.sessions?.map((s) => s.name) ?? []);
+  const newSessionNames = new Set(newConfig.sessions?.map((s) => s.name) ?? []);
+  return (
+    oldSessionNames.size !== newSessionNames.size ||
+    ![...oldSessionNames].every((n) => newSessionNames.has(n))
+  );
+}
+
 /**
  * Compare two configs and identify what changed
  */
@@ -28,62 +61,36 @@ function detectChanges(
   const requiresRestart: string[] = [];
 
   // Check toolbar config
-  const toolbarKeys = [
-    'font_size_default_mobile',
-    'font_size_default_pc',
-    'font_size_min',
-    'font_size_max',
-    'double_tap_delay'
-  ] as const;
-
-  for (const key of toolbarKeys) {
+  for (const key of TOOLBAR_KEYS) {
     if (oldConfig.toolbar[key] !== newConfig.toolbar[key]) {
       hotReloadable.push(`toolbar.${key}`);
     }
   }
 
   // Check session definitions
-  const oldSessionNames = new Set(oldConfig.sessions?.map((s) => s.name) ?? []);
-  const newSessionNames = new Set(newConfig.sessions?.map((s) => s.name) ?? []);
-  if (
-    oldSessionNames.size !== newSessionNames.size ||
-    ![...oldSessionNames].every((n) => newSessionNames.has(n))
-  ) {
+  if (checkSessionChanges(oldConfig, newConfig)) {
     hotReloadable.push('sessions');
   }
 
-  // Check other hot-reloadable settings
-  if (oldConfig.proxy_mode !== newConfig.proxy_mode) {
-    hotReloadable.push('proxy_mode');
-  }
-  if (oldConfig.hostname !== newConfig.hostname) {
-    hotReloadable.push('hostname');
-  }
-  if (oldConfig.caddy_admin_api !== newConfig.caddy_admin_api) {
-    hotReloadable.push('caddy_admin_api');
-  }
-  if (oldConfig.tmux_mode !== newConfig.tmux_mode) {
-    hotReloadable.push('tmux_mode');
-  }
-  if (oldConfig.auto_attach !== newConfig.auto_attach) {
-    hotReloadable.push('auto_attach');
+  // Check hot-reloadable settings
+  for (const key of HOT_RELOADABLE_KEYS) {
+    if (oldConfig[key] !== newConfig[key]) {
+      hotReloadable.push(key);
+    }
   }
 
-  // Check settings that require restart
-  if (oldConfig.daemon_port !== newConfig.daemon_port) {
-    requiresRestart.push('daemon_port');
+  // Check settings that require restart (simple comparison)
+  for (const key of RESTART_REQUIRED_KEYS) {
+    if (oldConfig[key] !== newConfig[key]) {
+      requiresRestart.push(key);
+    }
   }
-  if (oldConfig.base_path !== newConfig.base_path) {
-    requiresRestart.push('base_path');
-  }
-  if (oldConfig.base_port !== newConfig.base_port) {
-    requiresRestart.push('base_port');
-  }
-  if (JSON.stringify(oldConfig.listen_addresses) !== JSON.stringify(newConfig.listen_addresses)) {
-    requiresRestart.push('listen_addresses');
-  }
-  if (JSON.stringify(oldConfig.listen_sockets) !== JSON.stringify(newConfig.listen_sockets)) {
-    requiresRestart.push('listen_sockets');
+
+  // Check settings that require restart (array comparison)
+  for (const key of RESTART_REQUIRED_ARRAY_KEYS) {
+    if (JSON.stringify(oldConfig[key]) !== JSON.stringify(newConfig[key])) {
+      requiresRestart.push(key);
+    }
   }
 
   return { hotReloadable, requiresRestart };

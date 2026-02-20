@@ -194,7 +194,7 @@ export function createApiClient(config: ApiClientConfig): ToolbarApiClient {
   };
 
   // Share
-  const createShare = async (sessionName: string, expiresIn: string): Promise<ShareLink> => {
+  const createShare = (sessionName: string, expiresIn: string): Promise<ShareLink> => {
     const url = `${basePath}/api/shares`;
     return requestJson<ShareLink>(url, {
       method: 'POST',

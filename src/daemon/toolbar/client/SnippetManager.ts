@@ -7,9 +7,9 @@
 
 import { z } from 'zod';
 import type { InputHandler } from './InputHandler.js';
+import { type StorageManager, createStorageManager } from './StorageManager.js';
 import type { Snippet, SnippetElements } from './types.js';
 import { STORAGE_KEYS } from './types.js';
-import { createStorageManager, type StorageManager } from './StorageManager.js';
 
 // Schema for snippet storage
 const snippetSchema = z.object({
@@ -25,6 +25,9 @@ const snippetStorageSchema = z.object({
 });
 
 type SnippetStorageType = z.infer<typeof snippetStorageSchema>;
+
+// Current storage version for migration
+const STORAGE_VERSION = 1;
 
 export class SnippetManager {
   private inputHandler: InputHandler;
@@ -85,7 +88,9 @@ export class SnippetManager {
    * Setup event listeners
    */
   private setupEventListeners(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     // Open modal
     this.elements.snippetBtn.addEventListener('click', (e) => {
@@ -176,7 +181,9 @@ export class SnippetManager {
    * Show the snippet modal
    */
   show(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
     this.elements.modal.classList.remove('hidden');
     this.hideAddForm();
     this.searchQuery = '';
@@ -188,7 +195,9 @@ export class SnippetManager {
    * Hide the snippet modal
    */
   hide(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
     this.elements.modal.classList.add('hidden');
     this.hideAddForm();
   }
@@ -197,7 +206,9 @@ export class SnippetManager {
    * Show add snippet form
    */
   private showAddForm(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
     this.elements.addForm.classList.remove('hidden');
     this.elements.addNameInput.value = '';
     this.elements.addCommandInput.value = '';
@@ -208,7 +219,9 @@ export class SnippetManager {
    * Hide add snippet form
    */
   private hideAddForm(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
     this.elements.addForm.classList.add('hidden');
     this.elements.addNameInput.value = '';
     this.elements.addCommandInput.value = '';
@@ -218,7 +231,9 @@ export class SnippetManager {
    * Save new snippet from form
    */
   private saveNewSnippet(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     const name = this.elements.addNameInput.value.trim();
     const command = this.elements.addCommandInput.value.trim();
@@ -245,7 +260,6 @@ export class SnippetManager {
 
     this.snippets.push(snippet);
     this.save();
-    console.log('[Toolbar] Snippet added:', name);
   }
 
   /**
@@ -253,13 +267,14 @@ export class SnippetManager {
    */
   updateSnippet(id: string, name: string, command: string): void {
     const snippet = this.snippets.find((s) => s.id === id);
-    if (!snippet) return;
+    if (!snippet) {
+      return;
+    }
 
     snippet.name = name;
     snippet.command = command;
     this.save();
     this.renderList();
-    console.log('[Toolbar] Snippet updated:', name);
   }
 
   /**
@@ -267,10 +282,11 @@ export class SnippetManager {
    */
   runSnippet(id: string): void {
     const snippet = this.snippets.find((s) => s.id === id);
-    if (!snippet) return;
+    if (!snippet) {
+      return;
+    }
 
     if (this.inputHandler.sendText(snippet.command)) {
-      console.log('[Toolbar] Snippet executed:', snippet.name);
       this.hide();
     }
   }
@@ -280,13 +296,14 @@ export class SnippetManager {
    */
   deleteSnippet(id: string): void {
     const index = this.snippets.findIndex((s) => s.id === id);
-    if (index === -1) return;
+    if (index === -1) {
+      return;
+    }
 
-    const snippet = this.snippets[index];
+    const _snippet = this.snippets[index];
     this.snippets.splice(index, 1);
     this.save();
     this.renderList();
-    console.log('[Toolbar] Snippet deleted:', snippet.name);
   }
 
   /**
@@ -321,11 +338,13 @@ export class SnippetManager {
 
     input.onchange = async () => {
       const file = input.files?.[0];
-      if (!file) return;
+      if (!file) {
+        return;
+      }
 
       try {
         const text = await file.text();
-        const data = JSON.parse(text) as SnippetStorage;
+        const data = JSON.parse(text) as SnippetStorageType;
 
         if (!data.snippets || !Array.isArray(data.snippets)) {
           throw new Error('Invalid snippet file format');
@@ -342,9 +361,7 @@ export class SnippetManager {
 
         this.renderList();
         alert(`${importedCount} 件のスニペットをインポートしました`);
-        console.log('[Toolbar] Imported snippets:', importedCount);
-      } catch (err) {
-        console.error('[Toolbar] Failed to import snippets:', err);
+      } catch (_err) {
         alert('スニペットのインポートに失敗しました');
       }
     };
@@ -361,7 +378,7 @@ export class SnippetManager {
       return;
     }
 
-    const storage: SnippetStorage = {
+    const storage: SnippetStorageType = {
       version: STORAGE_VERSION,
       snippets: this.snippets
     };
@@ -376,7 +393,6 @@ export class SnippetManager {
     a.click();
 
     URL.revokeObjectURL(url);
-    console.log('[Toolbar] Exported snippets:', this.snippets.length);
   }
 
   /**
@@ -401,7 +417,9 @@ export class SnippetManager {
    * Render the snippet list
    */
   private renderList(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     const { list } = this.elements;
     const empty = document.getElementById('ttyd-snippet-empty');
