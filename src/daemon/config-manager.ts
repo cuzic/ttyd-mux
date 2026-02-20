@@ -42,8 +42,8 @@ const TOOLBAR_KEYS = [
 ] as const;
 
 function checkSessionChanges(oldConfig: Config, newConfig: Config): boolean {
-  const oldSessionNames = new Set(oldConfig.sessions?.map((s) => s.name) ?? []);
-  const newSessionNames = new Set(newConfig.sessions?.map((s) => s.name) ?? []);
+  const oldSessionNames = new Set(oldConfig.sessions.map((s) => s.name));
+  const newSessionNames = new Set(newConfig.sessions.map((s) => s.name));
   return (
     oldSessionNames.size !== newSessionNames.size ||
     ![...oldSessionNames].every((n) => newSessionNames.has(n))

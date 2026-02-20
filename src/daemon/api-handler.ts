@@ -47,9 +47,6 @@ const log = createLogger('api');
 /** Maximum request body size for JSON payloads (1MB) */
 const MAX_JSON_BODY_SIZE = 1 * 1024 * 1024;
 
-/** Maximum request body size for file uploads (100MB) - matches file_transfer config */
-const MAX_UPLOAD_BODY_SIZE = 100 * 1024 * 1024;
-
 /**
  * Read request body with size limit to prevent DoS attacks
  * @param req - Incoming HTTP request
@@ -476,7 +473,7 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
     }
 
     // Read request body with size limit
-    const maxSize = config.file_transfer?.max_file_size ?? MAX_UPLOAD_BODY_SIZE;
+    const maxSize = config.file_transfer.max_file_size;
     readBufferWithLimit(req, maxSize)
       .then(async (body) => {
         const contentType = req.headers['content-type'] || '';
@@ -637,7 +634,7 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
     }
 
     // Read request body with size limit (clipboard images are base64 encoded, so limit is larger)
-    const maxSize = config.file_transfer?.max_file_size ?? MAX_UPLOAD_BODY_SIZE;
+    const maxSize = config.file_transfer.max_file_size;
     readBodyWithLimit(req, maxSize)
       .then(async (body) => {
         const parsed = JSON.parse(body) as {

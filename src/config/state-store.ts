@@ -108,35 +108,25 @@ export function createInMemoryStateStore(initialState?: Partial<State>): StateSt
     },
 
     addShare: (share: ShareState) => {
-      if (!state.shares) {
-        state.shares = [];
-      }
       state.shares = state.shares.filter((s) => s.token !== share.token);
       state.shares.push(share);
     },
     removeShare: (token: string) => {
-      if (state.shares) {
-        state.shares = state.shares.filter((s) => s.token !== token);
-      }
+      state.shares = state.shares.filter((s) => s.token !== token);
     },
-    getShare: (token: string) => state.shares?.find((s) => s.token === token),
-    getAllShares: () => [...(state.shares ?? [])],
+    getShare: (token: string) => state.shares.find((s) => s.token === token),
+    getAllShares: () => [...state.shares],
 
     addPushSubscription: (subscription: PushSubscriptionState) => {
-      if (!state.pushSubscriptions) {
-        state.pushSubscriptions = [];
-      }
       state.pushSubscriptions = state.pushSubscriptions.filter(
         (s) => s.endpoint !== subscription.endpoint
       );
       state.pushSubscriptions.push(subscription);
     },
     removePushSubscription: (id: string) => {
-      if (state.pushSubscriptions) {
-        state.pushSubscriptions = state.pushSubscriptions.filter((s) => s.id !== id);
-      }
+      state.pushSubscriptions = state.pushSubscriptions.filter((s) => s.id !== id);
     },
-    getPushSubscription: (id: string) => state.pushSubscriptions?.find((s) => s.id === id),
-    getAllPushSubscriptions: () => [...(state.pushSubscriptions ?? [])]
+    getPushSubscription: (id: string) => state.pushSubscriptions.find((s) => s.id === id),
+    getAllPushSubscriptions: () => [...state.pushSubscriptions]
   };
 }

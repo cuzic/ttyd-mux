@@ -64,5 +64,5 @@ export function getFullPath(config: Config, sessionPath: string): string {
 }
 
 export function findSessionDefinition(config: Config, name: string) {
-  return config.sessions?.find((s) => s.name === name);
+  return config.sessions.find((s) => s.name === name);
 }

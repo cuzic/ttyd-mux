@@ -87,20 +87,16 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
 
   // Initialize notification service if configured
   const stateDir = getStateDir();
-  if (config.notifications?.enabled !== false) {
+  if (config.notifications.enabled !== false) {
     try {
-      const notificationService = createNotificationService(
-        config.notifications ?? { enabled: true, patterns: [], default_cooldown: 300 },
-        stateDir,
-        {
-          getSubscriptions: getAllPushSubscriptions,
-          addSubscription: addPushSubscription,
-          removeSubscription: removePushSubscription
-        }
-      );
+      const notificationService = createNotificationService(config.notifications, stateDir, {
+        getSubscriptions: getAllPushSubscriptions,
+        addSubscription: addPushSubscription,
+        removeSubscription: removePushSubscription
+      });
       setNotificationService(notificationService);
       log.info('Notification service initialized');
-      if (config.notifications?.patterns?.length > 0) {
+      if (config.notifications.patterns.length > 0) {
         log.info(`Watching ${config.notifications.patterns.length} pattern(s) for notifications`);
       }
     } catch (error) {
@@ -120,8 +116,8 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
   cleanupSocketFile(socketPath, 'CLI socket');
 
   // Create HTTP servers for each listen address
-  const listenAddresses = config.listen_addresses ?? ['127.0.0.1', '::1'];
-  const listenSockets = config.listen_sockets ?? [];
+  const listenAddresses = config.listen_addresses;
+  const listenSockets = config.listen_sockets;
   const httpServers = listenAddresses.map(() => createDaemonServer(config));
 
   // Create HTTP servers for Unix sockets

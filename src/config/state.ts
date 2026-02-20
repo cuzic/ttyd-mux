@@ -53,7 +53,9 @@ function ensureStateFile(): void {
 function getDefaultState(): State {
   return {
     daemon: null,
-    sessions: []
+    sessions: [],
+    shares: [],
+    pushSubscriptions: []
   };
 }
 
@@ -168,9 +170,6 @@ export function getNextPath(basePath: string, name: string): string {
 export function addShare(share: ShareState): void {
   withStateLock(() => {
     const state = loadState();
-    if (!state.shares) {
-      state.shares = [];
-    }
     // Remove existing share with same token
     state.shares = state.shares.filter((s) => s.token !== share.token);
     state.shares.push(share);
@@ -181,20 +180,17 @@ export function addShare(share: ShareState): void {
 export function removeShare(token: string): void {
   withStateLock(() => {
     const state = loadState();
-    if (state.shares) {
-      state.shares = state.shares.filter((s) => s.token !== token);
-      saveState(state);
-    }
+    state.shares = state.shares.filter((s) => s.token !== token);
+    saveState(state);
   });
 }
 
 export function getShare(token: string): ShareState | undefined {
-  const state = loadState();
-  return state.shares?.find((s) => s.token === token);
+  return loadState().shares.find((s) => s.token === token);
 }
 
 export function getAllShares(): ShareState[] {
-  return loadState().shares ?? [];
+  return loadState().shares;
 }
 
 // === Push Subscription State ===
@@ -202,9 +198,6 @@ export function getAllShares(): ShareState[] {
 export function addPushSubscription(subscription: PushSubscriptionState): void {
   withStateLock(() => {
     const state = loadState();
-    if (!state.pushSubscriptions) {
-      state.pushSubscriptions = [];
-    }
     // Remove existing subscription with same endpoint
     state.pushSubscriptions = state.pushSubscriptions.filter(
       (s) => s.endpoint !== subscription.endpoint
@@ -217,20 +210,17 @@ export function addPushSubscription(subscription: PushSubscriptionState): void {
 export function removePushSubscription(id: string): void {
   withStateLock(() => {
     const state = loadState();
-    if (state.pushSubscriptions) {
-      state.pushSubscriptions = state.pushSubscriptions.filter((s) => s.id !== id);
-      saveState(state);
-    }
+    state.pushSubscriptions = state.pushSubscriptions.filter((s) => s.id !== id);
+    saveState(state);
   });
 }
 
 export function getPushSubscription(id: string): PushSubscriptionState | undefined {
-  const state = loadState();
-  return state.pushSubscriptions?.find((s) => s.id === id);
+  return loadState().pushSubscriptions.find((s) => s.id === id);
 }
 
 export function getAllPushSubscriptions(): PushSubscriptionState[] {
-  return loadState().pushSubscriptions ?? [];
+  return loadState().pushSubscriptions;
 }
 
 /**

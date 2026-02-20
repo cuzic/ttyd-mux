@@ -47,7 +47,7 @@ export class SessionResolver {
    * Find session definition from config by name
    */
   definitionByName(name: string): SessionDefinition | undefined {
-    return this.config.sessions?.find((s) => s.name === name);
+    return this.config.sessions.find((s) => s.name === name);
   }
 
   /**

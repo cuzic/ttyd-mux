@@ -55,7 +55,7 @@ sessions:
       expect(config.base_port).toBe(8000);
       expect(config.daemon_port).toBe(9000);
       expect(config.sessions).toHaveLength(1);
-      expect(config.sessions?.[0]?.name).toBe('test-session');
+      expect(config.sessions[0].name).toBe('test-session');
     });
 
     test('uses defaults for missing fields', () => {
@@ -81,8 +81,8 @@ listen_sockets:
       const config = loadConfig(configPath);
 
       expect(config.listen_sockets).toHaveLength(2);
-      expect(config.listen_sockets?.[0]).toBe('/run/ttyd-mux.sock');
-      expect(config.listen_sockets?.[1]).toBe('/tmp/ttyd-mux-alt.sock');
+      expect(config.listen_sockets[0]).toBe('/run/ttyd-mux.sock');
+      expect(config.listen_sockets[1]).toBe('/tmp/ttyd-mux-alt.sock');
     });
 
     test('defaults listen_sockets to empty array', () => {
@@ -222,8 +222,8 @@ toolbar:
       expect(found).toBeUndefined();
     });
 
-    test('returns undefined when sessions is undefined', () => {
-      const config = { base_path: '/', base_port: 7600, daemon_port: 7680 };
+    test('returns undefined when sessions array is empty', () => {
+      const config = { base_path: '/', base_port: 7600, daemon_port: 7680, sessions: [] };
 
       const found = findSessionDefinition(config, 'any');
 

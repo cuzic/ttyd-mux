@@ -36,7 +36,7 @@ async function startSessions(config: Config, sessionDefs: SessionDefinition[]): 
  * Start all predefined sessions
  */
 async function startAllSessions(config: Config): Promise<void> {
-  const sessions = config.sessions ?? [];
+  const sessions = config.sessions;
   if (sessions.length === 0) {
     console.log('No sessions defined in config.');
     return;
@@ -50,7 +50,7 @@ async function startAllSessions(config: Config): Promise<void> {
  * Interactive session selection and start
  */
 async function selectAndStartSessions(config: Config): Promise<void> {
-  const sessions = config.sessions ?? [];
+  const sessions = config.sessions;
   if (sessions.length === 0) {
     console.log('No sessions defined in config.');
     return;

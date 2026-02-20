@@ -204,8 +204,8 @@ export interface PushSubscriptionState {
 export interface State {
   daemon: DaemonState | null;
   sessions: SessionState[];
-  shares?: ShareState[];
-  pushSubscriptions?: PushSubscriptionState[];
+  shares: ShareState[];
+  pushSubscriptions: PushSubscriptionState[];
 }
 
 // === 解決済みセッション（設定 + 状態を統合）===

@@ -16,7 +16,7 @@ export async function upCommand(options: UpOptions): Promise<void> {
   const name = options.name ?? dir.split('/').pop() ?? 'default';
 
   // Determine whether to attach
-  const shouldAttach = options.detach ? false : (options.attach ?? config.auto_attach ?? true);
+  const shouldAttach = options.detach ? false : (options.attach ?? config.auto_attach);
 
   // Ensure daemon is running
   await ensureDaemon(options.config);
