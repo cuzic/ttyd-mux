@@ -50,6 +50,37 @@ function getErrorInfo(errorCode: string | undefined): { status: number; message:
 }
 
 // =============================================================================
+// Content-Disposition filename sanitization
+// =============================================================================
+
+/**
+ * Sanitize filename for Content-Disposition header
+ * Prevents header injection and XSS attacks
+ */
+function sanitizeFilenameForHeader(filename: string): string {
+  // Remove or replace dangerous characters
+  // Only allow alphanumeric, dash, underscore, dot, and space
+  const sanitized = filename
+    .replace(/[^\w\s.\-]/g, '_') // Replace special chars with underscore
+    .replace(/\s+/g, '_') // Replace whitespace with underscore
+    .slice(0, 255); // Limit length
+
+  // Ensure filename is not empty
+  return sanitized || 'download';
+}
+
+/**
+ * Generate RFC 5987 encoded Content-Disposition header value
+ * Supports non-ASCII filenames safely
+ */
+function getContentDisposition(filename: string): string {
+  const sanitized = sanitizeFilenameForHeader(filename);
+  // Use both filename (ASCII fallback) and filename* (UTF-8 encoded)
+  const encoded = encodeURIComponent(sanitized);
+  return `attachment; filename="${sanitized}"; filename*=UTF-8''${encoded}`;
+}
+
+// =============================================================================
 // Download handler
 // =============================================================================
 
@@ -72,7 +103,7 @@ export async function handleFileDownload(
   // Set headers for file download
   res.writeHead(200, {
     'Content-Type': result.mimeType ?? 'application/octet-stream',
-    'Content-Disposition': `attachment; filename="${result.filename}"`,
+    'Content-Disposition': getContentDisposition(result.filename ?? 'download'),
     'Content-Length': result.data?.length ?? 0
   });
   res.end(result.data);

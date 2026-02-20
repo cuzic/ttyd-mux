@@ -79,7 +79,8 @@ describe('handleFileDownload', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.headers['Content-Type']).toBe('text/plain');
-    expect(res.headers['Content-Disposition']).toBe('attachment; filename="test.txt"');
+    // Content-Disposition uses RFC 5987 encoding for security
+    expect(res.headers['Content-Disposition']).toContain('attachment; filename="test.txt"');
     expect(res.body.toString()).toBe('Hello, World!');
   });
 

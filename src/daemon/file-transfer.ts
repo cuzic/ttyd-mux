@@ -5,7 +5,7 @@
  * Provides path validation, size limits, and extension filtering.
  */
 
-import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, join, normalize, resolve } from 'node:path';
 import { createLogger } from '@/utils/logger.js';
@@ -96,6 +96,13 @@ export interface SaveClipboardImagesResult {
 // Path validation
 // =============================================================================
 
+// Regex for detecting URL-encoded path traversal (including double-encoding)
+const URL_ENCODED_DOT_REGEX = /%2e|%252e/i;
+const URL_ENCODED_SLASH_REGEX = /%2f|%5c|%252f|%255c/i;
+
+// Windows drive letter pattern
+const WINDOWS_DRIVE_REGEX = /^[a-zA-Z]:/;
+
 /**
  * Check if a path is safe (no traversal, no absolute paths)
  */
@@ -109,8 +116,18 @@ export function isPathSafe(path: string): boolean {
     return false;
   }
 
-  // Check for absolute paths
+  // Check for absolute paths (Unix)
   if (path.startsWith('/')) {
+    return false;
+  }
+
+  // Check for Windows absolute paths (drive letters)
+  if (WINDOWS_DRIVE_REGEX.test(path)) {
+    return false;
+  }
+
+  // Check for backslash (Windows path separator)
+  if (path.includes('\\')) {
     return false;
   }
 
@@ -122,8 +139,13 @@ export function isPathSafe(path: string): boolean {
     return false;
   }
 
-  // Check for URL-encoded traversal
-  if (path.includes('%2e') || path.includes('%2E')) {
+  // Check for URL-encoded traversal (including double-encoding)
+  if (URL_ENCODED_DOT_REGEX.test(path) || URL_ENCODED_SLASH_REGEX.test(path)) {
+    return false;
+  }
+
+  // Check path length to prevent DoS
+  if (path.length > 4096) {
     return false;
   }
 
@@ -133,6 +155,7 @@ export function isPathSafe(path: string): boolean {
 /**
  * Resolve a relative path within a base directory
  * Returns null if the resolved path escapes the base directory
+ * Also validates symlinks don't escape the base directory
  */
 export function resolveFilePath(baseDir: string, relativePath: string): string | null {
   if (!isPathSafe(relativePath)) {
@@ -145,6 +168,21 @@ export function resolveFilePath(baseDir: string, relativePath: string): string |
   // Ensure resolved path is within base directory
   if (!resolvedPath.startsWith(resolvedBase)) {
     return null;
+  }
+
+  // For existing files, also check realpath to prevent symlink attacks
+  if (existsSync(resolvedPath)) {
+    try {
+      const realPath = realpathSync(resolvedPath);
+      const realBase = realpathSync(resolvedBase);
+      if (!realPath.startsWith(realBase)) {
+        log.warn(`Symlink escape attempt blocked: ${relativePath}`);
+        return null;
+      }
+    } catch {
+      // If realpath fails, the file may have been deleted or is inaccessible
+      return null;
+    }
   }
 
   return resolvedPath;

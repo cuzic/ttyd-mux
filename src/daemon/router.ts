@@ -63,8 +63,8 @@ const shareManager = createShareManager({
   getShare: (token: string) => getShare(token)
 });
 
-/** Regex to extract share token from path */
-const SHARE_PATH_REGEX = /^\/share\/([a-f0-9]+)(\/.*)?$/;
+/** Regex to extract share token from path (limited to 64 chars to prevent DoS) */
+const SHARE_PATH_REGEX = /^\/share\/([a-f0-9]{1,64})(\/.*)?$/;
 
 const log = createLogger('router');
 
@@ -74,8 +74,67 @@ const log = createLogger('router');
 export function setSecurityHeaders(res: ServerResponse): void {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  // Content Security Policy - allow inline scripts for toolbar functionality
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; frame-src 'self'"
+  );
+  // Permissions Policy - disable unused browser features
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=()');
+}
+
+/**
+ * Validate Origin header for state-changing requests (CSRF protection)
+ * Returns true if the request is allowed, false otherwise
+ */
+export function validateOrigin(req: IncomingMessage, config: Config): boolean {
+  const method = req.method ?? 'GET';
+
+  // Only validate state-changing methods
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+    return true;
+  }
+
+  const origin = req.headers['origin'];
+  const host = req.headers['host'];
+
+  // If no Origin header, check Referer as fallback
+  if (!origin) {
+    const referer = req.headers['referer'];
+    if (!referer) {
+      // No origin info - allow for same-origin requests (e.g., curl, Postman)
+      // This is a trade-off between security and usability
+      return true;
+    }
+    try {
+      const refererUrl = new URL(referer);
+      return refererUrl.host === host;
+    } catch {
+      return false;
+    }
+  }
+
+  // Validate Origin matches expected hosts
+  try {
+    const originUrl = new URL(origin);
+
+    // Allow localhost and configured hostname
+    const allowedHosts = [host, 'localhost', '127.0.0.1', '::1', config.hostname].filter(Boolean);
+
+    // Check if origin host matches any allowed host (ignoring port)
+    const originHost = originUrl.hostname;
+    return allowedHosts.some((allowed) => {
+      if (!allowed) {
+        return false;
+      }
+      // Extract hostname from host:port format
+      const allowedHost = allowed.split(':')[0];
+      return originHost === allowedHost;
+    });
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -297,6 +356,13 @@ export function handleRequest(config: Config, req: IncomingMessage, res: ServerR
 
   // API routes
   if (url.startsWith(`${basePath}/api/`)) {
+    // Validate origin for state-changing requests (CSRF protection)
+    if (!validateOrigin(req, config)) {
+      log.warn(`Blocked request with invalid origin: ${method} ${url}`);
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid origin' }));
+      return;
+    }
     handleApiRequest(config, req, res);
     return;
   }

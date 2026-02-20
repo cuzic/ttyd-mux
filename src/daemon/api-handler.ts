@@ -126,6 +126,13 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
         const rawName = parsed.name ?? sessionNameFromDir(parsed.dir);
         // Sanitize session name to prevent command injection
         const name = isValidSessionName(rawName) ? rawName : sanitizeSessionName(rawName);
+
+        // Re-validate after sanitization to ensure safety
+        if (!isValidSessionName(name)) {
+          sendJson(res, 400, { error: 'Invalid session name after sanitization' });
+          return;
+        }
+
         const sessionPath = parsed.path ?? `/${name}`;
         const port = allocatePort(config);
         const fullPath = getFullPath(config, sessionPath);
@@ -280,6 +287,18 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
 
         if (!parsed.endpoint || !parsed.keys?.p256dh || !parsed.keys?.auth) {
           sendJson(res, 400, { error: 'Invalid subscription data' });
+          return;
+        }
+
+        // Validate endpoint is a valid HTTPS URL (security requirement for web push)
+        try {
+          const endpointUrl = new URL(parsed.endpoint);
+          if (endpointUrl.protocol !== 'https:') {
+            sendJson(res, 400, { error: 'Endpoint must be HTTPS' });
+            return;
+          }
+        } catch {
+          sendJson(res, 400, { error: 'Invalid endpoint URL' });
           return;
         }
 

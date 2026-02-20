@@ -104,10 +104,16 @@ describe('setSecurityHeaders', () => {
     expect(res.getHeader('X-Frame-Options')).toBe('SAMEORIGIN');
   });
 
-  test('sets X-XSS-Protection', () => {
+  test('sets Content-Security-Policy', () => {
     const res = new MockResponse() as unknown as ServerResponse;
     setSecurityHeaders(res);
-    expect(res.getHeader('X-XSS-Protection')).toBe('1; mode=block');
+    expect(res.getHeader('Content-Security-Policy')).toBeDefined();
+  });
+
+  test('sets Permissions-Policy', () => {
+    const res = new MockResponse() as unknown as ServerResponse;
+    setSecurityHeaders(res);
+    expect(res.getHeader('Permissions-Policy')).toBeDefined();
   });
 
   test('sets Referrer-Policy', () => {
