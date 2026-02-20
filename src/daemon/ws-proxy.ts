@@ -8,8 +8,12 @@ import { findSessionForPath } from './router.js';
 
 const log = createLogger('websocket');
 
+/** Maximum WebSocket message size (10MB) to prevent memory exhaustion */
+const MAX_MESSAGE_SIZE = 10 * 1024 * 1024;
+
 // Create WebSocket server (noServer mode for manual upgrade handling)
-const wss = new WebSocketServer({ noServer: true });
+// Set maxPayload to limit incoming message size
+const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MESSAGE_SIZE });
 
 // Global notification service reference (set by daemon)
 let globalNotificationService: NotificationService | null = null;
@@ -223,7 +227,8 @@ function connectToBackend(
 
   const backendWs = new WebSocket(
     backendUrl,
-    protocol ? protocol.split(',').map((p) => p.trim()) : []
+    protocol ? protocol.split(',').map((p) => p.trim()) : [],
+    { maxPayload: MAX_MESSAGE_SIZE }
   );
 
   backendWs.on('open', () => {

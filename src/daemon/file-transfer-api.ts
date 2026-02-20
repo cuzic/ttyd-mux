@@ -173,9 +173,8 @@ interface ParsedFile {
   content: Buffer;
 }
 
-// Regex patterns for multipart parsing
+// Regex pattern for filename extraction in multipart parsing
 const FILENAME_REGEX = /filename="([^"]+)"/;
-const BOUNDARY_REGEX = /boundary=(?:"([^"]+)"|([^;]+))/;
 
 /**
  * Parse multipart form data to extract file
@@ -230,8 +229,41 @@ export function parseMultipartFile(body: Buffer, boundary: string): ParsedFile |
 
 /**
  * Extract boundary from Content-Type header
+ * Uses string parsing instead of regex for security
  */
 export function extractBoundary(contentType: string): string | null {
-  const match = contentType.match(BOUNDARY_REGEX);
-  return match ? (match[1] ?? match[2] ?? null) : null;
+  // Limit Content-Type header length to prevent DoS
+  if (contentType.length > 500) {
+    return null;
+  }
+
+  const boundaryIndex = contentType.indexOf('boundary=');
+  if (boundaryIndex === -1) {
+    return null;
+  }
+
+  let boundary = contentType.slice(boundaryIndex + 9);
+
+  // Handle quoted boundary
+  if (boundary.startsWith('"')) {
+    const endQuote = boundary.indexOf('"', 1);
+    if (endQuote === -1) {
+      return null;
+    }
+    boundary = boundary.slice(1, endQuote);
+  } else {
+    // Unquoted: take until semicolon or end
+    const semicolon = boundary.indexOf(';');
+    if (semicolon !== -1) {
+      boundary = boundary.slice(0, semicolon);
+    }
+    boundary = boundary.trim();
+  }
+
+  // Validate boundary (RFC 2046: 1-70 chars, specific character set)
+  if (boundary.length === 0 || boundary.length > 70) {
+    return null;
+  }
+
+  return boundary;
 }

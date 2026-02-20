@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { extname } from 'node:path';
 import { getFullPath, normalizeBasePath } from '@/config/config.js';
 import {
   addPushSubscription,
@@ -565,10 +566,11 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
       return;
     }
 
-    // Check extension
-    const lowerPath = filePath.toLowerCase();
-    const isAllowed = config.preview.allowed_extensions.some((ext) =>
-      lowerPath.endsWith(ext.toLowerCase())
+    // Check extension using path.extname for security
+    // This prevents bypasses like "file.html.php" matching ".html"
+    const fileExt = extname(filePath).toLowerCase();
+    const isAllowed = config.preview.allowed_extensions.some(
+      (ext) => ext.toLowerCase() === fileExt
     );
     if (!isAllowed) {
       sendJson(res, 403, { error: 'File extension not allowed for preview' });
