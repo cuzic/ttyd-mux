@@ -5,8 +5,8 @@
  */
 
 import { z } from 'zod';
+import { type StorageManager, createStorageManager } from './StorageManager.js';
 import { STORAGE_KEYS } from './types.js';
-import { createStorageManager, type StorageManager } from './StorageManager.js';
 
 // Schema for auto-run state
 const autoRunSchema = z.boolean();
@@ -23,8 +23,12 @@ export class AutoRunManager {
       defaultValue: false,
       migrate: (raw) => {
         // Migrate from '1'/'0' string format
-        if (raw === '1' || raw === 1) return true;
-        if (raw === '0' || raw === 0) return false;
+        if (raw === '1' || raw === 1) {
+          return true;
+        }
+        if (raw === '0' || raw === 0) {
+          return false;
+        }
         return null;
       }
     });
@@ -62,7 +66,6 @@ export class AutoRunManager {
     this.active = this.storage.load();
     if (this.active) {
       this.autoBtn?.classList.add('active');
-      console.log('[Toolbar] Restored auto-run mode: enabled');
     }
   }
 }

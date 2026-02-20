@@ -37,7 +37,9 @@ export function bindClick(
   element: HTMLElement | null,
   handler: (e: MouseEvent) => void
 ): () => void {
-  if (!element) return () => {};
+  if (!element) {
+    return () => {};
+  }
 
   const wrappedHandler = (e: MouseEvent) => {
     e.preventDefault();
@@ -57,6 +59,8 @@ export function bindClick(
  * @returns Truncated text
  */
 export function truncateText(text: string, maxLength: number, suffix = '...'): string {
-  if (text.length <= maxLength) return text;
+  if (text.length <= maxLength) {
+    return text;
+  }
   return text.slice(0, maxLength - suffix.length) + suffix;
 }

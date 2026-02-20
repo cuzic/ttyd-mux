@@ -63,8 +63,6 @@ export class SessionTabManager {
 
     // Handle visibility change
     this.setupVisibilityHandler();
-
-    console.log('[Tabs] Initialized with session:', this.currentSession);
   }
 
   /**
@@ -88,8 +86,6 @@ export class SessionTabManager {
 
     // Focus the iframe content
     setTimeout(() => this.iframeManager.focusSession(name), 100);
-
-    console.log('[Tabs] Switched to:', name);
   }
 
   /**
@@ -108,8 +104,7 @@ export class SessionTabManager {
         path: s.fullPath,
         dir: s.dir
       }));
-    } catch (error) {
-      console.error('[Tabs] Failed to fetch sessions:', error);
+    } catch (_error) {
       return this.config.sessions;
     }
   }
@@ -210,8 +205,6 @@ export class SessionTabManager {
     if (!hasChanges) {
       return;
     }
-
-    console.log('[Tabs] Sessions updated');
 
     // Update config
     this.config.sessions = sessions;

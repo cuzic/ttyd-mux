@@ -5,8 +5,8 @@
  */
 
 import qrcode from 'qrcode-generator';
-import { createApiClient, type ToolbarApiClient } from './ApiClient.js';
-import { createModalController, type ModalController } from './ModalController.js';
+import { type ToolbarApiClient, createApiClient } from './ApiClient.js';
+import { type ModalController, createModalController } from './ModalController.js';
 import type { ToolbarConfig } from './types.js';
 import { getSessionNameFromURL } from './utils.js';
 
@@ -169,9 +169,7 @@ export class ShareManager {
       const shareUrl = `${window.location.origin}${basePath}/s/${share.token}`;
 
       this.showResult(shareUrl);
-      console.log(`[Toolbar] Share link created: ${shareUrl}`);
     } catch (error) {
-      console.error('[Toolbar] Failed to create share link:', error);
       alert(`共有リンクの作成に失敗しました: ${(error as Error).message}`);
     } finally {
       // Re-enable create button
@@ -269,8 +267,7 @@ export class ShareManager {
         `);
         qrWindow.document.close();
       }
-    } catch (error) {
-      console.error('[Toolbar] Failed to generate QR code:', error);
+    } catch (_error) {
       alert('QRコードの生成に失敗しました');
     }
   }

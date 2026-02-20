@@ -6,17 +6,13 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
 import type { SessionState } from '@/config/types.js';
-import {
-  createMockFileWatcherDeps,
-  createMockSessionManager,
-  createMockTimer
-} from './deps.js';
+import { createMockFileWatcherDeps, createMockSessionManager, createMockTimer } from './deps.js';
 import type { FileChangeEvent } from './types.js';
 import { FileWatcherService } from './watcher.js';
 import {
+  PreviewWsHandler,
   type WebSocketLike,
   type WebSocketServerLike,
-  PreviewWsHandler,
   cleanupPreviewWs,
   getPreviewWsStats,
   resetDefaultHandler
@@ -51,7 +47,7 @@ function createMockWebSocket(): WebSocketLike & {
       if (!listeners.has(event)) {
         listeners.set(event, []);
       }
-      listeners.get(event)!.push(listener);
+      listeners.get(event)?.push(listener);
     },
     triggerMessage: (data: string) => {
       const messageListeners = listeners.get('message') || [];
@@ -86,7 +82,9 @@ function createMockWsServer(): WebSocketServerLike & {
     handleUpgrade: (_req, _socket, _head, callback) => {
       server.upgradeCallback = callback;
     },
-    emit: () => {}
+    emit: () => {
+      // Mock emit - no-op
+    }
   };
   return server;
 }
@@ -113,10 +111,10 @@ describe('PreviewWsHandler', () => {
       }
     ];
 
-    fileWatcher = new FileWatcherService(
-      createMockFileWatcherDeps({ timer: mockTimer }),
-      { debounceMs: 100, allowedExtensions: ['.html', '.htm'] }
-    );
+    fileWatcher = new FileWatcherService(createMockFileWatcherDeps({ timer: mockTimer }), {
+      debounceMs: 100,
+      allowedExtensions: ['.html', '.htm']
+    });
 
     handler = new PreviewWsHandler({
       sessionManager: createMockSessionManager(sessions),
@@ -134,11 +132,14 @@ describe('PreviewWsHandler', () => {
     test('should handle watch action', () => {
       const ws = createMockWebSocket();
 
-      handler.handleMessage(ws, JSON.stringify({
-        action: 'watch',
-        session: 'test-session',
-        path: 'index.html'
-      }));
+      handler.handleMessage(
+        ws,
+        JSON.stringify({
+          action: 'watch',
+          session: 'test-session',
+          path: 'index.html'
+        })
+      );
 
       expect(fileWatcher.getStats().watchedFiles).toBe(1);
     });
@@ -147,18 +148,24 @@ describe('PreviewWsHandler', () => {
       const ws = createMockWebSocket();
 
       // First watch
-      handler.handleMessage(ws, JSON.stringify({
-        action: 'watch',
-        session: 'test-session',
-        path: 'index.html'
-      }));
+      handler.handleMessage(
+        ws,
+        JSON.stringify({
+          action: 'watch',
+          session: 'test-session',
+          path: 'index.html'
+        })
+      );
 
       // Then unwatch
-      handler.handleMessage(ws, JSON.stringify({
-        action: 'unwatch',
-        session: 'test-session',
-        path: 'index.html'
-      }));
+      handler.handleMessage(
+        ws,
+        JSON.stringify({
+          action: 'unwatch',
+          session: 'test-session',
+          path: 'index.html'
+        })
+      );
 
       expect(fileWatcher.getStats().watchedFiles).toBe(0);
     });
@@ -166,11 +173,14 @@ describe('PreviewWsHandler', () => {
     test('should ignore unknown session', () => {
       const ws = createMockWebSocket();
 
-      handler.handleMessage(ws, JSON.stringify({
-        action: 'watch',
-        session: 'unknown-session',
-        path: 'index.html'
-      }));
+      handler.handleMessage(
+        ws,
+        JSON.stringify({
+          action: 'watch',
+          session: 'unknown-session',
+          path: 'index.html'
+        })
+      );
 
       expect(fileWatcher.getStats().watchedFiles).toBe(0);
     });
@@ -186,11 +196,16 @@ describe('PreviewWsHandler', () => {
       const ws = createMockWebSocket();
 
       // Should not throw
-      expect(() => handler.handleMessage(ws, JSON.stringify({
-        action: 'unknown',
-        session: 'test-session',
-        path: 'index.html'
-      }))).not.toThrow();
+      expect(() =>
+        handler.handleMessage(
+          ws,
+          JSON.stringify({
+            action: 'unknown',
+            session: 'test-session',
+            path: 'index.html'
+          })
+        )
+      ).not.toThrow();
     });
   });
 
@@ -199,11 +214,13 @@ describe('PreviewWsHandler', () => {
       const ws = createMockWebSocket();
 
       handler.handleConnection(ws);
-      ws.triggerMessage(JSON.stringify({
-        action: 'watch',
-        session: 'test-session',
-        path: 'index.html'
-      }));
+      ws.triggerMessage(
+        JSON.stringify({
+          action: 'watch',
+          session: 'test-session',
+          path: 'index.html'
+        })
+      );
 
       expect(fileWatcher.getStats().watchedFiles).toBe(1);
     });
@@ -212,11 +229,13 @@ describe('PreviewWsHandler', () => {
       const ws = createMockWebSocket();
 
       handler.handleConnection(ws);
-      ws.triggerMessage(JSON.stringify({
-        action: 'watch',
-        session: 'test-session',
-        path: 'index.html'
-      }));
+      ws.triggerMessage(
+        JSON.stringify({
+          action: 'watch',
+          session: 'test-session',
+          path: 'index.html'
+        })
+      );
 
       ws.triggerClose();
 
@@ -227,11 +246,13 @@ describe('PreviewWsHandler', () => {
       const ws = createMockWebSocket();
 
       handler.handleConnection(ws);
-      ws.triggerMessage(JSON.stringify({
-        action: 'watch',
-        session: 'test-session',
-        path: 'index.html'
-      }));
+      ws.triggerMessage(
+        JSON.stringify({
+          action: 'watch',
+          session: 'test-session',
+          path: 'index.html'
+        })
+      );
 
       ws.triggerError(new Error('Connection error'));
 
@@ -251,11 +272,13 @@ describe('PreviewWsHandler', () => {
       handler.handleConnection(ws2);
 
       // Watch files
-      ws1.triggerMessage(JSON.stringify({
-        action: 'watch',
-        session: 'test-session',
-        path: 'index.html'
-      }));
+      ws1.triggerMessage(
+        JSON.stringify({
+          action: 'watch',
+          session: 'test-session',
+          path: 'index.html'
+        })
+      );
 
       // Simulate file change event through fileWatcher
       const changeEvent: FileChangeEvent = {
@@ -349,11 +372,13 @@ describe('PreviewWsHandler', () => {
       mockWsServer.upgradeCallback?.(ws);
 
       // Should handle messages after upgrade
-      ws.triggerMessage(JSON.stringify({
-        action: 'watch',
-        session: 'test-session',
-        path: 'index.html'
-      }));
+      ws.triggerMessage(
+        JSON.stringify({
+          action: 'watch',
+          session: 'test-session',
+          path: 'index.html'
+        })
+      );
 
       expect(fileWatcher.getStats().watchedFiles).toBe(1);
     });

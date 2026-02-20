@@ -372,7 +372,7 @@ describe('saveClipboardImages', () => {
     expect(result.paths?.[0]).toMatch(/^clipboard-.*\.png$/);
 
     // Verify file exists
-    const savedPath = join(testSessionDir, result.paths![0]);
+    const savedPath = join(testSessionDir, result.paths?.[0]);
     const fileExists = await Bun.file(savedPath).exists();
     expect(fileExists).toBe(true);
   });
@@ -465,7 +465,7 @@ describe('saveClipboardImages', () => {
     expect(result.success).toBe(true);
 
     // Verify directory was created
-    const savedPath = join(newDir, result.paths![0]);
+    const savedPath = join(newDir, result.paths?.[0]);
     const fileExists = await Bun.file(savedPath).exists();
     expect(fileExists).toBe(true);
   });

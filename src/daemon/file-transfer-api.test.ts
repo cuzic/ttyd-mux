@@ -52,7 +52,9 @@ function createMockResponse(): ServerResponse & {
       return this;
     },
     end(data?: Buffer | string) {
-      if (data) this.body = data;
+      if (data) {
+        this.body = data;
+      }
       return this;
     }
   } as ServerResponse & {
@@ -241,12 +243,7 @@ describe('parseMultipartFile', () => {
     const boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW';
     const content = 'file content here';
     const body = Buffer.from(
-      `------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n` +
-        `Content-Disposition: form-data; name="file"; filename="test.txt"\r\n` +
-        `Content-Type: text/plain\r\n` +
-        `\r\n` +
-        `${content}\r\n` +
-        `------WebKitFormBoundary7MA4YWxkTrZu0gW--\r\n`
+      `------WebKitFormBoundary7MA4YWxkTrZu0gW\r\nContent-Disposition: form-data; name="file"; filename="test.txt"\r\nContent-Type: text/plain\r\n\r\n${content}\r\n------WebKitFormBoundary7MA4YWxkTrZu0gW--\r\n`
     );
 
     const result = parseMultipartFile(body, boundary);
@@ -270,13 +267,13 @@ describe('parseMultipartFile', () => {
     const binaryContent = Buffer.from([0x00, 0x01, 0x02, 0xff, 0xfe]);
     const body = Buffer.concat([
       Buffer.from(
-        `------Boundary\r\n` +
+        '------Boundary\r\n' +
           `Content-Disposition: form-data; name="file"; filename="binary.bin"\r\n` +
-          `Content-Type: application/octet-stream\r\n` +
-          `\r\n`
+          'Content-Type: application/octet-stream\r\n' +
+          '\r\n'
       ),
       binaryContent,
-      Buffer.from(`\r\n------Boundary--\r\n`)
+      Buffer.from('\r\n------Boundary--\r\n')
     ]);
 
     const result = parseMultipartFile(body, boundary);

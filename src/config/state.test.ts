@@ -312,7 +312,9 @@ describe('push subscription operations', () => {
   });
 
   test('addPushSubscription and getPushSubscription', async () => {
-    const { addPushSubscription, getPushSubscription, removePushSubscription } = await import('./state.js');
+    const { addPushSubscription, getPushSubscription, removePushSubscription } = await import(
+      './state.js'
+    );
     const subscription = {
       id: 'sub-123',
       endpoint: 'https://example.com/push',

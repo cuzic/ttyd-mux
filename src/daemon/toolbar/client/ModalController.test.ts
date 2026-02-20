@@ -5,8 +5,8 @@
  * doesn't have a DOM environment.
  */
 
-import { describe, expect, test, mock, beforeEach } from 'bun:test';
-import { createModalController, type ModalController } from './ModalController.js';
+import { describe, expect, mock, test } from 'bun:test';
+import { createModalController } from './ModalController.js';
 
 // Mock HTMLElement for testing
 const createMockElement = () => {
@@ -28,7 +28,9 @@ const createMockElement = () => {
       }
     },
     addEventListener: (type: string, handler: EventListener) => {
-      if (!listeners[type]) listeners[type] = [];
+      if (!listeners[type]) {
+        listeners[type] = [];
+      }
       listeners[type].push(handler as (e: Event) => void);
     },
     removeEventListener: (type: string, handler: EventListener) => {

@@ -2,9 +2,9 @@
  * StorageManager Tests (TDD)
  */
 
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { z } from 'zod';
-import { createStorageManager, type StorageManager } from './StorageManager.js';
+import { createStorageManager } from './StorageManager.js';
 
 // Mock localStorage for testing
 const createMockStorage = () => {
@@ -136,7 +136,7 @@ describe('StorageManager', () => {
   });
 
   describe('versioning', () => {
-    const V1Schema = z.object({
+    const _V1Schema = z.object({
       version: z.literal(1),
       items: z.array(z.string())
     });

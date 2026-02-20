@@ -12,7 +12,7 @@ import mitt, { type Emitter, type Handler, type WildcardHandler } from 'mitt';
  */
 export type ToolbarEvents = {
   // Paste operations
-  'paste:request': void;
+  'paste:request': undefined;
   'text:send': string;
   'clipboard:copy': string;
 
@@ -21,11 +21,11 @@ export type ToolbarEvents = {
   'modal:close': ModalName;
 
   // Toolbar UI
-  'toolbar:toggle': void;
-  'search:toggle': void;
+  'toolbar:toggle': undefined;
+  'search:toggle': undefined;
 
   // Notifications
-  'notification:bell': void;
+  'notification:bell': undefined;
 
   // Font
   'font:change': number;

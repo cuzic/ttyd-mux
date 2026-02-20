@@ -143,8 +143,6 @@ export class PreviewManager {
       this.pane.show();
       this.updateButtonState();
     }
-
-    console.log('[Preview] Previewing:', session, path);
   }
 
   /**
@@ -214,11 +212,12 @@ export class PreviewManager {
    * Handle file change event
    */
   private onFileChange(event: FileChangeEvent): void {
-    if (!this.currentFile) return;
+    if (!this.currentFile) {
+      return;
+    }
 
     // Check if the changed file matches current preview
     if (event.session === this.currentFile.session && event.path === this.currentFile.path) {
-      console.log('[Preview] File changed, reloading:', event.path);
       this.pane.reload();
     }
   }
@@ -227,7 +226,9 @@ export class PreviewManager {
    * Update preview button state
    */
   private updateButtonState(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     const { previewBtn } = this.elements;
     if (this.pane.isVisible()) {

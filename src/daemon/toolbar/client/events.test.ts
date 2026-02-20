@@ -2,8 +2,8 @@
  * Toolbar Event Bus Tests (TDD)
  */
 
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
-import { type ToolbarEvents, createToolbarEventBus, type ToolbarEventBus } from './events.js';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { type ToolbarEventBus, type ToolbarEvents, createToolbarEventBus } from './events.js';
 
 describe('ToolbarEventBus', () => {
   let bus: ToolbarEventBus;
@@ -21,21 +21,21 @@ describe('ToolbarEventBus', () => {
     });
 
     test('emits text:send event with payload', () => {
-      const handler = mock((text: string) => {});
+      const handler = mock((_text: string) => {});
       bus.on('text:send', handler);
       bus.emit('text:send', 'hello world');
       expect(handler).toHaveBeenCalledWith('hello world');
     });
 
     test('emits modal:open event with modal name', () => {
-      const handler = mock((name: string) => {});
+      const handler = mock((_name: string) => {});
       bus.on('modal:open', handler);
       bus.emit('modal:open', 'snippet');
       expect(handler).toHaveBeenCalledWith('snippet');
     });
 
     test('emits modal:close event with modal name', () => {
-      const handler = mock((name: string) => {});
+      const handler = mock((_name: string) => {});
       bus.on('modal:close', handler);
       bus.emit('modal:close', 'preview');
       expect(handler).toHaveBeenCalledWith('preview');
@@ -49,7 +49,7 @@ describe('ToolbarEventBus', () => {
     });
 
     test('emits clipboard:copy event with text', () => {
-      const handler = mock((text: string) => {});
+      const handler = mock((_text: string) => {});
       bus.on('clipboard:copy', handler);
       bus.emit('clipboard:copy', 'copied text');
       expect(handler).toHaveBeenCalledWith('copied text');
@@ -102,7 +102,7 @@ describe('ToolbarEventBus', () => {
 
   describe('wildcard listener', () => {
     test('* handler receives all events', () => {
-      const handler = mock((type: keyof ToolbarEvents, event?: unknown) => {});
+      const handler = mock((_type: keyof ToolbarEvents, _event?: unknown) => {});
       bus.on('*', handler);
       bus.emit('paste:request');
       bus.emit('text:send', 'hello');
@@ -114,28 +114,28 @@ describe('ToolbarEventBus', () => {
 
   describe('type safety', () => {
     test('font:change event carries number payload', () => {
-      const handler = mock((size: number) => {});
+      const handler = mock((_size: number) => {});
       bus.on('font:change', handler);
       bus.emit('font:change', 16);
       expect(handler).toHaveBeenCalledWith(16);
     });
 
     test('upload:progress event carries progress info', () => {
-      const handler = mock((progress: { current: number; total: number }) => {});
+      const handler = mock((_progress: { current: number; total: number }) => {});
       bus.on('upload:progress', handler);
       bus.emit('upload:progress', { current: 5, total: 10 });
       expect(handler).toHaveBeenCalledWith({ current: 5, total: 10 });
     });
 
     test('upload:complete event carries paths array', () => {
-      const handler = mock((paths: string[]) => {});
+      const handler = mock((_paths: string[]) => {});
       bus.on('upload:complete', handler);
       bus.emit('upload:complete', ['file1.png', 'file2.png']);
       expect(handler).toHaveBeenCalledWith(['file1.png', 'file2.png']);
     });
 
     test('error event carries Error object', () => {
-      const handler = mock((error: Error) => {});
+      const handler = mock((_error: Error) => {});
       bus.on('error', handler);
       const err = new Error('test error');
       bus.emit('error', err);

@@ -8,10 +8,10 @@
  * - Shift+touch for text selection
  */
 
-import { toolbarEvents } from './events.js';
 import type { InputHandler } from './InputHandler.js';
 import type { ModifierKeyState } from './ModifierKeyState.js';
 import type { TerminalController } from './TerminalController.js';
+import { toolbarEvents } from './events.js';
 import type { ToolbarConfig } from './types.js';
 
 const SCROLL_THRESHOLD = 30; // Pixels to drag before triggering scroll
@@ -60,9 +60,7 @@ export class TouchGestureHandler {
     this.scrollActive = !this.scrollActive;
     this.scrollBtn?.classList.toggle('active', this.scrollActive);
     if (this.scrollActive) {
-      console.log('[Toolbar] Scroll mode enabled - drag to scroll');
     } else {
-      console.log('[Toolbar] Scroll mode disabled');
     }
     return this.scrollActive;
   }
@@ -360,7 +358,9 @@ export class TouchGestureHandler {
         }
 
         // Single touch only
-        if (e.changedTouches.length !== 1) return;
+        if (e.changedTouches.length !== 1) {
+          return;
+        }
 
         const now = Date.now();
         if (now - this.lastTapTime < this.config.double_tap_delay) {

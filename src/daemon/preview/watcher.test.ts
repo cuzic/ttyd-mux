@@ -360,7 +360,9 @@ describe('Backward-compatible functions', () => {
   });
 
   test('onFileChange should register listener', () => {
-    const unsubscribe = onFileChange(() => {});
+    const unsubscribe = onFileChange(() => {
+      // Empty callback for testing
+    });
     expect(typeof unsubscribe).toBe('function');
     unsubscribe();
   });

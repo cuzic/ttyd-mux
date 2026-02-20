@@ -2,13 +2,13 @@
  * ToolbarApiClient Tests (TDD)
  */
 
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import {
-  type ToolbarApiClient,
-  createApiClient,
   ApiError,
+  type FileInfo,
   type ImageData,
-  type FileInfo
+  type ToolbarApiClient,
+  createApiClient
 } from './ApiClient.js';
 
 // Mock fetch for testing
@@ -16,12 +16,12 @@ const createMockFetch = () => {
   const calls: Array<{ url: string; init?: RequestInit }> = [];
   let nextResponse: Response | Error = new Response('{}');
 
-  const mockFetch = async (url: string, init?: RequestInit): Promise<Response> => {
+  const mockFetch = (url: string, init?: RequestInit): Promise<Response> => {
     calls.push({ url, init });
     if (nextResponse instanceof Error) {
-      throw nextResponse;
+      return Promise.reject(nextResponse);
     }
-    return nextResponse;
+    return Promise.resolve(nextResponse);
   };
 
   return {

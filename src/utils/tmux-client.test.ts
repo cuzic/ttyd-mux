@@ -229,7 +229,14 @@ describe('createTmuxClient', () => {
       const mockRunner = createMockProcessRunner({
         spawnSync: (_cmd: string, args: string[]) => {
           if (args.includes('kill-session')) {
-            return { status: 1, stdout: '', stderr: 'no session', pid: 0, output: [], signal: null };
+            return {
+              status: 1,
+              stdout: '',
+              stderr: 'no session',
+              pid: 0,
+              output: [],
+              signal: null
+            };
           }
           return { status: 0, stdout: '', stderr: '', pid: 0, output: [], signal: null };
         }

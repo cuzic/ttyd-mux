@@ -59,7 +59,6 @@ export class SearchManager {
       if (term) {
         this.searchAddon = new window.SearchAddon.SearchAddon();
         term.loadAddon(this.searchAddon);
-        console.log('[Toolbar] SearchAddon loaded');
         return Promise.resolve(this.searchAddon);
       }
     }
@@ -74,7 +73,6 @@ export class SearchManager {
         if (term && window.SearchAddon) {
           this.searchAddon = new window.SearchAddon.SearchAddon();
           term.loadAddon(this.searchAddon);
-          console.log('[Toolbar] SearchAddon loaded from CDN');
           resolve(this.searchAddon);
         } else {
           reject(new Error('Failed to initialize SearchAddon'));
@@ -93,7 +91,9 @@ export class SearchManager {
    * Toggle search bar visibility
    */
   toggle(show?: boolean): void {
-    if (!this.searchBar) return;
+    if (!this.searchBar) {
+      return;
+    }
 
     if (typeof show === 'boolean') {
       this.searchBar.classList.toggle('hidden', !show);
@@ -117,9 +117,7 @@ export class SearchManager {
           this.searchInput?.focus();
           this.searchInput?.select();
         })
-        .catch((err) => {
-          console.error('[Toolbar] Failed to load search:', err);
-        });
+        .catch((_err) => {});
     }
   }
 
@@ -168,7 +166,9 @@ export class SearchManager {
       if (line) {
         const text = line.translateToString(true);
         const matches = text.match(pattern);
-        if (matches) count += matches.length;
+        if (matches) {
+          count += matches.length;
+        }
       }
     }
 
@@ -179,7 +179,9 @@ export class SearchManager {
    * Find next match
    */
   findNext(): boolean {
-    if (!this.searchAddon || !this.searchInput?.value) return false;
+    if (!this.searchAddon || !this.searchInput?.value) {
+      return false;
+    }
 
     const options = {
       caseSensitive: this.caseSensitive,
@@ -190,7 +192,9 @@ export class SearchManager {
     const found = this.searchAddon.findNext(this.searchInput.value, options);
     if (found) {
       this.currentMatchIndex = Math.min(this.currentMatchIndex + 1, this.totalMatches);
-      if (this.currentMatchIndex > this.totalMatches) this.currentMatchIndex = 1;
+      if (this.currentMatchIndex > this.totalMatches) {
+        this.currentMatchIndex = 1;
+      }
       this.updateMatchCount(this.currentMatchIndex, this.totalMatches);
     }
     return found;
@@ -200,7 +204,9 @@ export class SearchManager {
    * Find previous match
    */
   findPrevious(): boolean {
-    if (!this.searchAddon || !this.searchInput?.value) return false;
+    if (!this.searchAddon || !this.searchInput?.value) {
+      return false;
+    }
 
     const options = {
       caseSensitive: this.caseSensitive,
@@ -210,7 +216,9 @@ export class SearchManager {
     const found = this.searchAddon.findPrevious(this.searchInput.value, options);
     if (found) {
       this.currentMatchIndex = Math.max(this.currentMatchIndex - 1, 1);
-      if (this.currentMatchIndex < 1) this.currentMatchIndex = this.totalMatches;
+      if (this.currentMatchIndex < 1) {
+        this.currentMatchIndex = this.totalMatches;
+      }
       this.updateMatchCount(this.currentMatchIndex, this.totalMatches);
     }
     return found;

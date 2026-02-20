@@ -56,18 +56,26 @@ export function createStorageManager<T>(config: StorageManagerConfig<T>): Storag
 
   // Use provided storage or try to use localStorage (for browser)
   const getStorage = (): Storage | null => {
-    if (storage) return storage;
-    if (typeof localStorage !== 'undefined') return localStorage;
+    if (storage) {
+      return storage;
+    }
+    if (typeof localStorage !== 'undefined') {
+      return localStorage;
+    }
     return null;
   };
 
   const load = (): T => {
     const store = getStorage();
-    if (!store) return defaultValue;
+    if (!store) {
+      return defaultValue;
+    }
 
     try {
       const raw = store.getItem(key);
-      if (raw === null) return defaultValue;
+      if (raw === null) {
+        return defaultValue;
+      }
 
       const parsed: unknown = JSON.parse(raw);
 
@@ -101,19 +109,20 @@ export function createStorageManager<T>(config: StorageManagerConfig<T>): Storag
 
   const save = (data: T): void => {
     const store = getStorage();
-    if (!store) return;
+    if (!store) {
+      return;
+    }
 
     try {
       store.setItem(key, JSON.stringify(data));
-    } catch {
-      // Storage quota exceeded or other errors
-      console.warn(`[StorageManager] Failed to save to key: ${key}`);
-    }
+    } catch {}
   };
 
   const clear = (): void => {
     const store = getStorage();
-    if (!store) return;
+    if (!store) {
+      return;
+    }
     store.removeItem(key);
   };
 
@@ -125,7 +134,9 @@ export function createStorageManager<T>(config: StorageManagerConfig<T>): Storag
 
   const exists = (): boolean => {
     const store = getStorage();
-    if (!store) return false;
+    if (!store) {
+      return false;
+    }
     return store.getItem(key) !== null;
   };
 

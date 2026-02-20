@@ -100,7 +100,7 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
       );
       setNotificationService(notificationService);
       log.info('Notification service initialized');
-      if (config.notifications?.patterns?.length) {
+      if (config.notifications?.patterns?.length > 0) {
         log.info(`Watching ${config.notifications.patterns.length} pattern(s) for notifications`);
       }
     } catch (error) {

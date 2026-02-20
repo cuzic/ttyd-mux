@@ -5,10 +5,10 @@
  */
 
 import { z } from 'zod';
+import { type StorageManager, createStorageManager } from './StorageManager.js';
 import type { ToolbarConfig } from './types.js';
 import { STORAGE_KEYS } from './types.js';
 import { isMobileDevice } from './utils.js';
-import { createStorageManager, type StorageManager } from './StorageManager.js';
 
 export class FontSizeManager {
   private config: ToolbarConfig;
@@ -31,8 +31,8 @@ export class FontSizeManager {
       migrate: (raw) => {
         // Migrate from string format
         if (typeof raw === 'string') {
-          const size = parseInt(raw, 10);
-          if (!isNaN(size) && size >= config.font_size_min && size <= config.font_size_max) {
+          const size = Number.parseInt(raw, 10);
+          if (!Number.isNaN(size) && size >= config.font_size_min && size <= config.font_size_max) {
             return size;
           }
         }

@@ -50,16 +50,16 @@ html, body {
 #ttyd-tabs-bar {
   display: flex;
   ${isVertical ? 'flex-direction: column;' : 'flex-direction: row;'}
-  ${!isVertical ? 'height: 100%;' : ''}
+  ${isVertical ? '' : 'height: 100%;'}
 }
 
 .ttyd-tab {
-  ${isVertical ? `padding: 12px 16px;` : `padding: 8px 16px;`}
-  ${isVertical ? `border-bottom: 1px solid #333;` : `border-right: 1px solid #333;`}
+  ${isVertical ? 'padding: 12px 16px;' : 'padding: 8px 16px;'}
+  ${isVertical ? 'border-bottom: 1px solid #333;' : 'border-right: 1px solid #333;'}
   cursor: pointer;
   color: #aaa;
   transition: background 0.15s, color 0.15s;
-  ${!isVertical ? 'display: flex; align-items: center; white-space: nowrap;' : ''}
+  ${isVertical ? '' : 'display: flex; align-items: center; white-space: nowrap;'}
 }
 
 .ttyd-tab:hover {

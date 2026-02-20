@@ -52,7 +52,7 @@ export class ModifierKeyState {
    */
   toggle(key: ModifierKey): boolean {
     switch (key) {
-      case 'ctrl':
+      case 'ctrl': {
         this.ctrlActive = !this.ctrlActive;
         this.ctrlBtn?.classList.toggle('active', this.ctrlActive);
         if (this.ctrlActive) {
@@ -60,8 +60,9 @@ export class ModifierKeyState {
           this.altBtn?.classList.remove('active');
         }
         return this.ctrlActive;
+      }
 
-      case 'alt':
+      case 'alt': {
         this.altActive = !this.altActive;
         this.altBtn?.classList.toggle('active', this.altActive);
         if (this.altActive) {
@@ -69,11 +70,13 @@ export class ModifierKeyState {
           this.ctrlBtn?.classList.remove('active');
         }
         return this.altActive;
+      }
 
-      case 'shift':
+      case 'shift': {
         this.shiftActive = !this.shiftActive;
         this.shiftBtn?.classList.toggle('active', this.shiftActive);
         return this.shiftActive;
+      }
     }
   }
 

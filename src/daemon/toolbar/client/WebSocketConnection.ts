@@ -65,7 +65,6 @@ export class WebSocketConnection {
   sendText(text: string): boolean {
     const socket = this.findWebSocket();
     if (!socket) {
-      console.error('[Toolbar] WebSocket not found');
       return false;
     }
 
@@ -84,7 +83,6 @@ export class WebSocketConnection {
   sendBytes(bytes: number[]): boolean {
     const socket = this.findWebSocket();
     if (!socket) {
-      console.error('[Toolbar] WebSocket not found');
       return false;
     }
 

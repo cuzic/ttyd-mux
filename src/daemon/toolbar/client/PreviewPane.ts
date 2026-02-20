@@ -25,7 +25,7 @@ export class PreviewPane {
   private isResizing = false;
   private currentUrl: string | null = null;
 
-  constructor(defaultWidth: number = 400) {
+  constructor(defaultWidth = 400) {
     this.width = this.loadWidth() || defaultWidth;
   }
 
@@ -42,7 +42,9 @@ export class PreviewPane {
    * Show the preview pane
    */
   show(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     this.elements.pane.classList.remove('hidden');
     document.body.classList.add('preview-open');
@@ -53,7 +55,9 @@ export class PreviewPane {
    * Hide the preview pane
    */
   hide(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     this.elements.pane.classList.add('hidden');
     document.body.classList.remove('preview-open');
@@ -71,7 +75,9 @@ export class PreviewPane {
    * Load a URL in the iframe
    */
   loadUrl(url: string): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     this.currentUrl = url;
     this.elements.iframe.src = url;
@@ -81,7 +87,9 @@ export class PreviewPane {
    * Reload the current URL
    */
   reload(): void {
-    if (!this.elements || !this.currentUrl) return;
+    if (!this.elements || !this.currentUrl) {
+      return;
+    }
 
     // Add cache-busting parameter
     const url = new URL(this.currentUrl, window.location.href);
@@ -93,7 +101,9 @@ export class PreviewPane {
    * Set the title
    */
   setTitle(title: string): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
     this.elements.titleSpan.textContent = title;
   }
 
@@ -115,7 +125,9 @@ export class PreviewPane {
    * Setup resize functionality
    */
   private setupResizer(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     const { resizer } = this.elements;
 
@@ -178,7 +190,9 @@ export class PreviewPane {
    * Stop resizing
    */
   private stopResize(): void {
-    if (!this.isResizing) return;
+    if (!this.isResizing) {
+      return;
+    }
 
     this.isResizing = false;
     document.body.style.cursor = '';
@@ -196,7 +210,9 @@ export class PreviewPane {
    * Apply width to pane
    */
   private applyWidth(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     this.elements.pane.style.width = `${this.width}px`;
     document.documentElement.style.setProperty('--preview-width', `${this.width}px`);
@@ -240,8 +256,8 @@ export class PreviewPane {
     try {
       const stored = localStorage.getItem(STORAGE_KEY_WIDTH);
       if (stored) {
-        const width = parseInt(stored, 10);
-        if (!isNaN(width) && width >= MIN_WIDTH && width <= MAX_WIDTH) {
+        const width = Number.parseInt(stored, 10);
+        if (!Number.isNaN(width) && width >= MIN_WIDTH && width <= MAX_WIDTH) {
           return width;
         }
       }

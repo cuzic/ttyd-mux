@@ -4,11 +4,7 @@
 
 import { describe, expect, test } from 'bun:test';
 import { createActor } from 'xstate';
-import {
-  smartPasteMachine,
-  type SmartPasteContext,
-  type PendingUpload
-} from './smartPasteMachine.js';
+import { type PendingUpload, smartPasteMachine } from './smartPasteMachine.js';
 
 const createTestUpload = (name: string): PendingUpload => ({
   blob: new Blob(['test']),

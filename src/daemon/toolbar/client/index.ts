@@ -253,11 +253,6 @@ class ToolbarApp {
       setTimeout(() => this.toggleToolbar(true), 1000);
       setTimeout(() => this.showOnboarding(), 1500);
     }
-
-    console.log(
-      '[Toolbar] Loaded. ' +
-        (this.isMobile ? 'Mobile mode.' : 'Press Ctrl+J or click keyboard button to toggle.')
-    );
   }
 
   /**
@@ -436,7 +431,7 @@ class ToolbarApp {
   private adjustTextareaHeight(): void {
     const input = this.elements.input;
     input.style.height = 'auto';
-    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
   }
 
   /**
@@ -444,7 +439,9 @@ class ToolbarApp {
    */
   private submitInput(): void {
     const text = this.elements.input.value;
-    if (!text) return;
+    if (!text) {
+      return;
+    }
 
     if (this.input.sendText(text)) {
       this.elements.input.value = '';
@@ -462,7 +459,9 @@ class ToolbarApp {
    */
   private runInput(): void {
     const text = this.elements.input.value;
-    if (!text) return;
+    if (!text) {
+      return;
+    }
 
     if (this.input.sendText(text)) {
       this.elements.input.value = '';
@@ -505,7 +504,6 @@ class ToolbarApp {
         const storedSize = this.fontSizeManager.load();
         term.options.fontSize = storedSize;
         this.terminal.fitTerminal();
-        console.log('[Toolbar] Restored font size: ' + storedSize);
       }
     };
 
@@ -519,20 +517,15 @@ class ToolbarApp {
    */
   private setupEventBusListeners(): void {
     // Listen for bell events
-    toolbarEvents.on('notification:bell', () => {
-      console.log('[Toolbar] Bell event received via EventBus');
-    });
+    toolbarEvents.on('notification:bell', () => {});
 
     // Listen for font change events
     toolbarEvents.on('font:change', (size) => {
       this.fontSizeManager.save(size);
-      console.log('[Toolbar] Font size changed via EventBus:', size);
     });
 
     // Listen for error events
-    toolbarEvents.on('error', (error) => {
-      console.error('[Toolbar] Error event:', error.message);
-    });
+    toolbarEvents.on('error', (_error) => {});
 
     // Listen for preview file select events
     document.addEventListener('ttyd-preview-select', ((e: CustomEvent) => {
@@ -550,7 +543,6 @@ class ToolbarApp {
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
         if (!this.ws.isConnected()) {
-          console.log('[Toolbar] Connection lost, reloading...');
           location.reload();
         }
       }
@@ -562,7 +554,9 @@ class ToolbarApp {
    */
   private showOnboarding(): void {
     const onboarding = document.getElementById('ttyd-toolbar-onboarding');
-    if (!onboarding) return;
+    if (!onboarding) {
+      return;
+    }
 
     try {
       if (localStorage.getItem(STORAGE_KEYS.ONBOARDING_SHOWN)) {
@@ -608,5 +602,4 @@ if (config) {
   const app = new ToolbarApp(config);
   app.initialize();
 } else {
-  console.error('[Toolbar] Configuration not found. Make sure __TOOLBAR_CONFIG__ is set.');
 }

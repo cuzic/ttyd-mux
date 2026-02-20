@@ -7,9 +7,9 @@
 
 import { z } from 'zod';
 import type { InputHandler } from './InputHandler.js';
+import { type StorageManager, createStorageManager } from './StorageManager.js';
 import type { ClipboardHistoryItem } from './types.js';
 import { STORAGE_KEYS } from './types.js';
-import { createStorageManager, type StorageManager } from './StorageManager.js';
 
 const MAX_HISTORY_ITEMS = 10;
 const LONG_PRESS_DURATION = 500; // ms
@@ -92,7 +92,9 @@ export class ClipboardHistoryManager {
    * Setup event listeners for long press
    */
   private setupEventListeners(): void {
-    if (!this.pasteBtn) return;
+    if (!this.pasteBtn) {
+      return;
+    }
 
     // Long press detection
     this.pasteBtn.addEventListener('pointerdown', () => {
@@ -150,8 +152,12 @@ export class ClipboardHistoryManager {
    */
   addToHistory(text: string): void {
     // Don't add empty or duplicate (most recent)
-    if (!text.trim()) return;
-    if (this.history.length > 0 && this.history[0].text === text) return;
+    if (!text.trim()) {
+      return;
+    }
+    if (this.history.length > 0 && this.history[0].text === text) {
+      return;
+    }
 
     // Add to beginning
     const item: ClipboardHistoryItem = {
@@ -168,7 +174,6 @@ export class ClipboardHistoryManager {
     }
 
     this.save();
-    console.log('[Toolbar] Added to clipboard history');
   }
 
   /**
@@ -176,10 +181,11 @@ export class ClipboardHistoryManager {
    */
   sendFromHistory(id: string): void {
     const item = this.history.find((h) => h.id === id);
-    if (!item) return;
+    if (!item) {
+      return;
+    }
 
     if (this.inputHandler.sendText(item.text)) {
-      console.log('[Toolbar] Sent from clipboard history');
       this.hidePopup();
     }
   }
@@ -195,7 +201,9 @@ export class ClipboardHistoryManager {
    * Show the history popup
    */
   showPopup(): void {
-    if (!this.popup || !this.pasteBtn) return;
+    if (!this.popup || !this.pasteBtn) {
+      return;
+    }
 
     // Position popup above paste button
     const btnRect = this.pasteBtn.getBoundingClientRect();
@@ -218,7 +226,9 @@ export class ClipboardHistoryManager {
    */
   private renderList(): void {
     const list = this.popup?.querySelector('#ttyd-clipboard-history-list');
-    if (!list) return;
+    if (!list) {
+      return;
+    }
 
     list.innerHTML = '';
 
@@ -248,7 +258,7 @@ export class ClipboardHistoryManager {
     if (singleLine.length <= maxLength) {
       return singleLine;
     }
-    return singleLine.slice(0, maxLength - 3) + '...';
+    return `${singleLine.slice(0, maxLength - 3)}...`;
   }
 
   /**

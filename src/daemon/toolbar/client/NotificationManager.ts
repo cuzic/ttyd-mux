@@ -5,8 +5,8 @@
  */
 
 import { z } from 'zod';
-import { createApiClient, type ToolbarApiClient } from './ApiClient.js';
-import { createStorageManager, type StorageManager } from './StorageManager.js';
+import { type ToolbarApiClient, createApiClient } from './ApiClient.js';
+import { type StorageManager, createStorageManager } from './StorageManager.js';
 import type { ToolbarConfig } from './types.js';
 import { STORAGE_KEYS } from './types.js';
 import { getSessionNameFromURL } from './utils.js';
@@ -76,7 +76,6 @@ export class NotificationManager {
     if (data) {
       this.subscriptionId = data.id;
       this.subscribed = true;
-      console.log('[Toolbar] Loaded notification subscription: ' + data.id);
     }
   }
 
@@ -98,7 +97,9 @@ export class NotificationManager {
    * Update button appearance based on subscription state
    */
   updateButton(): void {
-    if (!this.notifyBtn) return;
+    if (!this.notifyBtn) {
+      return;
+    }
 
     if (this.subscribed) {
       this.notifyBtn.classList.add('active');
@@ -172,10 +173,8 @@ export class NotificationManager {
       this.subscribed = true;
       this.saveSubscription(subscriptionId);
       this.updateButton();
-      console.log('[Toolbar] Push notification subscribed: ' + subscriptionId);
     } catch (error) {
-      console.error('[Toolbar] Push notification subscription failed:', error);
-      alert('Push通知の登録に失敗しました: ' + (error as Error).message);
+      alert(`Push通知の登録に失敗しました: ${(error as Error).message}`);
     }
   }
 
@@ -199,10 +198,7 @@ export class NotificationManager {
       this.subscriptionId = null;
       this.clearSubscription();
       this.updateButton();
-      console.log('[Toolbar] Push notification unsubscribed');
-    } catch (error) {
-      console.error('[Toolbar] Push notification unsubscribe failed:', error);
-    }
+    } catch (_error) {}
   }
 
   /**

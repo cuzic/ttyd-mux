@@ -10,14 +10,14 @@
  * State management is handled by XState state machine.
  */
 
-import { createActor, type Actor } from 'xstate';
+import { type Actor, createActor } from 'xstate';
 import type { ClipboardHistoryManager } from './ClipboardHistoryManager.js';
 import type { InputHandler } from './InputHandler.js';
 import {
-  smartPasteMachine,
+  type PendingUpload,
   type SmartPasteContext,
   type SmartPasteEvent,
-  type PendingUpload
+  smartPasteMachine
 } from './smartPasteMachine.js';
 import type { SmartPasteElements, ToolbarConfig } from './types.js';
 import { getSessionNameFromURL } from './utils.js';
@@ -63,17 +63,17 @@ export class SmartPasteManager {
 
     // Update UI based on state
     switch (state) {
-      case 'idle':
+      case 'idle': {
         this.hidePreviewModal();
         // Handle uploaded paths
         if (context.uploadedPaths.length > 0) {
           const pathText = context.uploadedPaths.join(' ');
           this.inputHandler.sendText(pathText);
-          console.log('[SmartPaste] Uploaded images and sent paths:', pathText);
         }
         break;
+      }
 
-      case 'previewing':
+      case 'previewing': {
         this.showPreviewModal();
         this.renderPreview(context);
         // Show error if any
@@ -81,6 +81,7 @@ export class SmartPasteManager {
           alert(`アップロードに失敗しました: ${context.error}`);
         }
         break;
+      }
 
       case 'uploading':
         this.showUploadingState();
@@ -122,7 +123,9 @@ export class SmartPasteManager {
    * Setup event listeners for modal controls
    */
   private setupEventListeners(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     // Close button
     this.elements.previewClose.addEventListener('click', () => {
@@ -162,7 +165,9 @@ export class SmartPasteManager {
 
     // Keyboard navigation
     document.addEventListener('keydown', (e) => {
-      if (!this.isPreviewVisible()) return;
+      if (!this.isPreviewVisible()) {
+        return;
+      }
 
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -235,7 +240,9 @@ export class SmartPasteManager {
    * Check if dataTransfer contains files
    */
   private hasFiles(dataTransfer: DataTransfer | null): boolean {
-    if (!dataTransfer) return false;
+    if (!dataTransfer) {
+      return false;
+    }
     return (
       dataTransfer.types.includes('Files') || dataTransfer.types.includes('application/x-moz-file')
     );
@@ -260,7 +267,9 @@ export class SmartPasteManager {
    */
   handleDrop(e: DragEvent): void {
     const files = e.dataTransfer?.files;
-    if (!files || files.length === 0) return;
+    if (!files || files.length === 0) {
+      return;
+    }
 
     // Signal state machine that we're processing files
     this.send({ type: 'DROP_FILES' });
@@ -348,10 +357,7 @@ export class SmartPasteManager {
               }
             }
           }
-        } catch (err) {
-          // Clipboard.read() might fail due to permissions
-          console.log('[SmartPaste] clipboard.read() failed, falling back to readText', err);
-        }
+        } catch (_err) {}
       }
 
       // Fall back to text paste
@@ -368,7 +374,6 @@ export class SmartPasteManager {
       this.send({ type: 'ERROR', error: 'Clipboard is empty' });
       return false;
     } catch (err) {
-      console.error('[SmartPaste] Failed to read clipboard:', err);
       this.send({ type: 'ERROR', error: err instanceof Error ? err.message : 'Unknown error' });
       return false;
     }
@@ -412,7 +417,9 @@ export class SmartPasteManager {
    * Show uploading state in UI
    */
   private showUploadingState(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
     this.elements.previewSubmit.disabled = true;
     this.elements.previewSubmit.textContent = 'アップロード中...';
   }
@@ -421,10 +428,14 @@ export class SmartPasteManager {
    * Render preview based on context
    */
   private renderPreview(context: SmartPasteContext): void {
-    if (!this.elements || context.pendingUploads.length === 0) return;
+    if (!this.elements || context.pendingUploads.length === 0) {
+      return;
+    }
 
     const current = context.pendingUploads[context.currentIndex];
-    if (!current) return;
+    if (!current) {
+      return;
+    }
 
     // Reset submit button state
     this.elements.previewSubmit.disabled = false;
@@ -457,11 +468,15 @@ export class SmartPasteManager {
    * Render navigation dots
    */
   private renderDots(context: SmartPasteContext): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     this.elements.previewDots.innerHTML = '';
 
-    if (context.pendingUploads.length <= 1) return;
+    if (context.pendingUploads.length <= 1) {
+      return;
+    }
 
     for (let i = 0; i < context.pendingUploads.length; i++) {
       const dot = document.createElement('span');
@@ -478,12 +493,14 @@ export class SmartPasteManager {
    * Setup dot click handler using event delegation
    */
   private setupDotClickHandler(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     this.elements.previewDots.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
       if (target.classList.contains('ttyd-preview-dot') && target.dataset.index) {
-        const index = parseInt(target.dataset.index, 10);
+        const index = Number.parseInt(target.dataset.index, 10);
         this.send({ type: 'GOTO', index });
       }
     });
@@ -500,7 +517,9 @@ export class SmartPasteManager {
    * Handle submit button click
    */
   private handleSubmit(): void {
-    if (this.getState() !== 'previewing') return;
+    if (this.getState() !== 'previewing') {
+      return;
+    }
 
     this.send({ type: 'SUBMIT' });
     this.uploadAll();
@@ -511,12 +530,13 @@ export class SmartPasteManager {
    */
   async uploadAll(): Promise<void> {
     const context = this.getContext();
-    if (context.pendingUploads.length === 0) return;
+    if (context.pendingUploads.length === 0) {
+      return;
+    }
 
     try {
       const sessionName = this.getSessionName();
       if (!sessionName) {
-        console.error('[SmartPaste] Could not determine session name');
         this.send({ type: 'UPLOAD_ERROR', error: 'セッション名を取得できませんでした' });
         return;
       }
@@ -559,7 +579,6 @@ export class SmartPasteManager {
       const paths = result.paths as string[];
       this.send({ type: 'UPLOAD_SUCCESS', paths });
     } catch (err) {
-      console.error('[SmartPaste] Upload failed:', err);
       this.send({
         type: 'UPLOAD_ERROR',
         error: err instanceof Error ? err.message : 'Unknown error'
@@ -574,7 +593,6 @@ export class SmartPasteManager {
     try {
       const sessionName = this.getSessionName();
       if (!sessionName) {
-        console.error('[SmartPaste] Could not determine session name');
         return;
       }
 
@@ -600,11 +618,8 @@ export class SmartPasteManager {
       // Send path to terminal
       if (result.path) {
         this.inputHandler.sendText(result.path);
-        console.log('[SmartPaste] Uploaded file and sent path:', result.path);
       }
-    } catch (err) {
-      console.error('[SmartPaste] File upload failed:', err);
-    }
+    } catch (_err) {}
   }
 
   /**

@@ -9,8 +9,8 @@
  */
 
 import type { ClipboardHistoryManager } from './ClipboardHistoryManager.js';
-import { toolbarEvents } from './events.js';
 import type { InputHandler } from './InputHandler.js';
+import { toolbarEvents } from './events.js';
 import type { Terminal, ToolbarConfig } from './types.js';
 import { isMobileDevice } from './utils.js';
 
@@ -39,7 +39,7 @@ export class TerminalController {
     }
 
     const termEl = document.querySelector('.xterm') as HTMLElement & { _core?: Terminal };
-    if (termEl && termEl._core) {
+    if (termEl?._core) {
       return termEl._core;
     }
 
@@ -52,19 +52,16 @@ export class TerminalController {
   fitTerminal(): void {
     if (window.fitAddon && typeof window.fitAddon.fit === 'function') {
       window.fitAddon.fit();
-      console.log('[Toolbar] Terminal fitted via fitAddon');
       return;
     }
 
     const term = window.term as Terminal & { fitAddon?: { fit: () => void } };
-    if (term && term.fitAddon && typeof term.fitAddon.fit === 'function') {
+    if (term?.fitAddon && typeof term.fitAddon.fit === 'function') {
       term.fitAddon.fit();
-      console.log('[Toolbar] Terminal fitted via term.fitAddon');
       return;
     }
 
     window.dispatchEvent(new Event('resize'));
-    console.log('[Toolbar] Dispatched resize event');
   }
 
   /**
@@ -84,7 +81,6 @@ export class TerminalController {
   setFontSize(size: number): boolean {
     const term = this.findTerminal();
     if (!term?.options) {
-      console.log('[Toolbar] Terminal not found for zoom');
       return false;
     }
 
@@ -95,7 +91,6 @@ export class TerminalController {
 
     term.options.fontSize = clampedSize;
     this.fitTerminal();
-    console.log('[Toolbar] Font size changed to ' + clampedSize);
     return true;
   }
 
@@ -113,24 +108,20 @@ export class TerminalController {
   copySelection(): Promise<boolean> {
     const term = this.findTerminal();
     if (!term) {
-      console.log('[Toolbar] Terminal not found for copy');
       return Promise.resolve(false);
     }
 
     const selection = term.getSelection();
     if (!selection) {
-      console.log('[Toolbar] No text selected');
       return Promise.resolve(false);
     }
 
     return navigator.clipboard
       .writeText(selection)
       .then(() => {
-        console.log('[Toolbar] Copied selection to clipboard');
         return true;
       })
-      .catch((err) => {
-        console.error('[Toolbar] Failed to copy:', err);
+      .catch((_err) => {
         return false;
       });
   }
@@ -144,14 +135,15 @@ export class TerminalController {
   ): Promise<boolean> {
     try {
       const text = await navigator.clipboard.readText();
-      if (!text) return false;
+      if (!text) {
+        return false;
+      }
       const result = inputHandler.sendText(text);
       if (result && historyManager) {
         historyManager.addToHistory(text);
       }
       return result;
-    } catch (err) {
-      console.error('[Toolbar] Failed to read clipboard:', err);
+    } catch (_err) {
       return false;
     }
   }
@@ -162,7 +154,6 @@ export class TerminalController {
   copyAll(): Promise<boolean> {
     const term = this.findTerminal();
     if (!term?.buffer?.active) {
-      console.log('[Toolbar] Terminal buffer not found');
       return Promise.resolve(false);
     }
 
@@ -181,11 +172,9 @@ export class TerminalController {
     return navigator.clipboard
       .writeText(text)
       .then(() => {
-        console.log('[Toolbar] Copied all text to clipboard');
         return true;
       })
-      .catch((err) => {
-        console.error('[Toolbar] Failed to copy:', err);
+      .catch((_err) => {
         return false;
       });
   }
@@ -202,8 +191,6 @@ export class TerminalController {
     }
 
     term.onBell(() => {
-      console.log('[Toolbar] Bell detected (visual feedback)');
-
       // Emit event via EventBus
       toolbarEvents.emit('notification:bell');
 
@@ -219,7 +206,5 @@ export class TerminalController {
         }, 100);
       }
     });
-
-    console.log('[Toolbar] Visual bell handler registered');
   }
 }

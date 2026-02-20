@@ -101,7 +101,9 @@ export const smartPasteMachine = setup({
       },
       currentIndex: ({ context }) => {
         const newLen = context.pendingUploads.length - 1;
-        if (newLen <= 0) return 0;
+        if (newLen <= 0) {
+          return 0;
+        }
         return context.currentIndex >= newLen ? newLen - 1 : context.currentIndex;
       }
     }),
