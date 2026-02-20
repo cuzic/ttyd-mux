@@ -134,6 +134,28 @@ describe('NotificationMatcher', () => {
     });
   });
 
+  describe('invalid patterns', () => {
+    test('skips invalid regex patterns during creation', () => {
+      // Creating matcher with invalid regex should not throw
+      const invalidMatcher = createNotificationMatcher({
+        patterns: [
+          { regex: '[invalid', message: 'Invalid regex' },
+          { regex: '\\?$', message: 'Valid question pattern' }
+        ],
+        defaultCooldown: 60
+      });
+
+      // Invalid pattern should be skipped, but valid one should work
+      const result = invalidMatcher.match('session1', 'What?');
+      expect(result).not.toBeNull();
+      expect(result?.pattern.message).toBe('Valid question pattern');
+
+      // No match for the invalid pattern
+      const noMatch = invalidMatcher.match('session2', '[invalid');
+      expect(noMatch).toBeNull();
+    });
+  });
+
   describe('bell notification', () => {
     test('matches bell character (\\x07)', () => {
       const bellMatcher = createNotificationMatcher({
