@@ -238,4 +238,153 @@ describe('createInMemoryStateStore', () => {
       expect(store.getNextPath('/ttyd-mux/', 'my-project')).toBe('/ttyd-mux/my-project');
     });
   });
+
+  describe('share state', () => {
+    test('addShare adds new share', () => {
+      const store = createInMemoryStateStore();
+      store.addShare({
+        token: 'test-token',
+        sessionName: 'test-session',
+        createdAt: '2024-01-01',
+        expiresAt: '2024-01-02'
+      });
+      expect(store.getAllShares().length).toBe(1);
+      expect(store.getShare('test-token')?.sessionName).toBe('test-session');
+    });
+
+    test('addShare replaces share with same token', () => {
+      const store = createInMemoryStateStore();
+      store.addShare({
+        token: 'test-token',
+        sessionName: 'session-1',
+        createdAt: '2024-01-01',
+        expiresAt: '2024-01-02'
+      });
+      store.addShare({
+        token: 'test-token',
+        sessionName: 'session-2',
+        createdAt: '2024-01-02',
+        expiresAt: '2024-01-03'
+      });
+      expect(store.getAllShares().length).toBe(1);
+      expect(store.getShare('test-token')?.sessionName).toBe('session-2');
+    });
+
+    test('removeShare removes share', () => {
+      const store = createInMemoryStateStore();
+      store.addShare({
+        token: 'test-token',
+        sessionName: 'test-session',
+        createdAt: '2024-01-01',
+        expiresAt: '2024-01-02'
+      });
+      store.removeShare('test-token');
+      expect(store.getAllShares().length).toBe(0);
+      expect(store.getShare('test-token')).toBeUndefined();
+    });
+
+    test('removeShare does nothing for non-existent share', () => {
+      const store = createInMemoryStateStore();
+      store.removeShare('nonexistent');
+      expect(store.getAllShares()).toEqual([]);
+    });
+
+    test('getShare returns undefined for non-existent share', () => {
+      const store = createInMemoryStateStore();
+      expect(store.getShare('nonexistent')).toBeUndefined();
+    });
+
+    test('getAllShares returns copy of shares array', () => {
+      const store = createInMemoryStateStore();
+      store.addShare({
+        token: 'test-token',
+        sessionName: 'test-session',
+        createdAt: '2024-01-01',
+        expiresAt: '2024-01-02'
+      });
+      const shares = store.getAllShares();
+      shares.push({ token: 'modified', sessionName: 'x', createdAt: '', expiresAt: '' });
+      expect(store.getAllShares().length).toBe(1);
+    });
+  });
+
+  describe('push subscription state', () => {
+    test('addPushSubscription adds new subscription', () => {
+      const store = createInMemoryStateStore();
+      store.addPushSubscription({
+        id: 'sub-1',
+        endpoint: 'https://example.com/push',
+        keys: { p256dh: 'key1', auth: 'auth1' },
+        sessionName: 'test-session',
+        createdAt: '2024-01-01'
+      });
+      expect(store.getAllPushSubscriptions().length).toBe(1);
+      expect(store.getPushSubscription('sub-1')?.endpoint).toBe('https://example.com/push');
+    });
+
+    test('addPushSubscription replaces subscription with same endpoint', () => {
+      const store = createInMemoryStateStore();
+      store.addPushSubscription({
+        id: 'sub-1',
+        endpoint: 'https://example.com/push',
+        keys: { p256dh: 'key1', auth: 'auth1' },
+        sessionName: 'session-1',
+        createdAt: '2024-01-01'
+      });
+      store.addPushSubscription({
+        id: 'sub-2',
+        endpoint: 'https://example.com/push',
+        keys: { p256dh: 'key2', auth: 'auth2' },
+        sessionName: 'session-2',
+        createdAt: '2024-01-02'
+      });
+      expect(store.getAllPushSubscriptions().length).toBe(1);
+      expect(store.getPushSubscription('sub-2')?.sessionName).toBe('session-2');
+    });
+
+    test('removePushSubscription removes subscription', () => {
+      const store = createInMemoryStateStore();
+      store.addPushSubscription({
+        id: 'sub-1',
+        endpoint: 'https://example.com/push',
+        keys: { p256dh: 'key1', auth: 'auth1' },
+        sessionName: 'test-session',
+        createdAt: '2024-01-01'
+      });
+      store.removePushSubscription('sub-1');
+      expect(store.getAllPushSubscriptions().length).toBe(0);
+      expect(store.getPushSubscription('sub-1')).toBeUndefined();
+    });
+
+    test('removePushSubscription does nothing for non-existent subscription', () => {
+      const store = createInMemoryStateStore();
+      store.removePushSubscription('nonexistent');
+      expect(store.getAllPushSubscriptions()).toEqual([]);
+    });
+
+    test('getPushSubscription returns undefined for non-existent subscription', () => {
+      const store = createInMemoryStateStore();
+      expect(store.getPushSubscription('nonexistent')).toBeUndefined();
+    });
+
+    test('getAllPushSubscriptions returns copy of subscriptions array', () => {
+      const store = createInMemoryStateStore();
+      store.addPushSubscription({
+        id: 'sub-1',
+        endpoint: 'https://example.com/push',
+        keys: { p256dh: 'key1', auth: 'auth1' },
+        sessionName: 'test-session',
+        createdAt: '2024-01-01'
+      });
+      const subscriptions = store.getAllPushSubscriptions();
+      subscriptions.push({
+        id: 'modified',
+        endpoint: '',
+        keys: { p256dh: '', auth: '' },
+        sessionName: '',
+        createdAt: ''
+      });
+      expect(store.getAllPushSubscriptions().length).toBe(1);
+    });
+  });
 });
