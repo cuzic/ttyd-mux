@@ -282,9 +282,7 @@ export class SmartPasteManager {
   async handleFiles(files: FileList): Promise<void> {
     const uploads: PendingUpload[] = [];
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-
+    for (const file of files) {
       // Check if it's an image
       if (file.type.startsWith('image/')) {
         const dataUrl = await this.readFileAsDataUrl(file);
