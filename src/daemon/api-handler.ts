@@ -684,21 +684,19 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
 
   // GET /api/directories - Get allowed base directories
   if (path === '/api/directories' && method === 'GET') {
-    const dirBrowserConfig = config.directory_browser;
-    if (!dirBrowserConfig?.enabled) {
+    if (!config.directory_browser.enabled) {
       sendJson(res, 403, { error: 'Directory browser is disabled' });
       return;
     }
 
-    const directories = getAllowedDirectories(dirBrowserConfig);
+    const directories = getAllowedDirectories(config.directory_browser);
     sendJson(res, 200, { directories });
     return;
   }
 
   // GET /api/directories/list?base=<index>&path=<subpath> - List subdirectories
   if (path.startsWith('/api/directories/list') && method === 'GET') {
-    const dirBrowserConfig = config.directory_browser;
-    if (!dirBrowserConfig?.enabled) {
+    if (!config.directory_browser.enabled) {
       sendJson(res, 403, { error: 'Directory browser is disabled' });
       return;
     }
@@ -719,7 +717,7 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
       return;
     }
 
-    const result = listSubdirectories(dirBrowserConfig, baseIndex, subPath);
+    const result = listSubdirectories(config.directory_browser, baseIndex, subPath);
     if (!result) {
       sendJson(res, 404, { error: 'Directory not found or access denied' });
       return;
@@ -731,8 +729,7 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
 
   // POST /api/directories/validate - Validate a directory path for session creation
   if (path === '/api/directories/validate' && method === 'POST') {
-    const dirBrowserConfig = config.directory_browser;
-    if (!dirBrowserConfig?.enabled) {
+    if (!config.directory_browser.enabled) {
       sendJson(res, 403, { error: 'Directory browser is disabled' });
       return;
     }
@@ -746,7 +743,7 @@ export function handleApiRequest(config: Config, req: IncomingMessage, res: Serv
           return;
         }
 
-        const isValid = validateDirectoryPath(dirBrowserConfig, parsed.path);
+        const isValid = validateDirectoryPath(config.directory_browser, parsed.path);
         sendJson(res, 200, { valid: isValid });
       })
       .catch((error) => {

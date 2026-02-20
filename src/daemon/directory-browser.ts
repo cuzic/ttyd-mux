@@ -211,12 +211,8 @@ function validateTargetDirectory(
     return null;
   }
 
-  const allowedDir = allowedDirs[baseIndex];
-  if (!allowedDir) {
-    return null;
-  }
-
-  const baseDir = allowedDir.path;
+  // Safe to cast: baseIndex bounds checked above
+  const baseDir = (allowedDirs[baseIndex] as AllowedDirectory).path;
   const targetPath = relativePath ? join(baseDir, relativePath) : baseDir;
   const resolvedTarget = resolve(targetPath);
 

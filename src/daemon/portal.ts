@@ -271,7 +271,7 @@ export function generatePortalHtml(config: Config, sessions: SessionState[]): st
       ? '<p class="no-sessions">No active sessions. Use <code>ttyd-mux up</code> to start one.</p>'
       : '';
 
-  const dirBrowserEnabled = config.directory_browser?.enabled ?? false;
+  const dirBrowserEnabled = config.directory_browser.enabled;
   const newSessionButton = dirBrowserEnabled
     ? '<button class="new-session-btn" onclick="openDirBrowser()">+ New Session</button>'
     : '';
