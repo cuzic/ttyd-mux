@@ -5,10 +5,12 @@
  * Provides path validation, size limits, and extension filtering.
  */
 
-import { existsSync, mkdirSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
-import { basename, dirname, extname, join, normalize, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { basename, dirname, extname, join } from 'node:path';
 import { createLogger } from '@/utils/logger.js';
+import { resolveSecurePath } from '@/utils/path-security.js';
 
 const log = createLogger('file-transfer');
 
@@ -36,6 +38,13 @@ export interface FileInfo {
   size: number;
   isDirectory: boolean;
   modifiedAt: string;
+  /** For directories in preview mode: true if index.html exists recursively */
+  hasIndexHtml?: boolean;
+}
+
+export interface ListFilesOptions {
+  /** Check if directories contain index.html recursively (for preview mode) */
+  checkIndexHtml?: boolean;
 }
 
 export type FileTransferError =
@@ -67,10 +76,43 @@ export interface ListResult {
   error?: FileTransferError;
 }
 
+// =============================================================================
+// Recent files types
+// =============================================================================
+
+export interface RecentFilesOptions {
+  /** File extensions to include (e.g., ['.html', '.htm', '.md', '.txt']) */
+  extensions: string[];
+  /** Maximum number of files to return */
+  maxCount: number;
+  /** Maximum directory depth for recursion (default: 5) */
+  maxDepth?: number;
+  /** Source for recent files: 'scan' (default) or 'claude-history' */
+  source?: 'scan' | 'claude-history';
+}
+
+export interface RecentFileInfo {
+  /** Relative path from base directory (e.g., "docs/guide.md") */
+  path: string;
+  /** File name only (e.g., "guide.md") */
+  name: string;
+  /** ISO 8601 timestamp of last modification */
+  modifiedAt: string;
+  /** File size in bytes */
+  size: number;
+}
+
+export interface RecentFilesResult {
+  success: boolean;
+  files?: RecentFileInfo[];
+  error?: FileTransferError;
+}
+
 export interface FileTransferManager {
   downloadFile(relativePath: string): Promise<DownloadResult>;
   uploadFile(relativePath: string, content: Buffer): Promise<UploadResult>;
-  listFiles(relativePath: string): Promise<ListResult>;
+  listFiles(relativePath: string, options?: ListFilesOptions): Promise<ListResult>;
+  findRecentFiles(options: RecentFilesOptions): Promise<RecentFilesResult>;
 }
 
 // =============================================================================
@@ -93,100 +135,17 @@ export interface SaveClipboardImagesResult {
 }
 
 // =============================================================================
-// Path validation
+// Path validation (re-exported from utils for backward compatibility)
 // =============================================================================
 
-// Regex for detecting URL-encoded path traversal (including double-encoding)
-const URL_ENCODED_DOT_REGEX = /%2e|%252e/i;
-const URL_ENCODED_SLASH_REGEX = /%2f|%5c|%252f|%255c/i;
-
-// Windows drive letter pattern
-const WINDOWS_DRIVE_REGEX = /^[a-zA-Z]:/;
-
-/**
- * Check if a path is safe (no traversal, no absolute paths)
- */
-export function isPathSafe(path: string): boolean {
-  if (!path || path.length === 0) {
-    return false;
-  }
-
-  // Check for null bytes
-  if (path.includes('\x00')) {
-    return false;
-  }
-
-  // Check for absolute paths (Unix)
-  if (path.startsWith('/')) {
-    return false;
-  }
-
-  // Check for Windows absolute paths (drive letters)
-  if (WINDOWS_DRIVE_REGEX.test(path)) {
-    return false;
-  }
-
-  // Check for backslash (Windows path separator)
-  if (path.includes('\\')) {
-    return false;
-  }
-
-  // Normalize and check for path traversal
-  const normalized = normalize(path);
-
-  // Check for ".." components
-  if (normalized.includes('..')) {
-    return false;
-  }
-
-  // Check for URL-encoded traversal (including double-encoding)
-  if (URL_ENCODED_DOT_REGEX.test(path) || URL_ENCODED_SLASH_REGEX.test(path)) {
-    return false;
-  }
-
-  // Check path length to prevent DoS
-  if (path.length > 4096) {
-    return false;
-  }
-
-  return true;
-}
+// Re-export isPathSafe for external use
+export { isPathSafe } from '@/utils/path-security.js';
 
 /**
  * Resolve a relative path within a base directory
- * Returns null if the resolved path escapes the base directory
- * Also validates symlinks don't escape the base directory
+ * @deprecated Use resolveSecurePath from @/utils/path-security.js directly
  */
-export function resolveFilePath(baseDir: string, relativePath: string): string | null {
-  if (!isPathSafe(relativePath)) {
-    return null;
-  }
-
-  const resolvedBase = resolve(baseDir);
-  const resolvedPath = resolve(baseDir, relativePath);
-
-  // Ensure resolved path is within base directory
-  if (!resolvedPath.startsWith(resolvedBase)) {
-    return null;
-  }
-
-  // For existing files, also check realpath to prevent symlink attacks
-  if (existsSync(resolvedPath)) {
-    try {
-      const realPath = realpathSync(resolvedPath);
-      const realBase = realpathSync(resolvedBase);
-      if (!realPath.startsWith(realBase)) {
-        log.warn(`Symlink escape attempt blocked: ${relativePath}`);
-        return null;
-      }
-    } catch {
-      // If realpath fails, the file may have been deleted or is inaccessible
-      return null;
-    }
-  }
-
-  return resolvedPath;
-}
+export const resolveFilePath = resolveSecurePath;
 
 // =============================================================================
 // MIME type detection
@@ -230,6 +189,64 @@ const MIME_TYPES: Record<string, string> = {
 function getMimeType(filename: string): string {
   const ext = extname(filename).toLowerCase();
   return MIME_TYPES[ext] || 'application/octet-stream';
+}
+
+// =============================================================================
+// Index.html recursive check helper
+// =============================================================================
+
+/** Directories to skip when searching for index.html */
+const SKIP_DIRECTORIES = new Set([
+  'node_modules',
+  '.git',
+  '.svn',
+  '__pycache__',
+  '.cache',
+  '.next',
+  '.nuxt',
+  'vendor',
+  'bower_components'
+]);
+
+/**
+ * Check if a directory contains index.html recursively
+ * @param dirPath - Directory to check
+ * @param maxDepth - Maximum recursion depth (default: 5)
+ * @returns true if index.html exists in the directory or its subdirectories
+ */
+function hasIndexHtmlRecursive(dirPath: string, maxDepth = 5): boolean {
+  if (maxDepth <= 0) {
+    return false;
+  }
+
+  // Skip directories that shouldn't be searched
+  const dirName = basename(dirPath);
+  if (SKIP_DIRECTORIES.has(dirName) || dirName.startsWith('.')) {
+    return false;
+  }
+
+  try {
+    const entries = readdirSync(dirPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      // Check for index.html directly
+      if (entry.name === 'index.html' && entry.isFile()) {
+        return true;
+      }
+
+      // Recurse into subdirectories (skip certain directories)
+      if (entry.isDirectory() && !SKIP_DIRECTORIES.has(entry.name) && !entry.name.startsWith('.')) {
+        const subPath = join(dirPath, entry.name);
+        if (hasIndexHtmlRecursive(subPath, maxDepth - 1)) {
+          return true;
+        }
+      }
+    }
+  } catch {
+    // Permission denied or other errors - ignore
+  }
+
+  return false;
 }
 
 // =============================================================================
@@ -336,7 +353,7 @@ export function createFileTransferManager(
     }
   }
 
-  function listFiles(relativePath: string): Promise<ListResult> {
+  function listFiles(relativePath: string, options?: ListFilesOptions): Promise<ListResult> {
     // Check if transfer is enabled
     if (!config.enabled) {
       return Promise.resolve({ success: false, error: 'disabled' });
@@ -364,12 +381,19 @@ export function createFileTransferManager(
         const entryPath = join(resolvedPath, entry.name);
         const stats = statSync(entryPath);
 
-        files.push({
+        const fileInfo: FileInfo = {
           name: entry.name,
           size: stats.size,
           isDirectory: entry.isDirectory(),
           modifiedAt: stats.mtime.toISOString()
-        });
+        };
+
+        // In preview mode, check if directory contains index.html recursively
+        if (options?.checkIndexHtml && entry.isDirectory()) {
+          fileInfo.hasIndexHtml = hasIndexHtmlRecursive(entryPath);
+        }
+
+        files.push(fileInfo);
       }
 
       return Promise.resolve({
@@ -382,10 +406,239 @@ export function createFileTransferManager(
     }
   }
 
+  /**
+   * Find recently edited files from Claude Code history
+   */
+  function findRecentFilesFromClaudeHistory(
+    extensions: Set<string>,
+    maxCount: number
+  ): RecentFileInfo[] {
+    const homeDir = process.env['HOME'] || '';
+    if (!homeDir) {
+      return [];
+    }
+
+    // Convert baseDir to Claude project path format
+    // /home/cuzic/ttyd-mux -> -home-cuzic-ttyd-mux
+    const projectSlug = baseDir.replace(/\//g, '-').replace(/^-/, '');
+    const projectDir = join(homeDir, '.claude', 'projects', projectSlug);
+
+    if (!existsSync(projectDir)) {
+      log.debug(`Claude project directory not found: ${projectDir}`);
+      return [];
+    }
+
+    // Find all JSONL transcript files, sorted by modification time (newest first)
+    const jsonlFiles: Array<{ path: string; mtime: Date }> = [];
+    try {
+      const entries = readdirSync(projectDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile() && entry.name.endsWith('.jsonl')) {
+          const filePath = join(projectDir, entry.name);
+          const stats = statSync(filePath);
+          jsonlFiles.push({ path: filePath, mtime: stats.mtime });
+        }
+      }
+    } catch {
+      return [];
+    }
+
+    jsonlFiles.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
+
+    // Extract edited files from transcripts (newest sessions first)
+    const editedFilesMap = new Map<string, { modifiedAt: string; size: number }>();
+
+    for (const jsonlFile of jsonlFiles.slice(0, 5)) {
+      // Check last 5 sessions
+      try {
+        const content = readFileSync(jsonlFile.path, 'utf-8');
+        const lines = content.split('\n').filter((line) => line.trim());
+
+        // Process lines in reverse to get most recent edits first
+        for (let i = lines.length - 1; i >= 0; i--) {
+          const line = lines[i];
+          if (!line) continue;
+          try {
+            const entry = JSON.parse(line);
+            const toolUses = entry?.message?.content?.filter(
+              (c: { type: string; name: string }) =>
+                c.type === 'tool_use' && (c.name === 'Edit' || c.name === 'Write')
+            );
+
+            if (!toolUses) continue;
+
+            for (const toolUse of toolUses) {
+              const filePath = toolUse.input?.file_path;
+              if (!filePath || typeof filePath !== 'string') continue;
+
+              // Check if file is within baseDir
+              if (!filePath.startsWith(baseDir + '/')) continue;
+
+              // Get relative path
+              const relativePath = filePath.slice(baseDir.length + 1);
+
+              // Check extension
+              const ext = extname(relativePath).toLowerCase();
+              if (!extensions.has(ext)) continue;
+
+              // Skip if already found (we want the most recent edit)
+              if (editedFilesMap.has(relativePath)) continue;
+
+              // Check if file still exists and get its current stats
+              if (!existsSync(filePath)) continue;
+
+              try {
+                const stats = statSync(filePath);
+                editedFilesMap.set(relativePath, {
+                  modifiedAt: stats.mtime.toISOString(),
+                  size: stats.size
+                });
+              } catch {
+                // Skip if can't stat
+              }
+
+              // Stop early if we have enough
+              if (editedFilesMap.size >= maxCount) break;
+            }
+          } catch {
+            // Skip invalid JSON lines
+          }
+
+          if (editedFilesMap.size >= maxCount) break;
+        }
+      } catch {
+        // Skip files we can't read
+      }
+
+      if (editedFilesMap.size >= maxCount) break;
+    }
+
+    // Convert to array and sort by modification time
+    const results: RecentFileInfo[] = [];
+    for (const [relativePath, info] of editedFilesMap) {
+      results.push({
+        path: relativePath,
+        name: basename(relativePath),
+        modifiedAt: info.modifiedAt,
+        size: info.size
+      });
+    }
+
+    results.sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime());
+
+    return results.slice(0, maxCount);
+  }
+
+  /**
+   * Find recently modified files matching specified extensions
+   */
+  function findRecentFiles(options: RecentFilesOptions): Promise<RecentFilesResult> {
+    // Check if transfer is enabled
+    if (!config.enabled) {
+      return Promise.resolve({ success: false, error: 'disabled' });
+    }
+
+    const { extensions, maxCount, maxDepth = 5, source = 'scan' } = options;
+
+    // Normalize extensions to lowercase
+    const normalizedExtensions = new Set(extensions.map((ext) => ext.toLowerCase()));
+
+    // Use Claude Code history if requested (with fallback to scan)
+    if (source === 'claude-history') {
+      try {
+        const files = findRecentFilesFromClaudeHistory(normalizedExtensions, maxCount);
+        if (files.length > 0) {
+          log.debug(`Found ${files.length} recent files from Claude history`);
+          return Promise.resolve({ success: true, files });
+        }
+        // Fallback to filesystem scan if no files found in Claude history
+        log.debug('No files found in Claude history, falling back to filesystem scan');
+      } catch (err) {
+        log.debug(`Claude history unavailable, falling back to scan: ${err}`);
+      }
+      // Continue to filesystem scan below
+    }
+
+    // Default: scan filesystem
+    const recentFiles: RecentFileInfo[] = [];
+
+    /**
+     * Recursively scan directory for matching files
+     */
+    function scanDirectory(dirPath: string, relativePath: string, currentDepth: number): void {
+      if (currentDepth > maxDepth) {
+        return;
+      }
+
+      const dirName = basename(dirPath);
+
+      // Skip hidden directories and common non-content directories
+      if (dirName.startsWith('.') || SKIP_DIRECTORIES.has(dirName)) {
+        return;
+      }
+
+      try {
+        const entries = readdirSync(dirPath, { withFileTypes: true });
+
+        for (const entry of entries) {
+          const entryPath = join(dirPath, entry.name);
+          const entryRelativePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+
+          if (entry.isDirectory()) {
+            // Recurse into subdirectories
+            scanDirectory(entryPath, entryRelativePath, currentDepth + 1);
+          } else if (entry.isFile()) {
+            // Check file extension
+            const ext = extname(entry.name).toLowerCase();
+            if (normalizedExtensions.has(ext)) {
+              try {
+                const stats = statSync(entryPath);
+                recentFiles.push({
+                  path: entryRelativePath,
+                  name: entry.name,
+                  modifiedAt: stats.mtime.toISOString(),
+                  size: stats.size
+                });
+              } catch {
+                // Skip files we can't stat
+              }
+            }
+          }
+        }
+      } catch {
+        // Skip directories we can't read
+      }
+    }
+
+    try {
+      // Start scanning from base directory
+      scanDirectory(baseDir, '', 0);
+
+      // Sort by modification time (newest first)
+      recentFiles.sort((a, b) => {
+        return new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime();
+      });
+
+      // Return top N files
+      const topFiles = recentFiles.slice(0, maxCount);
+
+      log.debug(`Found ${recentFiles.length} recent files, returning top ${topFiles.length}`);
+
+      return Promise.resolve({
+        success: true,
+        files: topFiles
+      });
+    } catch (err) {
+      log.error('Failed to find recent files', err);
+      return Promise.resolve({ success: false, error: 'unknown' });
+    }
+  }
+
   return {
     downloadFile,
     uploadFile,
-    listFiles
+    listFiles,
+    findRecentFiles
   };
 }
 
@@ -429,10 +682,22 @@ function generateClipboardFilename(mimeType: string, index: number): string {
 }
 
 /**
- * Save clipboard images to the session directory
+ * Get the clipboard images directory in /tmp
+ */
+function getClipboardTmpDir(): string {
+  const dir = join(tmpdir(), 'ttyd-mux-clipboard');
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}
+
+/**
+ * Save clipboard images to /tmp/ttyd-mux-clipboard directory
+ * Returns absolute paths to the saved files
  */
 export async function saveClipboardImages(
-  baseDir: string,
+  _baseDir: string,
   images: ClipboardImageInput[],
   config?: FileTransferConfig
 ): Promise<SaveClipboardImagesResult> {
@@ -447,6 +712,8 @@ export async function saveClipboardImages(
     return { success: false, error: 'No images provided' };
   }
 
+  // Use /tmp directory for clipboard images
+  const saveDir = getClipboardTmpDir();
   const savedPaths: string[] = [];
 
   try {
@@ -470,21 +737,16 @@ export async function saveClipboardImages(
       // Generate or use provided filename
       const filename = image.name ?? generateClipboardFilename(image.mimeType, i);
 
-      // Resolve the full path
-      const fullPath = join(baseDir, filename);
-
-      // Ensure base directory exists
-      if (!existsSync(baseDir)) {
-        mkdirSync(baseDir, { recursive: true });
-      }
+      // Resolve the full path in /tmp
+      const fullPath = join(saveDir, filename);
 
       // Write the file
       await writeFile(fullPath, buffer);
 
-      // Store relative path for response
-      savedPaths.push(filename);
+      // Store absolute path for response
+      savedPaths.push(fullPath);
 
-      log.info(`Saved clipboard image: ${filename} (${buffer.length} bytes)`);
+      log.info(`Saved clipboard image: ${fullPath} (${buffer.length} bytes)`);
     }
 
     return {

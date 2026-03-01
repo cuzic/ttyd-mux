@@ -349,6 +349,263 @@ describe('FileTransferManager', () => {
       });
       expect(result.files?.[0].modifiedAt).toBeDefined();
     });
+
+    test('checkIndexHtml option adds hasIndexHtml flag for directories', async () => {
+      // Create directories: one with index.html, one without
+      const dirWithIndex = join(testSessionDir, 'with-index');
+      const dirWithoutIndex = join(testSessionDir, 'without-index');
+      mkdirSync(dirWithIndex, { recursive: true });
+      mkdirSync(dirWithoutIndex, { recursive: true });
+      writeFileSync(join(dirWithIndex, 'index.html'), '<html></html>');
+      writeFileSync(join(dirWithoutIndex, 'other.txt'), 'content');
+
+      const manager = createFileTransferManager({ baseDir: testSessionDir });
+      const result = await manager.listFiles('.', { checkIndexHtml: true });
+
+      expect(result.success).toBe(true);
+      const withIndex = result.files?.find((f) => f.name === 'with-index');
+      const withoutIndex = result.files?.find((f) => f.name === 'without-index');
+
+      expect(withIndex?.isDirectory).toBe(true);
+      expect(withIndex?.hasIndexHtml).toBe(true);
+      expect(withoutIndex?.isDirectory).toBe(true);
+      expect(withoutIndex?.hasIndexHtml).toBe(false);
+    });
+
+    test('checkIndexHtml finds index.html recursively', async () => {
+      // Create nested structure: parent/child/index.html
+      const parentDir = join(testSessionDir, 'parent');
+      const childDir = join(parentDir, 'child');
+      mkdirSync(childDir, { recursive: true });
+      writeFileSync(join(childDir, 'index.html'), '<html></html>');
+
+      const manager = createFileTransferManager({ baseDir: testSessionDir });
+      const result = await manager.listFiles('.', { checkIndexHtml: true });
+
+      expect(result.success).toBe(true);
+      const parentResult = result.files?.find((f) => f.name === 'parent');
+      expect(parentResult?.hasIndexHtml).toBe(true);
+    });
+
+    test('checkIndexHtml skips node_modules', async () => {
+      // Create node_modules with index.html - should not be found
+      const nodeModules = join(testSessionDir, 'node_modules');
+      const somePackage = join(nodeModules, 'some-package');
+      mkdirSync(somePackage, { recursive: true });
+      writeFileSync(join(somePackage, 'index.html'), '<html></html>');
+
+      const manager = createFileTransferManager({ baseDir: testSessionDir });
+      const result = await manager.listFiles('.', { checkIndexHtml: true });
+
+      expect(result.success).toBe(true);
+      const nodeModulesResult = result.files?.find((f) => f.name === 'node_modules');
+      expect(nodeModulesResult?.hasIndexHtml).toBe(false);
+    });
+
+    test('checkIndexHtml is not set when option not provided', async () => {
+      const dirWithIndex = join(testSessionDir, 'with-index');
+      mkdirSync(dirWithIndex, { recursive: true });
+      writeFileSync(join(dirWithIndex, 'index.html'), '<html></html>');
+
+      const manager = createFileTransferManager({ baseDir: testSessionDir });
+      const result = await manager.listFiles('.');
+
+      expect(result.success).toBe(true);
+      const dir = result.files?.find((f) => f.name === 'with-index');
+      expect(dir?.hasIndexHtml).toBeUndefined();
+    });
+  });
+
+  describe('findRecentFiles', () => {
+    test('finds files with specified extensions', async () => {
+      writeFileSync(join(testSessionDir, 'index.html'), '<html></html>');
+      writeFileSync(join(testSessionDir, 'readme.md'), '# README');
+      writeFileSync(join(testSessionDir, 'data.json'), '{}');
+
+      const manager = createFileTransferManager({ baseDir: testSessionDir });
+      const result = await manager.findRecentFiles({
+        extensions: ['.html', '.md'],
+        maxCount: 10
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.files?.length).toBe(2);
+      const names = result.files?.map((f) => f.name);
+      expect(names).toContain('index.html');
+      expect(names).toContain('readme.md');
+      // data.json should NOT be included
+      expect(names).not.toContain('data.json');
+    });
+
+    test('returns files sorted by modification time (newest first)', async () => {
+      // Create files with different timestamps
+      const oldFile = join(testSessionDir, 'old.html');
+      const newFile = join(testSessionDir, 'new.html');
+
+      writeFileSync(oldFile, 'old');
+      // Wait a bit to ensure different timestamps
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      writeFileSync(newFile, 'new');
+
+      const manager = createFileTransferManager({ baseDir: testSessionDir });
+      const result = await manager.findRecentFiles({
+        extensions: ['.html'],
+        maxCount: 10
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.files?.length).toBe(2);
+      expect(result.files?.[0].name).toBe('new.html');
+      expect(result.files?.[1].name).toBe('old.html');
+    });
+
+    test('limits results to maxCount', async () => {
+      for (let i = 0; i < 10; i++) {
+        writeFileSync(join(testSessionDir, `file${i}.html`), 'content');
+      }
+
+      const manager = createFileTransferManager({ baseDir: testSessionDir });
+      const result = await manager.findRecentFiles({
+        extensions: ['.html'],
+        maxCount: 5
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.files?.length).toBe(5);
+    });
+
+    test('finds files in subdirectories', async () => {
+      const subdir = join(testSessionDir, 'docs');
+      mkdirSync(subdir, { recursive: true });
+      writeFileSync(join(testSessionDir, 'index.html'), 'root');
+      writeFileSync(join(subdir, 'guide.md'), 'guide');
+
+      const manager = createFileTransferManager({ baseDir: testSessionDir });
+      const result = await manager.findRecentFiles({
+        extensions: ['.html', '.md'],
+        maxCount: 10
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.files?.length).toBe(2);
+
+      const paths = result.files?.map((f) => f.path);
+      expect(paths).toContain('index.html');
+      expect(paths).toContain('docs/guide.md');
+    });
+
+    test('skips node_modules directory', async () => {
+      const nodeModules = join(testSessionDir, 'node_modules', 'pkg');
+      mkdirSync(nodeModules, { recursive: true });
+      writeFileSync(join(nodeModules, 'readme.md'), 'package readme');
+      writeFileSync(join(testSessionDir, 'readme.md'), 'project readme');
+
+      const manager = createFileTransferManager({ baseDir: testSessionDir });
+      const result = await manager.findRecentFiles({
+        extensions: ['.md'],
+        maxCount: 10
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.files?.length).toBe(1);
+      expect(result.files?.[0].path).toBe('readme.md');
+    });
+
+    test('skips hidden directories', async () => {
+      const hiddenDir = join(testSessionDir, '.hidden');
+      mkdirSync(hiddenDir, { recursive: true });
+      writeFileSync(join(hiddenDir, 'secret.html'), 'hidden');
+      writeFileSync(join(testSessionDir, 'visible.html'), 'visible');
+
+      const manager = createFileTransferManager({ baseDir: testSessionDir });
+      const result = await manager.findRecentFiles({
+        extensions: ['.html'],
+        maxCount: 10
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.files?.length).toBe(1);
+      expect(result.files?.[0].path).toBe('visible.html');
+    });
+
+    test('respects maxDepth option', async () => {
+      // Create deep nested structure
+      const deepDir = join(testSessionDir, 'a', 'b', 'c', 'd', 'e', 'f');
+      mkdirSync(deepDir, { recursive: true });
+      writeFileSync(join(testSessionDir, 'level0.html'), 'level 0');
+      writeFileSync(join(testSessionDir, 'a', 'level1.html'), 'level 1');
+      writeFileSync(join(deepDir, 'deep.html'), 'very deep');
+
+      const manager = createFileTransferManager({ baseDir: testSessionDir });
+      const result = await manager.findRecentFiles({
+        extensions: ['.html'],
+        maxCount: 10,
+        maxDepth: 2
+      });
+
+      expect(result.success).toBe(true);
+      const paths = result.files?.map((f) => f.path);
+      expect(paths).toContain('level0.html');
+      expect(paths).toContain('a/level1.html');
+      // deep.html should NOT be found due to depth limit
+      expect(paths).not.toContain('a/b/c/d/e/f/deep.html');
+    });
+
+    test('returns error when transfer is disabled', async () => {
+      const config: FileTransferConfig = {
+        ...DEFAULT_FILE_TRANSFER_CONFIG,
+        enabled: false
+      };
+      const manager = createFileTransferManager({ baseDir: testSessionDir, config });
+      const result = await manager.findRecentFiles({
+        extensions: ['.html'],
+        maxCount: 5
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('disabled');
+    });
+
+    test('returns empty array when no matching files found', async () => {
+      writeFileSync(join(testSessionDir, 'data.json'), '{}');
+
+      const manager = createFileTransferManager({ baseDir: testSessionDir });
+      const result = await manager.findRecentFiles({
+        extensions: ['.html'],
+        maxCount: 5
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.files).toEqual([]);
+    });
+
+    test('handles case-insensitive extension matching', async () => {
+      writeFileSync(join(testSessionDir, 'page.HTML'), 'uppercase');
+      writeFileSync(join(testSessionDir, 'doc.Md'), 'mixed case');
+
+      const manager = createFileTransferManager({ baseDir: testSessionDir });
+      const result = await manager.findRecentFiles({
+        extensions: ['.html', '.md'],
+        maxCount: 10
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.files?.length).toBe(2);
+    });
+
+    test('includes file size in result', async () => {
+      const content = 'Hello, World!';
+      writeFileSync(join(testSessionDir, 'test.html'), content);
+
+      const manager = createFileTransferManager({ baseDir: testSessionDir });
+      const result = await manager.findRecentFiles({
+        extensions: ['.html'],
+        maxCount: 5
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.files?.[0].size).toBe(content.length);
+    });
   });
 });
 
@@ -369,10 +626,11 @@ describe('saveClipboardImages', () => {
     expect(result.success).toBe(true);
     expect(result.paths).toBeDefined();
     expect(result.paths?.length).toBe(1);
-    expect(result.paths?.[0]).toMatch(/^clipboard-.*\.png$/);
+    // Returns full path to /tmp directory
+    expect(result.paths?.[0]).toMatch(/clipboard-.*\.png$/);
 
-    // Verify file exists
-    const savedPath = join(testSessionDir, result.paths?.[0]);
+    // Verify file exists (path is already absolute)
+    const savedPath = result.paths?.[0] as string;
     const fileExists = await Bun.file(savedPath).exists();
     expect(fileExists).toBe(true);
   });
@@ -394,7 +652,8 @@ describe('saveClipboardImages', () => {
     ]);
 
     expect(result.success).toBe(true);
-    expect(result.paths?.[0]).toBe('custom-image.png');
+    // Returns full path, filename is at the end
+    expect(result.paths?.[0]).toMatch(/custom-image\.png$/);
   });
 
   test('uses correct extension for different MIME types', async () => {
@@ -464,8 +723,8 @@ describe('saveClipboardImages', () => {
 
     expect(result.success).toBe(true);
 
-    // Verify directory was created
-    const savedPath = join(newDir, result.paths?.[0]);
+    // Verify file exists (path is already absolute)
+    const savedPath = result.paths?.[0] as string;
     const fileExists = await Bun.file(savedPath).exists();
     expect(fileExists).toBe(true);
   });

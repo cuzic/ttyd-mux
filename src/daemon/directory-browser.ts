@@ -4,13 +4,9 @@
 import type { Dirent } from 'node:fs';
 import { existsSync, lstatSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, normalize, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import type { DirectoryBrowserConfig } from '@/config/types.js';
-
-// Top-level regex constants for performance
-const WINDOWS_DRIVE_REGEX = /^[a-zA-Z]:/;
-const URL_ENCODED_DOT_REGEX = /%2e|%252e/i;
-const URL_ENCODED_SLASH_REGEX = /%2f|%5c|%252f|%255c/i;
+import { isRelativePathSafe } from '@/utils/path-security.js';
 
 export interface AllowedDirectory {
   path: string;
@@ -54,47 +50,8 @@ export function contractTilde(path: string): string {
   return path;
 }
 
-/**
- * Check if a relative path is safe (no traversal)
- */
-export function isRelativePathSafe(relativePath: string): boolean {
-  if (!relativePath) {
-    return true; // Empty path is safe (means root of base)
-  }
-
-  // Check for null bytes
-  if (relativePath.includes('\x00')) {
-    return false;
-  }
-
-  // Check for absolute paths
-  if (relativePath.startsWith('/')) {
-    return false;
-  }
-
-  // Check for Windows absolute paths
-  if (WINDOWS_DRIVE_REGEX.test(relativePath)) {
-    return false;
-  }
-
-  // Normalize and check for path traversal
-  const normalized = normalize(relativePath);
-
-  // Check for path traversal
-  if (normalized.startsWith('..') || normalized.includes('/..') || normalized.includes('\\..')) {
-    return false;
-  }
-
-  // Check for URL-encoded traversal attempts
-  if (URL_ENCODED_DOT_REGEX.test(relativePath)) {
-    return false;
-  }
-  if (URL_ENCODED_SLASH_REGEX.test(relativePath)) {
-    return false;
-  }
-
-  return true;
-}
+// Re-export isRelativePathSafe for external use
+export { isRelativePathSafe } from '@/utils/path-security.js';
 
 /**
  * Get list of allowed base directories with their display names

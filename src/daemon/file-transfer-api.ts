@@ -5,7 +5,7 @@
  */
 
 import type { ServerResponse } from 'node:http';
-import type { FileTransferManager } from './file-transfer.js';
+import type { FileTransferManager, ListFilesOptions, RecentFilesOptions } from './file-transfer.js';
 
 // =============================================================================
 // Response helpers
@@ -146,15 +146,41 @@ export async function handleFileUpload(
 export async function handleFileList(
   manager: FileTransferManager,
   path: string,
-  res: ServerResponse
+  res: ServerResponse,
+  options?: ListFilesOptions
 ): Promise<void> {
-  const result = await manager.listFiles(path);
+  const result = await manager.listFiles(path, options);
 
   if (!result.success) {
     const errorInfo =
       result.error === 'not_found'
         ? { status: 404, message: 'Directory not found' }
         : getErrorInfo(result.error);
+    sendJsonError(res, errorInfo.status, errorInfo.message);
+    return;
+  }
+
+  sendJsonSuccess(res, 200, {
+    files: result.files
+  });
+}
+
+// =============================================================================
+// Recent files handler
+// =============================================================================
+
+/**
+ * Handle recent files request
+ */
+export async function handleRecentFiles(
+  manager: FileTransferManager,
+  res: ServerResponse,
+  options: RecentFilesOptions
+): Promise<void> {
+  const result = await manager.findRecentFiles(options);
+
+  if (!result.success) {
+    const errorInfo = getErrorInfo(result.error);
     sendJsonError(res, errorInfo.status, errorInfo.message);
     return;
   }
