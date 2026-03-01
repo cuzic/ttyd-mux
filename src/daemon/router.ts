@@ -19,13 +19,17 @@ import { generateTabsHtml } from './tabs/index.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Cache for toolbar.js content and ETag
-let toolbarJsCache: string | null = null;
-let toolbarJsEtag: string | null = null;
+// Cache for terminal-ui.js content and ETag
+let terminalUiJsCache: string | null = null;
+let terminalUiJsEtag: string | null = null;
 
 // Cache for tabs.js content and ETag
 let tabsJsCache: string | null = null;
 let tabsJsEtag: string | null = null;
+
+// Cache for sw.js (Service Worker) content and ETag
+let swJsCache: string | null = null;
+let swJsEtag: string | null = null;
 
 // Regex for stripping trailing slashes
 const TRAILING_SLASH_REGEX = /\/$/;
@@ -40,11 +44,11 @@ export function generateEtag(content: string): string {
 }
 
 /**
- * Reset toolbar.js cache (for testing)
+ * Reset terminal-ui.js cache (for testing)
  */
-export function resetToolbarCache(): void {
-  toolbarJsCache = null;
-  toolbarJsEtag = null;
+export function resetTerminalUiCache(): void {
+  terminalUiJsCache = null;
+  terminalUiJsEtag = null;
 }
 
 /**
@@ -53,6 +57,14 @@ export function resetToolbarCache(): void {
 export function resetTabsCache(): void {
   tabsJsCache = null;
   tabsJsEtag = null;
+}
+
+/**
+ * Reset sw.js (Service Worker) cache (for testing)
+ */
+export function resetSwCache(): void {
+  swJsCache = null;
+  swJsEtag = null;
 }
 
 // Share manager for validating share tokens
@@ -70,15 +82,23 @@ const log = createLogger('router');
 
 /**
  * Set security headers on response
+ *
+ * @param res - Server response object
+ * @param sentryEnabled - Whether Sentry is enabled (affects CSP)
  */
-export function setSecurityHeaders(res: ServerResponse): void {
+export function setSecurityHeaders(res: ServerResponse, sentryEnabled = false): void {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  // Content Security Policy - allow inline scripts for toolbar functionality
+
+  // Content Security Policy - allow inline scripts for terminal UI functionality
+  // If Sentry is enabled, allow Sentry CDN scripts and connections
+  const sentryScriptSrc = sentryEnabled ? ' https://js.sentry-cdn.com' : '';
+  const sentryConnectSrc = sentryEnabled ? ' https://*.ingest.sentry.io' : '';
+
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; frame-src 'self'"
+    `default-src 'self'; script-src 'self' 'unsafe-inline'${sentryScriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:${sentryConnectSrc}; frame-src 'self'`
   );
   // Permissions Policy - disable unused browser features
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=()');
@@ -201,16 +221,46 @@ function servePwaManifest(res: ServerResponse, basePath: string): void {
 }
 
 /**
- * Serve PWA Service Worker
+ * Load and cache Service Worker content with ETag
  */
-function servePwaServiceWorker(res: ServerResponse): void {
-  const script = getServiceWorker();
+function loadServiceWorker(): { content: string; etag: string } {
+  if (swJsCache !== null && swJsEtag !== null) {
+    return { content: swJsCache, etag: swJsEtag };
+  }
+
+  swJsCache = getServiceWorker();
+  swJsEtag = generateEtag(swJsCache);
+
+  return { content: swJsCache, etag: swJsEtag };
+}
+
+/**
+ * Serve PWA Service Worker
+ * Supports ETag-based conditional requests for cache revalidation
+ */
+function servePwaServiceWorker(req: IncomingMessage, res: ServerResponse): void {
+  const { content, etag } = loadServiceWorker();
+
+  // Check If-None-Match header for conditional request
+  const ifNoneMatch = req.headers['if-none-match'];
+  if (ifNoneMatch === etag) {
+    // Content hasn't changed, return 304 Not Modified
+    res.writeHead(304, {
+      ETag: etag,
+      'Cache-Control': 'public, max-age=0, must-revalidate'
+    });
+    res.end();
+    return;
+  }
+
   res.writeHead(200, {
     'Content-Type': 'application/javascript',
-    'Content-Length': Buffer.byteLength(script),
-    'Service-Worker-Allowed': '/'
+    'Content-Length': Buffer.byteLength(content),
+    'Service-Worker-Allowed': '/',
+    ETag: etag,
+    'Cache-Control': 'public, max-age=0, must-revalidate'
   });
-  res.end(script);
+  res.end(content);
 }
 
 /**
@@ -240,38 +290,38 @@ function servePwaIconPng(res: ServerResponse, size: 192 | 512): void {
 }
 
 /**
- * Load toolbar.js from dist directory (cached)
+ * Load terminal-ui.js from dist directory (cached)
  * Returns { content, etag }
  */
-function loadToolbarJs(): { content: string; etag: string } {
-  if (toolbarJsCache !== null && toolbarJsEtag !== null) {
-    return { content: toolbarJsCache, etag: toolbarJsEtag };
+function loadTerminalUiJs(): { content: string; etag: string } {
+  if (terminalUiJsCache !== null && terminalUiJsEtag !== null) {
+    return { content: terminalUiJsCache, etag: terminalUiJsEtag };
   }
 
   try {
     // Load from dist directory (relative to compiled output)
-    const distPath = join(__dirname, '../../dist/toolbar.js');
-    toolbarJsCache = readFileSync(distPath, 'utf-8');
-    log.debug('Loaded toolbar.js from dist');
+    const distPath = join(__dirname, '../../dist/terminal-ui.js');
+    terminalUiJsCache = readFileSync(distPath, 'utf-8');
+    log.debug('Loaded terminal-ui.js from dist');
   } catch {
     // Fallback: bundle not available
-    log.warn('toolbar.js not found in dist, returning placeholder');
-    toolbarJsCache =
-      '// toolbar.js not built - run: bun run build:toolbar\nconsole.warn("[Toolbar] Bundle not found");';
+    log.warn('terminal-ui.js not found in dist, returning placeholder');
+    terminalUiJsCache =
+      '// terminal-ui.js not built - run: bun run build:terminal-ui\nconsole.warn("[Terminal UI] Bundle not found");';
   }
 
   // Calculate ETag from content hash
-  toolbarJsEtag = generateEtag(toolbarJsCache);
+  terminalUiJsEtag = generateEtag(terminalUiJsCache);
 
-  return { content: toolbarJsCache, etag: toolbarJsEtag };
+  return { content: terminalUiJsCache, etag: terminalUiJsEtag };
 }
 
 /**
- * Serve toolbar JavaScript (static file from dist)
+ * Serve terminal-ui JavaScript (static file from dist)
  * Supports ETag-based conditional requests for cache revalidation
  */
-function serveToolbarJs(req: IncomingMessage, res: ServerResponse): void {
-  const { content, etag } = loadToolbarJs();
+function serveTerminalUiJs(req: IncomingMessage, res: ServerResponse): void {
+  const { content, etag } = loadTerminalUiJs();
 
   // Check If-None-Match header for conditional request
   const ifNoneMatch = req.headers['if-none-match'];
@@ -369,9 +419,10 @@ export function handleRequest(config: Config, req: IncomingMessage, res: ServerR
   const url = req.url ?? '/';
   const method = req.method ?? 'GET';
   const basePath = normalizeBasePath(config.base_path);
+  const sentryEnabled = config.sentry?.enabled ?? false;
 
   // Apply security headers to all responses
-  setSecurityHeaders(res);
+  setSecurityHeaders(res, sentryEnabled);
 
   log.debug(`Request: ${method} ${url}`);
 
@@ -394,7 +445,7 @@ export function handleRequest(config: Config, req: IncomingMessage, res: ServerR
     return;
   }
   if (url === `${basePath}/sw.js`) {
-    servePwaServiceWorker(res);
+    servePwaServiceWorker(req, res);
     return;
   }
   if (url === `${basePath}/icon.svg`) {
@@ -410,9 +461,9 @@ export function handleRequest(config: Config, req: IncomingMessage, res: ServerR
     return;
   }
 
-  // Toolbar JavaScript (static file)
-  if (url === `${basePath}/toolbar.js`) {
-    serveToolbarJs(req, res);
+  // Terminal UI JavaScript (static file)
+  if (url === `${basePath}/terminal-ui.js`) {
+    serveTerminalUiJs(req, res);
     return;
   }
 
@@ -490,17 +541,29 @@ export function handleRequest(config: Config, req: IncomingMessage, res: ServerR
       return;
     }
 
+    // Rewrite URL from /share/:token to the session's actual path
+    // shareMatch[2] contains any trailing path (e.g., /ws for WebSocket)
+    const trailingPath = shareMatch[2] ?? '/';
+    req.url = `${basePath}${session.path}${trailingPath}`;
+    log.debug(`Share link rewritten to: ${req.url}`);
+
     // Proxy to the session in read-only mode
     // Set a header to indicate read-only mode for WebSocket proxy
     req.headers['x-ttyd-mux-readonly'] = 'true';
-    proxyToSession(req, res, session.port, basePath, config.toolbar);
+    proxyToSession(req, res, session.port, basePath, config.terminal_ui, {
+      sentryConfig: config.sentry,
+      previewAllowedExtensions: config.preview.allowed_extensions
+    });
     return;
   }
 
   // Try to proxy to a session
   const session = findSessionForPath(config, url);
   if (session) {
-    proxyToSession(req, res, session.port, basePath, config.toolbar);
+    proxyToSession(req, res, session.port, basePath, config.terminal_ui, {
+      sentryConfig: config.sentry,
+      previewAllowedExtensions: config.preview.allowed_extensions
+    });
     return;
   }
 

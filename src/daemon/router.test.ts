@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { EventEmitter } from 'node:events';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { loadConfig } from '@/config/config.js';
-import { generateEtag, handleRequest, resetToolbarCache, setSecurityHeaders } from './router.js';
+import { generateEtag, handleRequest, resetTerminalUiCache, setSecurityHeaders } from './router.js';
 
 // Get default config for tests
 const defaultConfig = loadConfig();
@@ -123,13 +123,13 @@ describe('setSecurityHeaders', () => {
   });
 });
 
-describe('handleRequest - toolbar.js', () => {
+describe('handleRequest - terminal-ui.js', () => {
   afterEach(() => {
-    resetToolbarCache();
+    resetTerminalUiCache();
   });
 
   test('returns 200 with ETag on first request', () => {
-    const req = createMockRequest({ url: '/ttyd-mux/toolbar.js' });
+    const req = createMockRequest({ url: '/ttyd-mux/terminal-ui.js' });
     const res = new MockResponse();
 
     handleRequest(defaultConfig, req, res as unknown as ServerResponse);
@@ -143,14 +143,14 @@ describe('handleRequest - toolbar.js', () => {
 
   test('returns 304 when If-None-Match matches ETag', () => {
     // First request to get the ETag
-    const req1 = createMockRequest({ url: '/ttyd-mux/toolbar.js' });
+    const req1 = createMockRequest({ url: '/ttyd-mux/terminal-ui.js' });
     const res1 = new MockResponse();
     handleRequest(defaultConfig, req1, res1 as unknown as ServerResponse);
     const etag = res1.headers.etag as string;
 
     // Second request with If-None-Match
     const req2 = createMockRequest({
-      url: '/ttyd-mux/toolbar.js',
+      url: '/ttyd-mux/terminal-ui.js',
       headers: { 'if-none-match': etag }
     });
     const res2 = new MockResponse();
@@ -163,7 +163,7 @@ describe('handleRequest - toolbar.js', () => {
 
   test('returns 200 when If-None-Match does not match', () => {
     const req = createMockRequest({
-      url: '/ttyd-mux/toolbar.js',
+      url: '/ttyd-mux/terminal-ui.js',
       headers: { 'if-none-match': '"different-etag"' }
     });
     const res = new MockResponse();
@@ -175,11 +175,11 @@ describe('handleRequest - toolbar.js', () => {
   });
 
   test('ETag is consistent across requests', () => {
-    const req1 = createMockRequest({ url: '/ttyd-mux/toolbar.js' });
+    const req1 = createMockRequest({ url: '/ttyd-mux/terminal-ui.js' });
     const res1 = new MockResponse();
     handleRequest(defaultConfig, req1, res1 as unknown as ServerResponse);
 
-    const req2 = createMockRequest({ url: '/ttyd-mux/toolbar.js' });
+    const req2 = createMockRequest({ url: '/ttyd-mux/terminal-ui.js' });
     const res2 = new MockResponse();
     handleRequest(defaultConfig, req2, res2 as unknown as ServerResponse);
 
@@ -187,7 +187,7 @@ describe('handleRequest - toolbar.js', () => {
   });
 
   test('includes must-revalidate in Cache-Control', () => {
-    const req = createMockRequest({ url: '/ttyd-mux/toolbar.js' });
+    const req = createMockRequest({ url: '/ttyd-mux/terminal-ui.js' });
     const res = new MockResponse();
 
     handleRequest(defaultConfig, req, res as unknown as ServerResponse);
