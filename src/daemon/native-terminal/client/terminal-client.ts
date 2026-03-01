@@ -44,7 +44,7 @@ interface ClientMessage {
 }
 
 interface ServerMessage {
-  type: 'output' | 'title' | 'exit' | 'pong' | 'error';
+  type: 'output' | 'title' | 'exit' | 'pong' | 'error' | 'bell';
   data?: string;
   title?: string;
   code?: number;
@@ -203,6 +203,14 @@ export class TerminalClient {
         case 'error':
           console.error('[TerminalClient] Server error:', message.message);
           this.terminal?.write(`\r\n\x1b[31m[Error: ${message.message}]\x1b[0m\r\n`);
+          break;
+
+        case 'bell':
+          // Trigger xterm.js bell (plays sound if configured, triggers onBell handlers)
+          if (this.terminal) {
+            // Write bell character to trigger xterm.js bell event
+            this.terminal.write('\x07');
+          }
           break;
       }
     } catch (error) {

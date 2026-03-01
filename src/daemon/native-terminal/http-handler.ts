@@ -9,13 +9,16 @@
  */
 
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Config } from '@/config/types.js';
+import { getStateDir, addShare, getAllShares, getShare, removeShare } from '@/config/state.js';
 import { createLogger } from '@/utils/logger.js';
 import { generatePortalHtml } from '@/daemon/portal.js';
 import { getIconPng, getIconSvg, getManifestJson, getServiceWorker } from '@/daemon/pwa.js';
+import { getPublicVapidKey } from '@/daemon/notification/vapid.js';
+import { createShareManager } from '@/daemon/share-manager.js';
 import { generateNativeTerminalHtml } from './html-template.js';
 import type { NativeSessionManager } from './session-manager.js';
 import { isNativeTerminalHtmlPath } from './ws-handler.js';
@@ -24,6 +27,14 @@ const log = createLogger('native-http');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Create ShareManager with file-system backed store
+const shareManager = createShareManager({
+  getShares: getAllShares,
+  addShare: addShare,
+  removeShare: removeShare,
+  getShare: (token: string) => getShare(token)
+});
 
 // Static file caches
 interface CacheEntry {
@@ -103,7 +114,8 @@ function securityHeaders(sentryEnabled = false): Record<string, string> {
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'SAMEORIGIN',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Content-Security-Policy': `default-src 'self'; script-src 'self' 'unsafe-inline'${sentryScriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:${sentryConnectSrc}; frame-src 'self'`,
+    // Allow Google OAuth for Caddy forward_auth, and https: for general API calls
+    'Content-Security-Policy': `default-src 'self'; script-src 'self' 'unsafe-inline'${sentryScriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss: https:${sentryConnectSrc}; frame-src 'self'`,
     'Permissions-Policy': 'geolocation=(), microphone=(), camera=(), payment=()',
   };
 }
@@ -253,6 +265,41 @@ export async function handleHttpRequest(
     }
   }
 
+  // Share page: /share/:token
+  const shareMatch = pathname.match(new RegExp(`^${basePath}/share/([^/]+)$`));
+  if (shareMatch?.[1]) {
+    const token = decodeURIComponent(shareMatch[1]);
+    const share = shareManager.validateShare(token);
+
+    if (!share) {
+      return new Response('Share link not found or expired', {
+        status: 404,
+        headers: { ...headers, 'Content-Type': 'text/plain' },
+      });
+    }
+
+    const sessionName = share.sessionName;
+
+    // Check if session exists
+    if (!sessionManager.hasSession(sessionName)) {
+      return new Response('Session not found', {
+        status: 404,
+        headers: { ...headers, 'Content-Type': 'text/plain' },
+      });
+    }
+
+    const html = generateNativeTerminalHtml({
+      sessionName,
+      basePath,
+      sessionPath: `${basePath}/${sessionName}`,
+      config,
+      isShared: true,
+    });
+    return new Response(html, {
+      headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' },
+    });
+  }
+
   // Not found
   return new Response('Not Found', {
     status: 404,
@@ -396,6 +443,312 @@ async function handleApiRequest(
     try {
       await sessionManager.stopSession(sessionName);
       return new Response(JSON.stringify({ success: true }), { headers });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers,
+      });
+    }
+  }
+
+  // === Notification API ===
+
+  // GET /api/notifications/vapid-key
+  if (apiPath === '/notifications/vapid-key' && method === 'GET') {
+    try {
+      const publicKey = getPublicVapidKey(getStateDir());
+      return new Response(JSON.stringify({ publicKey }), { headers });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers,
+      });
+    }
+  }
+
+  // GET /api/notifications/subscriptions
+  if (apiPath === '/notifications/subscriptions' && method === 'GET') {
+    return new Response(JSON.stringify([]), { headers });
+  }
+
+  // === Share API ===
+
+  // GET /api/shares - List all shares
+  if (apiPath === '/shares' && method === 'GET') {
+    const shares = shareManager.listShares();
+    return new Response(JSON.stringify(shares), { headers });
+  }
+
+  // POST /api/shares - Create a share
+  if (apiPath === '/shares' && method === 'POST') {
+    try {
+      const body = await req.json() as { sessionName: string; expiresIn?: string };
+
+      // Check if session exists
+      if (!sessionManager.hasSession(body.sessionName)) {
+        return new Response(JSON.stringify({ error: `Session "${body.sessionName}" not found` }), {
+          status: 404,
+          headers,
+        });
+      }
+
+      const share = shareManager.createShare(body.sessionName, {
+        expiresIn: body.expiresIn ?? '1h'
+      });
+      return new Response(JSON.stringify(share), { status: 201, headers });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 400,
+        headers,
+      });
+    }
+  }
+
+  // GET /api/shares/:token - Validate a share
+  if (apiPath.startsWith('/shares/') && method === 'GET') {
+    const token = decodeURIComponent(apiPath.slice('/shares/'.length));
+    const share = shareManager.validateShare(token);
+    if (share) {
+      return new Response(JSON.stringify(share), { headers });
+    }
+    return new Response(JSON.stringify({ error: 'Share not found or expired' }), {
+      status: 404,
+      headers,
+    });
+  }
+
+  // DELETE /api/shares/:token - Revoke a share
+  if (apiPath.startsWith('/shares/') && method === 'DELETE') {
+    const token = decodeURIComponent(apiPath.slice('/shares/'.length));
+    const success = shareManager.revokeShare(token);
+    if (success) {
+      return new Response(JSON.stringify({ success: true }), { headers });
+    }
+    return new Response(JSON.stringify({ error: 'Share not found' }), {
+      status: 404,
+      headers,
+    });
+  }
+
+  // === File API ===
+
+  // GET /api/files/list?session=<name>&path=<path>
+  if (apiPath.startsWith('/files/list') && method === 'GET') {
+    const params = new URL(req.url).searchParams;
+    const sessionName = params.get('session');
+    const filePath = params.get('path') || '.';
+
+    if (!sessionName) {
+      return new Response(JSON.stringify({ error: 'session parameter is required' }), {
+        status: 400,
+        headers,
+      });
+    }
+
+    const session = sessionManager.getSession(sessionName);
+    if (!session) {
+      return new Response(JSON.stringify({ error: `Session "${sessionName}" not found` }), {
+        status: 404,
+        headers,
+      });
+    }
+
+    try {
+      const baseDir = session.cwd;
+      const targetPath = resolve(baseDir, filePath);
+
+      // Security: ensure path is within base directory
+      if (!targetPath.startsWith(baseDir)) {
+        return new Response(JSON.stringify({ error: 'Invalid path' }), {
+          status: 400,
+          headers,
+        });
+      }
+
+      if (!existsSync(targetPath)) {
+        return new Response(JSON.stringify({ error: 'Path not found' }), {
+          status: 404,
+          headers,
+        });
+      }
+
+      const stat = statSync(targetPath);
+      if (!stat.isDirectory()) {
+        return new Response(JSON.stringify({ error: 'Path is not a directory' }), {
+          status: 400,
+          headers,
+        });
+      }
+
+      const entries = readdirSync(targetPath, { withFileTypes: true });
+      const files = entries.map((entry) => ({
+        name: entry.name,
+        isDirectory: entry.isDirectory(),
+        size: entry.isFile() ? statSync(join(targetPath, entry.name)).size : 0,
+      }));
+
+      return new Response(JSON.stringify({ path: filePath, files }), { headers });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers,
+      });
+    }
+  }
+
+  // GET /api/files/download?session=<name>&path=<path>
+  if (apiPath.startsWith('/files/download') && method === 'GET') {
+    const params = new URL(req.url).searchParams;
+    const sessionName = params.get('session');
+    const filePath = params.get('path');
+
+    if (!sessionName || !filePath) {
+      return new Response(JSON.stringify({ error: 'session and path parameters are required' }), {
+        status: 400,
+        headers,
+      });
+    }
+
+    const session = sessionManager.getSession(sessionName);
+    if (!session) {
+      return new Response(JSON.stringify({ error: `Session "${sessionName}" not found` }), {
+        status: 404,
+        headers,
+      });
+    }
+
+    try {
+      const baseDir = session.cwd;
+      const targetPath = resolve(baseDir, filePath);
+
+      // Security: ensure path is within base directory
+      if (!targetPath.startsWith(baseDir)) {
+        return new Response(JSON.stringify({ error: 'Invalid path' }), {
+          status: 400,
+          headers,
+        });
+      }
+
+      if (!existsSync(targetPath)) {
+        return new Response(JSON.stringify({ error: 'File not found' }), {
+          status: 404,
+          headers,
+        });
+      }
+
+      const content = readFileSync(targetPath);
+      const filename = filePath.split('/').pop() || 'download';
+
+      return new Response(content, {
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'Content-Disposition': `attachment; filename="${filename}"`,
+        },
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers,
+      });
+    }
+  }
+
+  // POST /api/files/upload?session=<name>&path=<path>
+  if (apiPath.startsWith('/files/upload') && method === 'POST') {
+    const params = new URL(req.url).searchParams;
+    const sessionName = params.get('session');
+    const filePath = params.get('path');
+
+    if (!sessionName || !filePath) {
+      return new Response(JSON.stringify({ error: 'session and path parameters are required' }), {
+        status: 400,
+        headers,
+      });
+    }
+
+    const session = sessionManager.getSession(sessionName);
+    if (!session) {
+      return new Response(JSON.stringify({ error: `Session "${sessionName}" not found` }), {
+        status: 404,
+        headers,
+      });
+    }
+
+    try {
+      const baseDir = session.cwd;
+      const targetPath = resolve(baseDir, filePath);
+
+      // Security: ensure path is within base directory
+      if (!targetPath.startsWith(baseDir)) {
+        return new Response(JSON.stringify({ error: 'Invalid path' }), {
+          status: 400,
+          headers,
+        });
+      }
+
+      const content = await req.arrayBuffer();
+      writeFileSync(targetPath, Buffer.from(content));
+
+      return new Response(JSON.stringify({ success: true, path: filePath }), {
+        status: 201,
+        headers,
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers,
+      });
+    }
+  }
+
+  // === Preview API ===
+
+  // GET /api/preview/file?session=<name>&path=<path>
+  if (apiPath.startsWith('/preview/file') && method === 'GET') {
+    const params = new URL(req.url).searchParams;
+    const sessionName = params.get('session');
+    const filePath = params.get('path');
+
+    if (!sessionName || !filePath) {
+      return new Response(JSON.stringify({ error: 'session and path parameters are required' }), {
+        status: 400,
+        headers,
+      });
+    }
+
+    const session = sessionManager.getSession(sessionName);
+    if (!session) {
+      return new Response(JSON.stringify({ error: `Session "${sessionName}" not found` }), {
+        status: 404,
+        headers,
+      });
+    }
+
+    try {
+      const baseDir = session.cwd;
+      const targetPath = resolve(baseDir, filePath);
+
+      // Security: ensure path is within base directory
+      if (!targetPath.startsWith(baseDir)) {
+        return new Response(JSON.stringify({ error: 'Invalid path' }), {
+          status: 400,
+          headers,
+        });
+      }
+
+      if (!existsSync(targetPath)) {
+        return new Response(JSON.stringify({ error: 'File not found' }), {
+          status: 404,
+          headers,
+        });
+      }
+
+      const content = readFileSync(targetPath, 'utf-8');
+      return new Response(content, {
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+        },
+      });
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), {
         status: 500,

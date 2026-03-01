@@ -1607,4 +1607,326 @@ native_terminal:
     const hasContent = await waitForFileContent(outputFile, 'native terminal works', 10000);
     expect(hasContent).toBe(true);
   });
+
+  // === Task #1: Bell Event Tests ===
+
+  test('bell event triggers onBell callback', async ({ page }) => {
+    // Create session if not exists
+    await fetch(`http://127.0.0.1:${daemonPort}${BASE_PATH}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: sessionName, dir: TEST_DIR }),
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    await page.goto(`http://127.0.0.1:${daemonPort}${BASE_PATH}/${sessionName}/`);
+    await page.waitForSelector('.xterm-helper-textarea', { timeout: 15000 });
+    await page.waitForTimeout(2000);
+
+    // Set up bell event listener BEFORE sending the command
+    await page.evaluate(() => {
+      const term = (window as Window & { term?: { onBell: (fn: () => void) => void } }).term;
+      if (term) {
+        (window as Window & { __bellTriggered?: boolean }).__bellTriggered = false;
+        term.onBell(() => {
+          (window as Window & { __bellTriggered?: boolean }).__bellTriggered = true;
+          console.log('[TEST] Bell triggered!');
+        });
+      }
+    });
+
+    // Send bell character using printf (more reliable than echo -e)
+    await page.locator('.xterm-helper-textarea').focus();
+    await page.keyboard.type('printf "\\a"', { delay: 30 });
+    await page.keyboard.press('Enter');
+
+    // Wait for the bell to be processed
+    await page.waitForTimeout(2000);
+
+    // Check if bell was triggered
+    const bellTriggered = await page.evaluate(() => {
+      return (window as Window & { __bellTriggered?: boolean }).__bellTriggered ?? false;
+    });
+
+    expect(bellTriggered).toBe(true);
+  });
+
+  // === Task #5: ShareManager Tests ===
+
+  test('share button opens share modal', async ({ page }) => {
+    await fetch(`http://127.0.0.1:${daemonPort}${BASE_PATH}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: sessionName, dir: TEST_DIR }),
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    await page.goto(`http://127.0.0.1:${daemonPort}${BASE_PATH}/${sessionName}/`);
+    await page.waitForSelector('.xterm', { timeout: 15000 });
+    await page.waitForTimeout(1000);
+
+    // Hide onboarding via JavaScript (it blocks toolbar buttons)
+    await page.evaluate(() => {
+      const onboarding = document.getElementById('tui-onboarding');
+      if (onboarding) {
+        onboarding.style.display = 'none';
+      }
+    });
+
+    // Click share button
+    const shareBtn = page.locator('#tui-share');
+    await expect(shareBtn).toBeVisible();
+    await shareBtn.click();
+
+    // Verify share modal opens
+    const shareModal = page.locator('#tui-share-modal');
+    await expect(shareModal).toBeVisible({ timeout: 5000 });
+  });
+
+  test('can create share link in native mode', async ({ page, request }) => {
+    await fetch(`http://127.0.0.1:${daemonPort}${BASE_PATH}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: sessionName, dir: TEST_DIR }),
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Create share via API
+    const response = await request.post(`http://127.0.0.1:${daemonPort}${BASE_PATH}/api/shares`, {
+      data: {
+        sessionName: sessionName,
+        expiresIn: '1h',
+      },
+    });
+
+    expect(response.ok()).toBeTruthy();
+    const share = await response.json();
+    expect(share.token).toBeDefined();
+
+    // Access shared view
+    await page.goto(`http://127.0.0.1:${daemonPort}${BASE_PATH}/share/${share.token}`);
+
+    // Verify terminal loads in shared view
+    await page.waitForSelector('.xterm', { timeout: 15000 });
+    await expect(page.locator('.xterm')).toBeVisible();
+  });
+
+  // === Task #6: SessionSwitcher Tests ===
+
+  test('session button opens session switcher modal', async ({ page }) => {
+    await fetch(`http://127.0.0.1:${daemonPort}${BASE_PATH}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: sessionName, dir: TEST_DIR }),
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    await page.goto(`http://127.0.0.1:${daemonPort}${BASE_PATH}/${sessionName}/`);
+    await page.waitForSelector('.xterm', { timeout: 15000 });
+    await page.waitForTimeout(1000);
+
+    // Click session button
+    const sessionBtn = page.locator('#tui-session');
+    await expect(sessionBtn).toBeVisible();
+    await sessionBtn.click();
+
+    // Verify session switcher modal opens
+    const sessionModal = page.locator('#tui-session-modal');
+    await expect(sessionModal).toBeVisible({ timeout: 5000 });
+  });
+
+  test('session switcher shows current session', async ({ page }) => {
+    await fetch(`http://127.0.0.1:${daemonPort}${BASE_PATH}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: sessionName, dir: TEST_DIR }),
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    await page.goto(`http://127.0.0.1:${daemonPort}${BASE_PATH}/${sessionName}/`);
+    await page.waitForSelector('.xterm', { timeout: 15000 });
+    await page.waitForTimeout(1000);
+
+    // Click session button to open modal
+    await page.locator('#tui-session').click();
+    await page.waitForSelector('#tui-session-modal:not(.hidden)', { timeout: 5000 });
+
+    // Wait for sessions to load
+    await page.waitForTimeout(500);
+
+    // Verify current session is in the list
+    const sessionList = page.locator('#tui-session-list');
+    await expect(sessionList).toContainText(sessionName);
+  });
+
+  // === Task #7: FileTransferManager Tests ===
+
+  test('download button opens file browser', async ({ page }) => {
+    await fetch(`http://127.0.0.1:${daemonPort}${BASE_PATH}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: sessionName, dir: TEST_DIR }),
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    await page.goto(`http://127.0.0.1:${daemonPort}${BASE_PATH}/${sessionName}/`);
+    await page.waitForSelector('.xterm', { timeout: 15000 });
+    await page.waitForTimeout(1000);
+
+    // Click download button
+    const downloadBtn = page.locator('#tui-download');
+    await expect(downloadBtn).toBeVisible();
+    await downloadBtn.click();
+
+    // Verify file browser modal opens
+    const fileModal = page.locator('#tui-file-modal');
+    await expect(fileModal).toBeVisible({ timeout: 5000 });
+  });
+
+  test('file browser lists files in session directory', async ({ page }) => {
+    // Create a test file
+    writeFileSync(join(TEST_DIR, 'native-file-test.txt'), 'file browser test');
+
+    await fetch(`http://127.0.0.1:${daemonPort}${BASE_PATH}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: sessionName, dir: TEST_DIR }),
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    await page.goto(`http://127.0.0.1:${daemonPort}${BASE_PATH}/${sessionName}/`);
+    await page.waitForSelector('.xterm', { timeout: 15000 });
+    await page.waitForTimeout(1000);
+
+    // Open file browser
+    const downloadBtn = page.locator('#tui-download');
+    await downloadBtn.click();
+    await page.waitForSelector('#tui-file-modal', { timeout: 5000 });
+
+    // Wait for file list to load
+    await page.waitForTimeout(1000);
+
+    // Verify test file is in the list
+    const fileList = page.locator('#tui-file-list');
+    await expect(fileList).toContainText('native-file-test.txt', { timeout: 5000 });
+  });
+
+  test('can download file via file browser', async ({ page }) => {
+    const testContent = 'native download test content';
+    writeFileSync(join(TEST_DIR, 'native-download.txt'), testContent);
+
+    await fetch(`http://127.0.0.1:${daemonPort}${BASE_PATH}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: sessionName, dir: TEST_DIR }),
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    await page.goto(`http://127.0.0.1:${daemonPort}${BASE_PATH}/${sessionName}/`);
+    await page.waitForSelector('.xterm', { timeout: 15000 });
+    await page.waitForTimeout(1000);
+
+    // Open file browser
+    await page.locator('#tui-download').click();
+    await page.waitForSelector('#tui-file-modal', { timeout: 5000 });
+    await page.waitForTimeout(1000);
+
+    // Start download listener
+    const downloadPromise = page.waitForEvent('download', { timeout: 10000 });
+
+    // Click on the file to download
+    await page.locator('#tui-file-list').getByText('native-download.txt').click();
+
+    // Verify download started
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe('native-download.txt');
+  });
+
+  // === Task #2: FileWatcher Tests ===
+
+  test('preview API endpoints work in native mode', async ({ request }) => {
+    await fetch(`http://127.0.0.1:${daemonPort}${BASE_PATH}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: sessionName, dir: TEST_DIR }),
+    });
+
+    // Create test HTML file
+    writeFileSync(join(TEST_DIR, 'preview-test.html'), '<html><body>Preview Test</body></html>');
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Test preview file API
+    const response = await request.get(
+      `http://127.0.0.1:${daemonPort}${BASE_PATH}/api/preview/file?session=${sessionName}&path=preview-test.html`
+    );
+
+    expect(response.ok()).toBeTruthy();
+    const content = await response.text();
+    expect(content).toContain('Preview Test');
+  });
+
+  // === Task #3: PreviewManager Tests ===
+
+  test('preview button opens preview selector', async ({ page }) => {
+    await fetch(`http://127.0.0.1:${daemonPort}${BASE_PATH}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: sessionName, dir: TEST_DIR }),
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    await page.goto(`http://127.0.0.1:${daemonPort}${BASE_PATH}/${sessionName}/`);
+    await page.waitForSelector('.xterm', { timeout: 15000 });
+    await page.waitForTimeout(1000);
+
+    // Click preview button
+    const previewBtn = page.locator('#tui-preview');
+    await expect(previewBtn).toBeVisible();
+    await previewBtn.click();
+
+    // Verify file browser opens for preview selection
+    const fileModal = page.locator('#tui-file-modal');
+    await expect(fileModal).toBeVisible({ timeout: 5000 });
+  });
+
+  // === Task #4: NotificationManager Tests ===
+
+  test('notification button is visible in native mode', async ({ page }) => {
+    await fetch(`http://127.0.0.1:${daemonPort}${BASE_PATH}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: sessionName, dir: TEST_DIR }),
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    await page.goto(`http://127.0.0.1:${daemonPort}${BASE_PATH}/${sessionName}/`);
+    await page.waitForSelector('.xterm', { timeout: 15000 });
+    await page.waitForTimeout(1000);
+
+    // Verify notification button is visible
+    const notifyBtn = page.locator('#tui-notify');
+    await expect(notifyBtn).toBeVisible();
+  });
+
+  test('notification API endpoints work in native mode', async ({ request }) => {
+    // Test VAPID key endpoint
+    const response = await request.get(
+      `http://127.0.0.1:${daemonPort}${BASE_PATH}/api/notifications/vapid-key`
+    );
+
+    expect(response.ok()).toBeTruthy();
+    const data = await response.json();
+    expect(data.publicKey).toBeDefined();
+  });
 });

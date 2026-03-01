@@ -13,6 +13,7 @@ import {
   type ServerMessage,
   type TerminalSessionInfo,
   type TerminalSessionOptions,
+  createBellMessage,
   createExitMessage,
   createOutputMessage,
   createPongMessage,
@@ -20,13 +21,24 @@ import {
   serializeServerMessage,
 } from './types.js';
 
+// Bell character (ASCII 7)
+const BELL_CHAR = 0x07;
+
 const DEFAULT_COLS = 80;
 const DEFAULT_ROWS = 24;
 const DEFAULT_OUTPUT_BUFFER_SIZE = 1000;
 
+// Bun.Terminal type (not exported by Bun types yet)
+interface BunTerminal {
+  write(data: string | Uint8Array): void;
+  resize(cols: number, rows: number): void;
+  close(): void;
+  closed: boolean;
+}
+
 export class TerminalSession {
-  // biome-ignore lint/suspicious/noExplicitAny: Bun.Terminal subprocess type varies
-  private proc: any = null;
+  private proc: ReturnType<typeof Bun.spawn> | null = null;
+  private terminal: BunTerminal | null = null;
   private clients: Set<NativeTerminalWebSocket> = new Set();
   private outputBuffer: string[] = [];
   private readonly maxOutputBuffer: number;
@@ -34,7 +46,6 @@ export class TerminalSession {
   private currentCols: number;
   private currentRows: number;
   private exitCode: number | null = null;
-  private isClosing = false;
 
   readonly name: string;
   readonly cwd: string;
@@ -58,8 +69,7 @@ export class TerminalSession {
       throw new Error(`Session ${this.name} is already running`);
     }
 
-    // Note: Bun.Terminal API requires specific spawn options
-    // The terminal option creates a PTY with the specified dimensions
+    // Use Bun.Terminal for PTY management
     this.proc = Bun.spawn(this.command, {
       cwd: this.cwd,
       env: {
@@ -67,48 +77,31 @@ export class TerminalSession {
         ...this.options.env,
         TERM: 'xterm-256color',
       },
-      stdin: 'pipe',
-      stdout: 'pipe',
-      stderr: 'inherit',
       terminal: {
         cols: this.currentCols,
         rows: this.currentRows,
+        data: (_terminal: BunTerminal, data: Uint8Array) => {
+          this.handleOutput(data);
+        },
+        exit: (_terminal: BunTerminal, code: number) => {
+          console.log(`[TerminalSession:${this.name}] Terminal exit callback: ${code}`);
+        },
       },
     });
 
-    // Read stdout and broadcast to clients
-    this.readOutput();
+    // Get terminal reference
+    // biome-ignore lint/suspicious/noExplicitAny: Bun.Terminal type not fully exported
+    this.terminal = (this.proc as any).terminal as BunTerminal;
+
+    console.log(`[TerminalSession:${this.name}] Started PTY with PID: ${this.proc.pid}`);
 
     // Handle process exit
-    this.proc.exited.then((code: number) => {
+    this.proc.exited.then((code) => {
+      console.log(`[TerminalSession:${this.name}] Process exited: code=${code}`);
       this.exitCode = code;
       this.broadcast(createExitMessage(code));
       this.cleanup();
     });
-  }
-
-  /**
-   * Read output from the PTY and broadcast to clients
-   */
-  private async readOutput(): Promise<void> {
-    if (!this.proc?.stdout) return;
-
-    const reader = this.proc.stdout.getReader();
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        this.handleOutput(value);
-      }
-    } catch (error) {
-      if (!this.isClosing) {
-        console.error(`[TerminalSession:${this.name}] Read error:`, error);
-      }
-    } finally {
-      reader.releaseLock();
-    }
   }
 
   /**
@@ -117,6 +110,11 @@ export class TerminalSession {
   private handleOutput(data: Uint8Array): void {
     const message = createOutputMessage(data);
     const serialized = serializeServerMessage(message);
+
+    // Check for bell character and send bell message
+    if (data.includes(BELL_CHAR)) {
+      this.broadcast(createBellMessage());
+    }
 
     // Buffer for AI features
     this.outputBuffer.push(message.data);
@@ -128,8 +126,8 @@ export class TerminalSession {
     for (const ws of this.clients) {
       try {
         ws.send(serialized);
-      } catch {
-        // Client disconnected, will be cleaned up
+      } catch (error) {
+        console.error(`[TerminalSession:${this.name}] Send error:`, error);
       }
     }
   }
@@ -152,12 +150,8 @@ export class TerminalSession {
    * Write data to the PTY
    */
   write(data: string): void {
-    if (this.proc?.stdin) {
-      // Write to stdin for terminal input
-      const writer = this.proc.stdin.getWriter();
-      const encoder = new TextEncoder();
-      writer.write(encoder.encode(data));
-      writer.releaseLock();
+    if (this.terminal && !this.terminal.closed) {
+      this.terminal.write(data);
     }
   }
 
@@ -170,9 +164,13 @@ export class TerminalSession {
     this.currentCols = cols;
     this.currentRows = rows;
 
-    // Note: Bun.Terminal resize API
-    // This requires the terminal property on the subprocess
-    // The exact API may vary based on Bun version
+    if (this.terminal && !this.terminal.closed && this.isRunning) {
+      try {
+        this.terminal.resize(cols, rows);
+      } catch (error) {
+        console.error(`[TerminalSession:${this.name}] Resize failed:`, error);
+      }
+    }
   }
 
   /**
@@ -280,19 +278,25 @@ export class TerminalSession {
    * Stop the session
    */
   async stop(): Promise<void> {
-    this.isClosing = true;
     this.cleanup();
+
+    if (this.terminal && !this.terminal.closed) {
+      this.terminal.close();
+    }
 
     if (this.proc) {
       try {
         this.proc.kill();
+        // Wait a bit for process to exit
         await Promise.race([
           this.proc.exited,
-          new Promise((resolve) => setTimeout(resolve, 5000)),
+          new Promise((resolve) => setTimeout(resolve, 1000)),
         ]);
       } catch {
         // Process may already be dead
       }
+      this.proc = null;
+      this.terminal = null;
     }
   }
 

@@ -54,12 +54,17 @@ export interface ErrorMessage {
   message: string;
 }
 
+export interface BellMessage {
+  type: 'bell';
+}
+
 export type ServerMessage =
   | OutputMessage
   | TitleMessage
   | ExitMessage
   | PongMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | BellMessage;
 
 // === Session Types ===
 
@@ -176,4 +181,11 @@ export function createTitleMessage(title: string): TitleMessage {
  */
 export function createPongMessage(): PongMessage {
   return { type: 'pong' };
+}
+
+/**
+ * Create a bell message
+ */
+export function createBellMessage(): BellMessage {
+  return { type: 'bell' };
 }
