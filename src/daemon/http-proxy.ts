@@ -1,9 +1,19 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { gzipSync } from 'node:zlib';
-import { DEFAULT_TOOLBAR_CONFIG, type ToolbarConfig } from '@/config/types.js';
+import {
+  DEFAULT_TERMINAL_UI_CONFIG,
+  type SentryConfig,
+  type TerminalUiConfig
+} from '@/config/types.js';
 import { createLogger } from '@/utils/logger.js';
 import httpProxy from 'http-proxy';
-import { injectToolbar } from './toolbar/index.js';
+import { injectTerminalUi } from './terminal-ui/index.js';
+
+/** Options for proxy HTML transformation */
+export interface ProxyOptions {
+  sentryConfig?: SentryConfig;
+  previewAllowedExtensions?: string[];
+}
 
 const log = createLogger('proxy');
 
@@ -23,15 +33,16 @@ export function buildCleanHeaders(
 }
 
 /**
- * Transform HTML response with toolbar injection and optional gzip compression
+ * Transform HTML response with terminal UI injection and optional gzip compression
  */
 export function transformHtmlResponse(
   originalHtml: string,
   supportsGzip: boolean,
   basePath: string,
-  toolbarConfig: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG
+  terminalUiConfig: TerminalUiConfig = DEFAULT_TERMINAL_UI_CONFIG,
+  options: ProxyOptions = {}
 ): { body: Buffer; headers: Record<string, string> } {
-  const modifiedHtml = injectToolbar(originalHtml, basePath, toolbarConfig);
+  const modifiedHtml = injectTerminalUi(originalHtml, basePath, terminalUiConfig, options);
   const headers: Record<string, string> = {};
 
   if (supportsGzip) {
@@ -99,16 +110,18 @@ proxy.on('proxyRes', (proxyRes, req, res) => {
   // Check if client supports gzip (stored in custom property before deletion)
   type ExtendedRequest = IncomingMessage & {
     originalAcceptEncoding?: string;
-    toolbarBasePath?: string;
-    toolbarConfig?: ToolbarConfig;
+    terminalUiBasePath?: string;
+    terminalUiConfig?: TerminalUiConfig;
+    proxyOptions?: ProxyOptions;
   };
   const extReq = req as ExtendedRequest;
   const acceptEncoding = extReq.originalAcceptEncoding ?? '';
   const supportsGzip = supportsGzipEncoding(acceptEncoding);
-  const basePath = extReq.toolbarBasePath ?? '/ttyd-mux';
-  const toolbarConfig = extReq.toolbarConfig ?? DEFAULT_TOOLBAR_CONFIG;
+  const basePath = extReq.terminalUiBasePath ?? '/ttyd-mux';
+  const terminalUiConfig = extReq.terminalUiConfig ?? DEFAULT_TERMINAL_UI_CONFIG;
+  const proxyOptions = extReq.proxyOptions ?? {};
 
-  // Collect HTML body and inject toolbar
+  // Collect HTML body and inject terminal UI
   const chunks: Buffer[] = [];
   proxyRes.on('data', (chunk: Buffer) => chunks.push(chunk));
   proxyRes.on('end', () => {
@@ -117,7 +130,8 @@ proxy.on('proxyRes', (proxyRes, req, res) => {
       originalHtml,
       supportsGzip,
       basePath,
-      toolbarConfig
+      terminalUiConfig,
+      proxyOptions
     );
 
     // Build clean headers object
@@ -137,7 +151,8 @@ export function proxyToSession(
   res: ServerResponse,
   port: number,
   basePath: string,
-  toolbarConfig: ToolbarConfig = DEFAULT_TOOLBAR_CONFIG
+  terminalUiConfig: TerminalUiConfig = DEFAULT_TERMINAL_UI_CONFIG,
+  options: ProxyOptions = {}
 ): void {
   const target = `http://localhost:${port}`;
   log.debug(`Proxying ${req.url} to ${target}`);
@@ -145,13 +160,15 @@ export function proxyToSession(
   // Store original Accept-Encoding, basePath, and config for use in proxyRes handler
   type ExtendedRequest = IncomingMessage & {
     originalAcceptEncoding?: string;
-    toolbarBasePath?: string;
-    toolbarConfig?: ToolbarConfig;
+    terminalUiBasePath?: string;
+    terminalUiConfig?: TerminalUiConfig;
+    proxyOptions?: ProxyOptions;
   };
   const extReq = req as ExtendedRequest;
   extReq.originalAcceptEncoding = req.headers['accept-encoding'] as string | undefined;
-  extReq.toolbarBasePath = basePath;
-  extReq.toolbarConfig = toolbarConfig;
+  extReq.terminalUiBasePath = basePath;
+  extReq.terminalUiConfig = terminalUiConfig;
+  extReq.proxyOptions = options;
 
   // Request uncompressed response for HTML injection (identity = no encoding)
   req.headers['accept-encoding'] = 'identity';

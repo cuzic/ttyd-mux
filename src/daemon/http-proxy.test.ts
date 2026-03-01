@@ -131,8 +131,8 @@ describe('transformHtmlResponse', () => {
     const result = transformHtmlResponse(sampleHtml, false, basePath);
     const html = result.body.toString();
     // Toolbar should be injected before </body>
-    expect(html).toContain('ttyd-toolbar');
-    expect(html).toContain(`<script src="${basePath}/toolbar.js"></script>`);
+    expect(html).toContain('tui');
+    expect(html).toContain(`<script src="${basePath}/terminal-ui.js"></script>`);
   });
 
   test('sets correct content-length for uncompressed', () => {
@@ -169,6 +169,6 @@ describe('transformHtmlResponse', () => {
     const customBasePath = '/custom-path';
     const result = transformHtmlResponse(sampleHtml, false, customBasePath);
     const html = result.body.toString();
-    expect(html).toContain(`<script src="${customBasePath}/toolbar.js"></script>`);
+    expect(html).toContain(`<script src="${customBasePath}/terminal-ui.js"></script>`);
   });
 });
