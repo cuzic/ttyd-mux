@@ -92,9 +92,9 @@ listen_sockets:
     });
 
     test('loads toolbar configuration', () => {
-      const configPath = join(TEST_CONFIG_DIR, 'toolbar.yaml');
+      const configPath = join(TEST_CONFIG_DIR, 'terminal_ui.yaml');
       const yaml = `
-toolbar:
+terminal_ui:
   font_size_default_mobile: 28
   font_size_default_pc: 16
   font_size_min: 8
@@ -105,36 +105,36 @@ toolbar:
 
       const config = loadConfig(configPath);
 
-      expect(config.toolbar.font_size_default_mobile).toBe(28);
-      expect(config.toolbar.font_size_default_pc).toBe(16);
-      expect(config.toolbar.font_size_min).toBe(8);
-      expect(config.toolbar.font_size_max).toBe(64);
-      expect(config.toolbar.double_tap_delay).toBe(400);
+      expect(config.terminal_ui.font_size_default_mobile).toBe(28);
+      expect(config.terminal_ui.font_size_default_pc).toBe(16);
+      expect(config.terminal_ui.font_size_min).toBe(8);
+      expect(config.terminal_ui.font_size_max).toBe(64);
+      expect(config.terminal_ui.double_tap_delay).toBe(400);
     });
 
     test('defaults toolbar to default values', () => {
       const config = loadConfig();
 
-      expect(config.toolbar.font_size_default_mobile).toBe(32);
-      expect(config.toolbar.font_size_default_pc).toBe(14);
-      expect(config.toolbar.font_size_min).toBe(10);
-      expect(config.toolbar.font_size_max).toBe(48);
-      expect(config.toolbar.double_tap_delay).toBe(300);
+      expect(config.terminal_ui.font_size_default_mobile).toBe(32);
+      expect(config.terminal_ui.font_size_default_pc).toBe(14);
+      expect(config.terminal_ui.font_size_min).toBe(10);
+      expect(config.terminal_ui.font_size_max).toBe(48);
+      expect(config.terminal_ui.double_tap_delay).toBe(300);
     });
 
     test('partially overrides toolbar defaults', () => {
       const configPath = join(TEST_CONFIG_DIR, 'toolbar-partial.yaml');
       const yaml = `
-toolbar:
+terminal_ui:
   font_size_default_mobile: 36
 `;
       writeFileSync(configPath, yaml);
 
       const config = loadConfig(configPath);
 
-      expect(config.toolbar.font_size_default_mobile).toBe(36);
-      expect(config.toolbar.font_size_default_pc).toBe(14); // default
-      expect(config.toolbar.font_size_min).toBe(10); // default
+      expect(config.terminal_ui.font_size_default_mobile).toBe(36);
+      expect(config.terminal_ui.font_size_default_pc).toBe(14); // default
+      expect(config.terminal_ui.font_size_min).toBe(10); // default
     });
 
     test('error message includes hint for YAML parse errors', () => {

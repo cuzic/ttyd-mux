@@ -14,23 +14,27 @@ export const SessionDefinitionSchema = z.object({
 
 export type SessionDefinition = z.infer<typeof SessionDefinitionSchema>;
 
-export const ToolbarConfigSchema = z.object({
+export const TerminalUiConfigSchema = z.object({
   font_size_default_mobile: z.number().int().min(8).max(72).default(32),
   font_size_default_pc: z.number().int().min(8).max(72).default(14),
   font_size_min: z.number().int().min(6).max(20).default(10),
   font_size_max: z.number().int().min(24).max(96).default(48),
-  double_tap_delay: z.number().int().min(100).max(1000).default(300)
+  double_tap_delay: z.number().int().min(100).max(1000).default(300),
+  reconnect_retries: z.number().int().min(0).max(10).default(3),
+  reconnect_interval: z.number().int().min(500).max(10000).default(2000)
 });
 
-export type ToolbarConfig = z.infer<typeof ToolbarConfigSchema>;
+export type TerminalUiConfig = z.infer<typeof TerminalUiConfigSchema>;
 
-/** Default toolbar configuration */
-export const DEFAULT_TOOLBAR_CONFIG: ToolbarConfig = {
+/** Default terminal UI configuration */
+export const DEFAULT_TERMINAL_UI_CONFIG: TerminalUiConfig = {
   font_size_default_mobile: 32,
   font_size_default_pc: 14,
   font_size_min: 10,
   font_size_max: 48,
-  double_tap_delay: 300
+  double_tap_delay: 300,
+  reconnect_retries: 3,
+  reconnect_interval: 2000
 };
 
 export const FileTransferConfigSchema = z.object({
@@ -111,12 +115,82 @@ export const DEFAULT_TABS_CONFIG: TabsConfig = {
   show_session_info: true
 };
 
+export const StaticServingConfigSchema = z.object({
+  enabled: z.boolean().default(true),
+  allowed_extensions: z
+    .array(z.string())
+    .default([
+      '.html',
+      '.htm',
+      '.js',
+      '.mjs',
+      '.css',
+      '.json',
+      '.png',
+      '.jpg',
+      '.jpeg',
+      '.gif',
+      '.svg',
+      '.ico',
+      '.woff',
+      '.woff2',
+      '.ttf',
+      '.eot',
+      '.webp',
+      '.mp4',
+      '.webm',
+      '.ogg',
+      '.mp3',
+      '.wav'
+    ]),
+  spa_fallback: z.boolean().default(true),
+  max_file_size: z
+    .number()
+    .int()
+    .min(1024)
+    .default(50 * 1024 * 1024) // 50MB
+});
+
+export type StaticServingConfig = z.infer<typeof StaticServingConfigSchema>;
+
+/** Default static serving configuration */
+export const DEFAULT_STATIC_SERVING_CONFIG: StaticServingConfig = {
+  enabled: true,
+  allowed_extensions: [
+    '.html',
+    '.htm',
+    '.js',
+    '.mjs',
+    '.css',
+    '.json',
+    '.png',
+    '.jpg',
+    '.jpeg',
+    '.gif',
+    '.svg',
+    '.ico',
+    '.woff',
+    '.woff2',
+    '.ttf',
+    '.eot',
+    '.webp',
+    '.mp4',
+    '.webm',
+    '.ogg',
+    '.mp3',
+    '.wav'
+  ],
+  spa_fallback: true,
+  max_file_size: 50 * 1024 * 1024 // 50MB
+};
+
 export const PreviewConfigSchema = z.object({
   enabled: z.boolean().default(true),
   default_width: z.number().int().min(200).max(1200).default(400),
   debounce_ms: z.number().int().min(50).max(2000).default(300),
   auto_refresh: z.boolean().default(true),
-  allowed_extensions: z.array(z.string()).default(['.html', '.htm'])
+  allowed_extensions: z.array(z.string()).default(['.html', '.htm', '.md', '.txt']),
+  static_serving: StaticServingConfigSchema.default(DEFAULT_STATIC_SERVING_CONFIG)
 });
 
 export type PreviewConfig = z.infer<typeof PreviewConfigSchema>;
@@ -127,7 +201,8 @@ export const DEFAULT_PREVIEW_CONFIG: PreviewConfig = {
   default_width: 400,
   debounce_ms: 300,
   auto_refresh: true,
-  allowed_extensions: ['.html', '.htm']
+  allowed_extensions: ['.html', '.htm', '.md', '.txt'],
+  static_serving: DEFAULT_STATIC_SERVING_CONFIG
 };
 
 export const DirectoryBrowserConfigSchema = z.object({
@@ -143,6 +218,27 @@ export const DEFAULT_DIRECTORY_BROWSER_CONFIG: DirectoryBrowserConfig = {
   allowed_directories: []
 };
 
+export const SentryConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  dsn: z.string().optional(),
+  environment: z.string().default('production'),
+  sample_rate: z.number().min(0).max(1).default(1.0),
+  traces_sample_rate: z.number().min(0).max(1).default(0.1),
+  release: z.string().optional(),
+  debug: z.boolean().default(false)
+});
+
+export type SentryConfig = z.infer<typeof SentryConfigSchema>;
+
+/** Default Sentry configuration */
+export const DEFAULT_SENTRY_CONFIG: SentryConfig = {
+  enabled: false,
+  environment: 'production',
+  sample_rate: 1.0,
+  traces_sample_rate: 0.1,
+  debug: false
+};
+
 export const ConfigSchema = z.object({
   base_path: z.string().startsWith('/').default('/ttyd-mux'),
   base_port: z.number().int().min(1024).max(65535).default(7600),
@@ -155,12 +251,13 @@ export const ConfigSchema = z.object({
   hostname: z.string().optional(),
   caddy_admin_api: z.string().default('http://localhost:2019'),
   tmux_mode: TmuxModeSchema.default('auto'),
-  toolbar: ToolbarConfigSchema.default(DEFAULT_TOOLBAR_CONFIG),
+  terminal_ui: TerminalUiConfigSchema.default(DEFAULT_TERMINAL_UI_CONFIG),
   notifications: NotificationConfigSchema.default(DEFAULT_NOTIFICATION_CONFIG),
   file_transfer: FileTransferConfigSchema.default(DEFAULT_FILE_TRANSFER_CONFIG),
   tabs: TabsConfigSchema.default(DEFAULT_TABS_CONFIG),
   preview: PreviewConfigSchema.default(DEFAULT_PREVIEW_CONFIG),
-  directory_browser: DirectoryBrowserConfigSchema.default(DEFAULT_DIRECTORY_BROWSER_CONFIG)
+  directory_browser: DirectoryBrowserConfigSchema.default(DEFAULT_DIRECTORY_BROWSER_CONFIG),
+  sentry: SentryConfigSchema.default(DEFAULT_SENTRY_CONFIG)
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

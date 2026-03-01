@@ -67,7 +67,15 @@ export function loadState(): State {
 
   try {
     const content = readFileSync(stateFile, 'utf-8');
-    return JSON.parse(content) as State;
+    const parsed = JSON.parse(content) as Partial<State>;
+    // Merge with defaults to handle missing fields from old state files
+    const defaultState = getDefaultState();
+    return {
+      daemon: parsed.daemon ?? defaultState.daemon,
+      sessions: parsed.sessions ?? defaultState.sessions,
+      shares: parsed.shares ?? defaultState.shares,
+      pushSubscriptions: parsed.pushSubscriptions ?? defaultState.pushSubscriptions
+    };
   } catch {
     return getDefaultState();
   }
