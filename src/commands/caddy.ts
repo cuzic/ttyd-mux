@@ -297,7 +297,7 @@ export async function caddySyncCommand(options: CaddyOptions): Promise<void> {
   requireHostname(hostname);
 
   if (!(await isDaemonRunning())) {
-    console.error('Error: Daemon is not running. Start daemon first with "ttyd-mux daemon start"');
+    console.error('Error: Daemon is not running. Start daemon first with "ttyd-mux start"');
     process.exit(1);
   }
 
