@@ -210,7 +210,7 @@ describe('handleUpgrade', () => {
     const socket = createMockSocket();
     const req = createMockRequest('/ttyd-mux/unknown/ws');
 
-    mockedHandleUpgrade({} as never, req, socket, Buffer.alloc(0));
+    mockedHandleUpgrade({ base_path: '/ttyd-mux' } as never, req, socket, Buffer.alloc(0));
 
     expect(socket.destroy).toHaveBeenCalled();
   });

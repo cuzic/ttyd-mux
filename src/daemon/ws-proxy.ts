@@ -1,12 +1,27 @@
 import type { IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
+import { normalizeBasePath } from '@/config/config.js';
+import { getAllShares, getShare } from '@/config/state.js';
 import type { Config, SessionState } from '@/config/types.js';
 import { createLogger } from '@/utils/logger.js';
 import WebSocket, { WebSocketServer } from 'ws';
 import type { NotificationService } from './notification/index.js';
 import { findSessionForPath } from './router.js';
+import { sessionManager } from './session-manager.js';
+import { createShareManager } from './share-manager.js';
 
 const log = createLogger('websocket');
+
+/** Regex to extract share token from path (limited to 64 chars to prevent DoS) */
+const SHARE_PATH_REGEX = /^\/share\/([a-f0-9]{1,64})(\/.*)?$/;
+
+// Share manager for validating share tokens in WebSocket upgrades
+const shareManager = createShareManager({
+  getShares: getAllShares,
+  addShare: () => {},
+  removeShare: () => {},
+  getShare: (token: string) => getShare(token)
+});
 
 /** Maximum WebSocket message size (10MB) to prevent memory exhaustion */
 const MAX_MESSAGE_SIZE = 10 * 1024 * 1024;
@@ -255,11 +270,42 @@ export function handleUpgrade(
   socket: Socket,
   head: Buffer
 ): void {
-  const url = req.url ?? '/';
+  let url = req.url ?? '/';
   log.debug(`WebSocket upgrade request: ${url}`);
 
   // Check for read-only header (set by router for share links)
-  const readOnly = req.headers['x-ttyd-mux-readonly'] === 'true';
+  let readOnly = req.headers['x-ttyd-mux-readonly'] === 'true';
+
+  const basePath = normalizeBasePath(config.base_path);
+
+  // Handle share links: /ttyd-mux/share/:token/ws -> /ttyd-mux/:session/ws
+  const sharePath = url.slice(basePath.length);
+  const shareMatch = sharePath.match(SHARE_PATH_REGEX);
+  if (shareMatch?.[1]) {
+    const token = shareMatch[1];
+    const share = shareManager.validateShare(token);
+
+    if (!share) {
+      log.warn(`WebSocket upgrade rejected - invalid share token: ${token}`);
+      socket.destroy();
+      return;
+    }
+
+    // Find the session for this share
+    const session = sessionManager.listSessions().find((s) => s.name === share.sessionName);
+    if (!session) {
+      log.warn(`WebSocket upgrade rejected - session not found for share: ${share.sessionName}`);
+      socket.destroy();
+      return;
+    }
+
+    // Rewrite URL from /share/:token/... to the session's actual path
+    const trailingPath = shareMatch[2] ?? '/';
+    url = `${basePath}${session.path}${trailingPath}`;
+    req.url = url;
+    readOnly = true;
+    log.debug(`Share WebSocket rewritten to: ${url}`);
+  }
 
   const session = findSessionForPath(config, url);
   if (!session) {
