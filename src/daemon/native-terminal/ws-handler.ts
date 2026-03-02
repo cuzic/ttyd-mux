@@ -3,18 +3,42 @@
  *
  * Handles WebSocket connections for native terminal sessions using Bun's
  * built-in WebSocket server.
+ *
+ * Security features:
+ * - Origin validation for CSWSH protection
+ * - Sec-WebSocket-Protocol token authentication
  */
 
 import type { ServerWebSocket } from 'bun';
 import type { NativeSessionManager } from './session-manager.js';
 import type { NativeTerminalWebSocket, NativeTerminalWebSocketData } from './types.js';
 import { createErrorMessage, serializeServerMessage } from './types.js';
+import {
+  DEFAULT_SECURITY_CONFIG,
+  type SecurityConfig,
+  createBearerProtocol,
+  extractBearerToken,
+  getTokenGenerator,
+  validateOrigin
+} from './ws/index.js';
 
 export interface NativeTerminalWebSocketHandlerOptions {
   /** Session manager instance */
   sessionManager: NativeSessionManager;
   /** Base path for WebSocket endpoints (e.g., /ttyd-mux) */
   basePath: string;
+  /** Security configuration for Origin validation */
+  securityConfig?: SecurityConfig;
+  /** Enable token authentication (default: false for backward compatibility) */
+  enableTokenAuth?: boolean;
+}
+
+// Extended WebSocket data with authentication info
+export interface AuthenticatedWebSocketData extends NativeTerminalWebSocketData {
+  /** User ID from token (if authenticated) */
+  userId?: string;
+  /** Whether connection is authenticated via token */
+  authenticated: boolean;
 }
 
 /**
@@ -27,14 +51,18 @@ type BunServer = any;
 export function createNativeTerminalWebSocketHandlers(
   options: NativeTerminalWebSocketHandlerOptions
 ): {
-  upgrade: (req: Request, server: BunServer) => Response | undefined;
+  upgrade: (
+    req: Request,
+    server: BunServer
+  ) => Response | undefined | Promise<Response | undefined>;
   websocket: {
-    open: (ws: ServerWebSocket<NativeTerminalWebSocketData>) => void;
-    message: (ws: ServerWebSocket<NativeTerminalWebSocketData>, message: string | Buffer) => void;
-    close: (ws: ServerWebSocket<NativeTerminalWebSocketData>) => void;
+    open: (ws: ServerWebSocket<AuthenticatedWebSocketData>) => void;
+    message: (ws: ServerWebSocket<AuthenticatedWebSocketData>, message: string | Buffer) => void;
+    close: (ws: ServerWebSocket<AuthenticatedWebSocketData>) => void;
   };
 } {
-  const { sessionManager, basePath } = options;
+  const { sessionManager, basePath, enableTokenAuth = false } = options;
+  const securityConfig = options.securityConfig ?? DEFAULT_SECURITY_CONFIG;
 
   /**
    * Extract session name from WebSocket path
@@ -58,12 +86,52 @@ export function createNativeTerminalWebSocketHandlers(
     /**
      * Upgrade HTTP request to WebSocket for native terminal
      */
-    upgrade(req: Request, server: BunServer): Response | undefined {
+    async upgrade(req: Request, server: BunServer): Promise<Response | undefined> {
       const url = new URL(req.url);
       const sessionName = extractSessionName(url.pathname);
 
       if (!sessionName) {
         return undefined; // Not a native terminal WebSocket request
+      }
+
+      // === Origin Validation ===
+      const originResult = validateOrigin(req, securityConfig);
+      if (!originResult.allowed) {
+        console.warn(
+          `[NativeTerminalWS] Origin validation failed: ${originResult.reason} for ${req.headers.get('Origin')}`
+        );
+        return new Response(`Forbidden: ${originResult.reason}`, { status: 403 });
+      }
+
+      // === Token Authentication (optional) ===
+      let userId: string | undefined;
+      let authenticated = false;
+      let responseProtocol: string | undefined;
+
+      if (enableTokenAuth) {
+        const protocols = req.headers.get('Sec-WebSocket-Protocol');
+        const token = extractBearerToken(protocols);
+
+        if (!token) {
+          return new Response('Unauthorized: Token required', { status: 401 });
+        }
+
+        const tokenGenerator = getTokenGenerator();
+        const validation = await tokenGenerator.validate(token);
+
+        if (!validation.valid) {
+          console.warn(`[NativeTerminalWS] Token validation failed: ${validation.error}`);
+          return new Response(`Unauthorized: ${validation.error}`, { status: 401 });
+        }
+
+        // Verify token is for this session
+        if (validation.session?.sid !== sessionName) {
+          return new Response('Unauthorized: Token session mismatch', { status: 401 });
+        }
+
+        userId = validation.session.uid;
+        authenticated = true;
+        responseProtocol = createBearerProtocol(token);
       }
 
       // Check if session exists
@@ -73,9 +141,25 @@ export function createNativeTerminalWebSocketHandlers(
       }
 
       // Upgrade to WebSocket
-      const upgraded = server.upgrade(req, {
-        data: { sessionName }
-      });
+      const upgradeOptions: {
+        data: AuthenticatedWebSocketData;
+        headers?: Record<string, string>;
+      } = {
+        data: {
+          sessionName,
+          userId,
+          authenticated
+        }
+      };
+
+      // Echo back the Sec-WebSocket-Protocol if token auth is enabled
+      if (responseProtocol) {
+        upgradeOptions.headers = {
+          'Sec-WebSocket-Protocol': responseProtocol
+        };
+      }
+
+      const upgraded = server.upgrade(req, upgradeOptions);
 
       if (upgraded) {
         return undefined; // Upgrade successful
@@ -88,8 +172,8 @@ export function createNativeTerminalWebSocketHandlers(
       /**
        * Handle WebSocket connection opened
        */
-      open(ws: NativeTerminalWebSocket): void {
-        const { sessionName } = ws.data;
+      open(ws: ServerWebSocket<AuthenticatedWebSocketData>): void {
+        const { sessionName, authenticated, userId } = ws.data;
         const session = sessionManager.getSession(sessionName);
 
         if (!session) {
@@ -98,14 +182,19 @@ export function createNativeTerminalWebSocketHandlers(
           return;
         }
 
-        session.addClient(ws);
-        console.log(`[NativeTerminalWS] Client connected to session: ${sessionName}`);
+        // Cast to base type for session manager compatibility
+        session.addClient(ws as unknown as NativeTerminalWebSocket);
+
+        const authInfo = authenticated
+          ? ` (authenticated${userId ? `, user: ${userId}` : ''})`
+          : '';
+        console.log(`[NativeTerminalWS] Client connected to session: ${sessionName}${authInfo}`);
       },
 
       /**
        * Handle incoming WebSocket message
        */
-      message(ws: NativeTerminalWebSocket, message: string | Buffer): void {
+      message(ws: ServerWebSocket<AuthenticatedWebSocketData>, message: string | Buffer): void {
         const { sessionName } = ws.data;
         const session = sessionManager.getSession(sessionName);
 
@@ -117,15 +206,15 @@ export function createNativeTerminalWebSocketHandlers(
         // Convert Buffer to string if needed
         const messageStr = typeof message === 'string' ? message : message.toString('utf-8');
 
-        session.handleMessage(ws, messageStr);
+        session.handleMessage(ws as unknown as NativeTerminalWebSocket, messageStr);
       },
 
       /**
        * Handle WebSocket connection closed
        */
-      close(ws: NativeTerminalWebSocket): void {
+      close(ws: ServerWebSocket<AuthenticatedWebSocketData>): void {
         const { sessionName } = ws.data;
-        sessionManager.handleWebSocketClose(sessionName, ws);
+        sessionManager.handleWebSocketClose(sessionName, ws as unknown as NativeTerminalWebSocket);
         console.log(`[NativeTerminalWS] Client disconnected from session: ${sessionName}`);
       }
     }
