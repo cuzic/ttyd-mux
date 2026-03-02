@@ -16,13 +16,64 @@ export interface BlockContext {
   endedAt?: string;
 }
 
+/** File source type */
+export type FileSource = 'plans' | 'project';
+
+/** File context for AI requests */
+export interface FileContext {
+  /** File source: 'plans' (Claude plans) or 'project' (project directory) */
+  source: FileSource;
+  /** File path (relative to source directory) */
+  path: string;
+  /** File name */
+  name: string;
+  /** File content */
+  content: string;
+  /** File size in bytes */
+  size: number;
+  /** Last modified timestamp (ISO 8601) */
+  modifiedAt: string;
+}
+
+/** File reference (without content) */
+export interface FileReference {
+  /** File source: 'plans' or 'project' */
+  source: FileSource;
+  /** File path (relative to source directory) */
+  path: string;
+  /** File name */
+  name: string;
+  /** File size in bytes */
+  size: number;
+  /** Last modified timestamp (ISO 8601) */
+  modifiedAt: string;
+}
+
 /** Render mode for block context */
 export type RenderMode = 'full' | 'errorOnly' | 'preview' | 'commandOnly';
+
+/** File specification for context */
+export interface FileSpec {
+  source: FileSource;
+  path: string;
+}
+
+/** Inline block with content (for Claude turns and client-side blocks) */
+export interface InlineBlock {
+  id: string;
+  type: 'command' | 'claude';
+  content: string;
+  metadata?: Record<string, unknown>;
+}
 
 /** Context specification for AI requests */
 export interface ContextSpec {
   sessionId: string;
   blocks: string[];
+  /** Inline blocks with content (for Claude turns) */
+  inlineBlocks?: InlineBlock[];
+  /** Optional file references to include in context */
+  files?: FileSpec[];
   renderMode: RenderMode;
 }
 
@@ -120,12 +171,23 @@ export interface BlockSnapshot {
   status: 'running' | 'success' | 'error';
 }
 
+/** File snapshot for AI run history */
+export interface FileSnapshot {
+  source: FileSource;
+  path: string;
+  name: string;
+  size: number;
+}
+
 /** AI run record */
 export interface AIRun {
   id: string;
   threadId: string;
   request: AIChatRequest;
-  contextSnapshot: { blocks: BlockSnapshot[] };
+  contextSnapshot: {
+    blocks: BlockSnapshot[];
+    files?: FileSnapshot[];
+  };
   response: AIChatResponse;
   createdAt: string;
 }
