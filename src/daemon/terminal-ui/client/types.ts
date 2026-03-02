@@ -29,11 +29,18 @@ export interface TerminalLine {
   translateToString(trimRight?: boolean): string;
 }
 
+/** Search result change event data */
+export interface SearchResultsChangeEvent {
+  resultIndex: number;
+  resultCount: number;
+}
+
 /** Search addon interface */
 export interface SearchAddon {
   findNext(term: string, options?: SearchOptions): boolean;
   findPrevious(term: string, options?: SearchOptions): boolean;
   clearDecorations?(): void;
+  onDidChangeResults?: (callback: (results: SearchResultsChangeEvent | undefined) => void) => void;
 }
 
 /** Search options */

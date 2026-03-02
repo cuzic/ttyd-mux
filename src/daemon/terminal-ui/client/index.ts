@@ -476,6 +476,27 @@ class ToolbarApp {
         e.preventDefault();
         this.smartPaste.smartPaste();
       }
+      // Ctrl+Shift+C to copy selection to clipboard
+      if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+        e.preventDefault();
+        this.terminal.copySelection().then((success) => {
+          if (success) {
+            // Visual feedback - brief flash on terminal
+            const termEl = document.querySelector('.xterm') as HTMLElement;
+            if (termEl) {
+              termEl.style.opacity = '0.7';
+              setTimeout(() => {
+                termEl.style.opacity = '1';
+              }, 100);
+            }
+          }
+        });
+      }
+      // Ctrl+Shift+V to paste from clipboard
+      if (e.ctrlKey && e.shiftKey && e.key === 'V') {
+        e.preventDefault();
+        this.terminal.paste(this.input, this.clipboardHistory);
+      }
     });
   }
 

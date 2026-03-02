@@ -2,12 +2,12 @@
  * Search Manager
  *
  * Manages terminal search functionality using xterm.js SearchAddon.
+ *
+ * Note: SearchAddon is bundled from npm, no CDN dependency.
  */
 
+import { SearchAddon as SearchAddonClass } from '@xterm/addon-search';
 import type { SearchAddon, Terminal } from './types.js';
-
-const SEARCH_ADDON_CDN =
-  'https://cdn.jsdelivr.net/npm/@xterm/addon-search@0.15.0/lib/addon-search.min.js';
 
 export class SearchManager {
   private searchAddon: SearchAddon | null = null;
@@ -46,45 +46,42 @@ export class SearchManager {
   }
 
   /**
-   * Load SearchAddon (from window or CDN)
+   * Load SearchAddon (synchronous - bundled from npm)
    */
   loadAddon(): Promise<SearchAddon> {
     if (this.searchAddon) {
       return Promise.resolve(this.searchAddon);
     }
 
-    // Check if already available
-    if (window.SearchAddon) {
-      const term = this.findTerminal();
-      if (term) {
-        this.searchAddon = new window.SearchAddon.SearchAddon();
-        term.loadAddon(this.searchAddon);
-        return Promise.resolve(this.searchAddon);
-      }
+    const term = this.findTerminal();
+    if (!term) {
+      return Promise.reject(new Error('Terminal not available'));
     }
 
-    // Load from CDN
-    return new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = SEARCH_ADDON_CDN;
-
-      script.onload = () => {
-        const term = this.findTerminal();
-        if (term && window.SearchAddon) {
-          this.searchAddon = new window.SearchAddon.SearchAddon();
-          term.loadAddon(this.searchAddon);
-          resolve(this.searchAddon);
-        } else {
-          reject(new Error('Failed to initialize SearchAddon'));
-        }
-      };
-
-      script.onerror = () => {
-        reject(new Error('Failed to load SearchAddon'));
-      };
-
-      document.head.appendChild(script);
+    // Create SearchAddon with decoration options for highlighting
+    this.searchAddon = new SearchAddonClass({
+      decorations: {
+        matchBackground: '#665500', // Yellow-ish background for matches
+        matchBorder: '#ffaa00', // Orange border
+        matchOverviewRuler: '#ffaa00', // Orange in overview ruler
+        activeMatchBackground: '#ff6600', // Orange background for active match
+        activeMatchBorder: '#ff9900', // Brighter orange border
+        activeMatchColorOverviewRuler: '#ff6600' // Orange in overview ruler
+      },
+      highlightLimit: 1000 // Max matches to highlight
     });
+    term.loadAddon(this.searchAddon);
+
+    // Listen to match change events to update count display
+    this.searchAddon.onDidChangeResults?.((results) => {
+      if (results) {
+        this.updateMatchCount(results.resultIndex + 1, results.resultCount);
+      } else {
+        this.updateMatchCount(0, 0);
+      }
+    });
+
+    return Promise.resolve(this.searchAddon);
   }
 
   /**
@@ -186,18 +183,18 @@ export class SearchManager {
     const options = {
       caseSensitive: this.caseSensitive,
       regex: this.regex,
-      incremental: false
+      incremental: false,
+      decorations: {
+        matchBackground: '#665500',
+        matchBorder: '#ffaa00',
+        matchOverviewRuler: '#ffaa00',
+        activeMatchBackground: '#ff6600',
+        activeMatchBorder: '#ff9900',
+        activeMatchColorOverviewRuler: '#ff6600'
+      }
     };
 
-    const found = this.searchAddon.findNext(this.searchInput.value, options);
-    if (found) {
-      this.currentMatchIndex = Math.min(this.currentMatchIndex + 1, this.totalMatches);
-      if (this.currentMatchIndex > this.totalMatches) {
-        this.currentMatchIndex = 1;
-      }
-      this.updateMatchCount(this.currentMatchIndex, this.totalMatches);
-    }
-    return found;
+    return this.searchAddon.findNext(this.searchInput.value, options);
   }
 
   /**
@@ -210,18 +207,18 @@ export class SearchManager {
 
     const options = {
       caseSensitive: this.caseSensitive,
-      regex: this.regex
+      regex: this.regex,
+      decorations: {
+        matchBackground: '#665500',
+        matchBorder: '#ffaa00',
+        matchOverviewRuler: '#ffaa00',
+        activeMatchBackground: '#ff6600',
+        activeMatchBorder: '#ff9900',
+        activeMatchColorOverviewRuler: '#ff6600'
+      }
     };
 
-    const found = this.searchAddon.findPrevious(this.searchInput.value, options);
-    if (found) {
-      this.currentMatchIndex = Math.max(this.currentMatchIndex - 1, 1);
-      if (this.currentMatchIndex < 1) {
-        this.currentMatchIndex = this.totalMatches;
-      }
-      this.updateMatchCount(this.currentMatchIndex, this.totalMatches);
-    }
-    return found;
+    return this.searchAddon.findPrevious(this.searchInput.value, options);
   }
 
   /**

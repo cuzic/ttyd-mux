@@ -232,7 +232,9 @@ body:has(#tui:not(.hidden)) {
   overflow: hidden;
 }
 
-body:has(#tui:not(.hidden)) .terminal {
+body:has(#tui:not(.hidden)) .terminal,
+body:has(#tui:not(.hidden)) #terminal,
+body:has(#tui:not(.hidden)) .terminal-pane {
   height: calc(100vh - 150px) !important;
 }
 
@@ -250,7 +252,9 @@ body:has(#tui.minimized:not(.hidden)) {
   padding-bottom: 60px !important;
 }
 
-body:has(#tui.minimized:not(.hidden)) .terminal {
+body:has(#tui.minimized:not(.hidden)) .terminal,
+body:has(#tui.minimized:not(.hidden)) #terminal,
+body:has(#tui.minimized:not(.hidden)) .terminal-pane {
   height: calc(100vh - 60px) !important;
 }
 
@@ -402,7 +406,9 @@ body:has(#tui.minimized:not(.hidden)) .terminal {
     padding-bottom: 120px !important;
   }
 
-  body:has(#tui:not(.hidden)) .terminal {
+  body:has(#tui:not(.hidden)) .terminal,
+  body:has(#tui:not(.hidden)) #terminal,
+  body:has(#tui:not(.hidden)) .terminal-pane {
     height: calc(100vh - 120px) !important;
   }
 
@@ -410,7 +416,9 @@ body:has(#tui.minimized:not(.hidden)) .terminal {
     padding-bottom: 60px !important;
   }
 
-  body:has(#tui.minimized:not(.hidden)) .terminal {
+  body:has(#tui.minimized:not(.hidden)) .terminal,
+  body:has(#tui.minimized:not(.hidden)) #terminal,
+  body:has(#tui.minimized:not(.hidden)) .terminal-pane {
     height: calc(100vh - 60px) !important;
   }
 
