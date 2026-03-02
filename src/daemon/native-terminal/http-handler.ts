@@ -248,6 +248,15 @@ export async function handleHttpRequest(
     return serveStaticFile(req, 'xterm.css', 'text/css', 'xterm.css not found');
   }
 
+  if (pathname === `${basePath}/ai-chat.js`) {
+    return serveStaticFile(
+      req,
+      'ai-chat.js',
+      'application/javascript',
+      'Run: bun run build:ai-chat'
+    );
+  }
+
   // Portal page
   if (pathname === basePath || pathname === `${basePath}/`) {
     if (method === 'GET') {
@@ -468,7 +477,13 @@ async function handleApiRequest(
   }
 
   // DELETE /api/sessions/:name
-  if (apiPath.startsWith('/sessions/') && method === 'DELETE' && !apiPath.includes('/commands') && !apiPath.includes('/blocks') && !apiPath.includes('/integration')) {
+  if (
+    apiPath.startsWith('/sessions/') &&
+    method === 'DELETE' &&
+    !apiPath.includes('/commands') &&
+    !apiPath.includes('/blocks') &&
+    !apiPath.includes('/integration')
+  ) {
     const sessionName = apiPath.slice('/sessions/'.length);
 
     if (!sessionManager.hasSession(sessionName)) {
@@ -610,7 +625,9 @@ async function handleApiRequest(
     }
 
     try {
-      const body = (await req.json().catch(() => ({}))) as { signal?: 'SIGTERM' | 'SIGINT' | 'SIGKILL' };
+      const body = (await req.json().catch(() => ({}))) as {
+        signal?: 'SIGTERM' | 'SIGINT' | 'SIGKILL';
+      };
       const signal = body.signal ?? 'SIGTERM';
 
       // Find which session this block belongs to
@@ -1034,6 +1051,229 @@ async function handleApiRequest(
           'Content-Type': 'text/html; charset=utf-8'
         }
       });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers
+      });
+    }
+  }
+
+  // === AI API ===
+
+  // GET /api/ai/runners - List available AI runners
+  if (apiPath === '/ai/runners' && method === 'GET') {
+    const { getAIService } = await import('./ai/index.js');
+    const aiService = getAIService();
+    const runners = await aiService.getRunnerStatuses();
+    return new Response(JSON.stringify({ runners }), { headers });
+  }
+
+  // POST /api/ai/runs - Execute an AI chat request
+  if (apiPath === '/ai/runs' && method === 'POST') {
+    try {
+      const body = (await req.json()) as {
+        question: string;
+        context: {
+          sessionId: string;
+          blocks: string[];
+          renderMode?: 'full' | 'errorOnly' | 'preview' | 'commandOnly';
+        };
+        runner?: 'claude' | 'codex' | 'gemini' | 'auto';
+        conversationId?: string;
+      };
+
+      if (!body.question || typeof body.question !== 'string') {
+        return new Response(JSON.stringify({ error: 'question is required' }), {
+          status: 400,
+          headers
+        });
+      }
+
+      if (!body.context?.sessionId || !Array.isArray(body.context?.blocks)) {
+        return new Response(
+          JSON.stringify({ error: 'context with sessionId and blocks is required' }),
+          {
+            status: 400,
+            headers
+          }
+        );
+      }
+
+      const aiModule = await import('./ai/index.js');
+      const aiService = aiModule.getAIService();
+
+      // Get block data from executor manager
+      const executor = getExecutorManager(sessionManager);
+      const blockContexts: import('./ai/types.js').BlockContext[] = [];
+
+      for (const blockId of body.context.blocks) {
+        const block = executor.getBlock(blockId);
+        if (block) {
+          // Map ExtendedBlockStatus to simpler BlockContext status
+          let status: 'running' | 'success' | 'error';
+          switch (block.status) {
+            case 'queued':
+            case 'running':
+              status = 'running';
+              break;
+            case 'success':
+              status = 'success';
+              break;
+            case 'error':
+            case 'timeout':
+            case 'canceled':
+              status = 'error';
+              break;
+            default:
+              status = 'error';
+          }
+
+          // Combine stdout and stderr previews for output
+          const output = [block.stdoutPreview, block.stderrPreview].filter(Boolean).join('\n');
+
+          blockContexts.push({
+            id: block.id,
+            command: block.command,
+            output,
+            exitCode: block.exitCode,
+            status,
+            cwd: block.effectiveCwd,
+            startedAt: block.startedAt,
+            endedAt: block.endedAt
+          });
+        }
+      }
+
+      const response = await aiService.chat(
+        {
+          question: body.question,
+          context: {
+            sessionId: body.context.sessionId,
+            blocks: body.context.blocks,
+            renderMode: body.context.renderMode ?? 'full'
+          },
+          runner: body.runner,
+          conversationId: body.conversationId
+        },
+        blockContexts
+      );
+
+      return new Response(JSON.stringify(response), { headers });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers
+      });
+    }
+  }
+
+  // GET /api/ai/runs/:runId - Get a specific AI run
+  const runMatch = apiPath.match(/^\/ai\/runs\/([^/]+)$/);
+  if (runMatch?.[1] && method === 'GET') {
+    const runId = decodeURIComponent(runMatch[1]);
+    const { getAIService } = await import('./ai/index.js');
+    const aiService = getAIService();
+    const run = aiService.getRun(runId);
+
+    if (!run) {
+      return new Response(JSON.stringify({ error: `Run "${runId}" not found` }), {
+        status: 404,
+        headers
+      });
+    }
+
+    return new Response(JSON.stringify(run), { headers });
+  }
+
+  // GET /api/ai/threads/:threadId - Get a conversation thread
+  const threadMatch = apiPath.match(/^\/ai\/threads\/([^/]+)$/);
+  if (threadMatch?.[1] && method === 'GET') {
+    const threadId = decodeURIComponent(threadMatch[1]);
+    const { getAIService } = await import('./ai/index.js');
+    const aiService = getAIService();
+    const thread = aiService.getThread(threadId);
+
+    if (!thread) {
+      return new Response(JSON.stringify({ error: `Thread "${threadId}" not found` }), {
+        status: 404,
+        headers
+      });
+    }
+
+    return new Response(JSON.stringify(thread), { headers });
+  }
+
+  // GET /api/ai/sessions/:sessionId/threads - Get threads for a session
+  const sessionThreadsMatch = apiPath.match(/^\/ai\/sessions\/([^/]+)\/threads$/);
+  if (sessionThreadsMatch?.[1] && method === 'GET') {
+    const sessionId = decodeURIComponent(sessionThreadsMatch[1]);
+    const { getAIService } = await import('./ai/index.js');
+    const aiService = getAIService();
+    const threads = aiService.getSessionThreads(sessionId);
+    return new Response(JSON.stringify(threads), { headers });
+  }
+
+  // DELETE /api/ai/sessions/:sessionId/history - Clear session history
+  const clearHistoryMatch = apiPath.match(/^\/ai\/sessions\/([^/]+)\/history$/);
+  if (clearHistoryMatch?.[1] && method === 'DELETE') {
+    const sessionId = decodeURIComponent(clearHistoryMatch[1]);
+    const { getAIService } = await import('./ai/index.js');
+    const aiService = getAIService();
+    aiService.clearSessionHistory(sessionId);
+    return new Response(JSON.stringify({ success: true }), { headers });
+  }
+
+  // GET /api/ai/stats - Get AI service statistics
+  if (apiPath === '/ai/stats' && method === 'GET') {
+    const { getAIService } = await import('./ai/index.js');
+    const aiService = getAIService();
+    const stats = aiService.getStats();
+    return new Response(JSON.stringify(stats), { headers });
+  }
+
+  // DELETE /api/ai/cache - Clear AI cache
+  if (apiPath === '/ai/cache' && method === 'DELETE') {
+    const { getAIService } = await import('./ai/index.js');
+    const aiService = getAIService();
+    aiService.clearCache();
+    return new Response(JSON.stringify({ success: true }), { headers });
+  }
+
+  // === Auth API ===
+
+  // POST /api/auth/ws-token - Generate a WebSocket token
+  if (apiPath === '/auth/ws-token' && method === 'POST') {
+    try {
+      const body = (await req.json()) as { sessionId: string; userId?: string };
+
+      if (!body.sessionId || typeof body.sessionId !== 'string') {
+        return new Response(JSON.stringify({ error: 'sessionId is required' }), {
+          status: 400,
+          headers
+        });
+      }
+
+      // Verify session exists
+      if (!sessionManager.hasSession(body.sessionId)) {
+        return new Response(JSON.stringify({ error: `Session "${body.sessionId}" not found` }), {
+          status: 404,
+          headers
+        });
+      }
+
+      const { getTokenGenerator } = await import('./ws/session-token.js');
+      const tokenGenerator = getTokenGenerator();
+      const token = tokenGenerator.generate(body.sessionId, body.userId);
+
+      return new Response(
+        JSON.stringify({
+          token,
+          sessionId: body.sessionId,
+          expiresIn: 30 // seconds
+        }),
+        { headers }
+      );
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), {
         status: 500,
