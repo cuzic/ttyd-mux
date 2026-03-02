@@ -4,8 +4,8 @@
  * Runs queries using the OpenAI Codex CLI tool.
  */
 
-import { CLIRunner } from '../runner.js';
-import type { RunRequest, RunResult, RunnerCapabilities, RunnerName } from '../types.js';
+import { CLIRunner } from '@/daemon/native-terminal/ai/runner.js';
+import type { RunRequest, RunResult, RunnerCapabilities, RunnerName } from '@/daemon/native-terminal/ai/types.js';
 
 export class CodexRunner extends CLIRunner {
   readonly name: RunnerName = 'codex';

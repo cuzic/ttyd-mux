@@ -4,8 +4,8 @@
  * Runs queries using the `claude` CLI tool (Claude Code / claude-cli).
  */
 
-import { CLIRunner } from '../runner.js';
-import type { RunRequest, RunResult, RunnerCapabilities, RunnerName } from '../types.js';
+import { CLIRunner } from '@/daemon/native-terminal/ai/runner.js';
+import type { RunRequest, RunResult, RunnerCapabilities, RunnerName } from '@/daemon/native-terminal/ai/types.js';
 
 export class ClaudeRunner extends CLIRunner {
   readonly name: RunnerName = 'claude';

@@ -6,7 +6,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { renderContext } from './context-renderer.js';
+import { renderCombinedContext, renderContext } from './context-renderer.js';
 import { RateLimiter } from './rate-limiter.js';
 import { parseResponse } from './response-parser.js';
 import { RunCache } from './run-cache.js';
@@ -21,6 +21,8 @@ import type {
   AIThread,
   BlockContext,
   BlockSnapshot,
+  FileContext,
+  FileSnapshot,
   RunnerName,
   RunnerStatus
 } from './types.js';
@@ -156,7 +158,9 @@ export class AIService {
   async chat(
     request: AIChatRequest,
     blocks: BlockContext[],
-    userId?: string
+    files?: FileContext[],
+    userId?: string,
+    inlineBlocks?: import('./types.js').InlineBlock[]
   ): Promise<AIChatResponse> {
     const startTime = Date.now();
     const runId = `run_${randomUUID().slice(0, 8)}`;
@@ -178,8 +182,19 @@ export class AIService {
       };
     }
 
-    // Render context from blocks
-    const contextText = renderContext(blocks, request.context.renderMode);
+    // Render context from blocks, inline blocks, and files
+    let contextText: string;
+    if ((files && files.length > 0) || (inlineBlocks && inlineBlocks.length > 0)) {
+      contextText = renderCombinedContext(
+        blocks,
+        files ?? [],
+        request.context.renderMode,
+        {},
+        inlineBlocks ?? []
+      );
+    } else {
+      contextText = renderContext(blocks, request.context.renderMode);
+    }
 
     // Select runner
     let runner: Runner;
@@ -246,7 +261,7 @@ export class AIService {
       this.cache.set(cacheKey, response);
 
       // Create snapshot for history
-      this.createRunSnapshot(runId, request, blocks, response);
+      this.createRunSnapshot(runId, request, blocks, files, response);
 
       return response;
     } catch (error) {
@@ -271,6 +286,7 @@ export class AIService {
     runId: string,
     request: AIChatRequest,
     blocks: BlockContext[],
+    files: FileContext[] | undefined,
     response: AIChatResponse
   ): void {
     // Create block snapshots
@@ -280,6 +296,14 @@ export class AIService {
       outputPreview: this.getOutputPreview(block.output),
       exitCode: block.exitCode,
       status: block.status
+    }));
+
+    // Create file snapshots
+    const fileSnapshots: FileSnapshot[] | undefined = files?.map((file) => ({
+      source: file.source,
+      path: file.path,
+      name: file.name,
+      size: file.size
     }));
 
     // Get or create thread
@@ -302,7 +326,10 @@ export class AIService {
       id: runId,
       threadId,
       request,
-      contextSnapshot: { blocks: blockSnapshots },
+      contextSnapshot: {
+        blocks: blockSnapshots,
+        files: fileSnapshots
+      },
       response,
       createdAt: new Date().toISOString()
     };

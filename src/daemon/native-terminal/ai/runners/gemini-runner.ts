@@ -4,8 +4,8 @@
  * Runs queries using Google's Gemini CLI tool.
  */
 
-import { CLIRunner } from '../runner.js';
-import type { RunRequest, RunResult, RunnerCapabilities, RunnerName } from '../types.js';
+import { CLIRunner } from '@/daemon/native-terminal/ai/runner.js';
+import type { RunRequest, RunResult, RunnerCapabilities, RunnerName } from '@/daemon/native-terminal/ai/types.js';
 
 export class GeminiRunner extends CLIRunner {
   readonly name: RunnerName = 'gemini';
