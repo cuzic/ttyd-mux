@@ -11,8 +11,8 @@ import type { Config } from '@/config/types.js';
 import { createLogger } from '@/utils/logger.js';
 import type { Server as BunServer, ServerWebSocket } from 'bun';
 import { NativeSessionManager } from './session-manager.js';
-import type { NativeTerminalWebSocketData } from './types.js';
 import {
+  type AuthenticatedWebSocketData,
   createNativeTerminalWebSocketHandlers,
   isNativeTerminalWebSocketPath
 } from './ws-handler.js';
@@ -43,7 +43,7 @@ export interface NativeTerminalServerOptions {
 }
 
 export interface NativeTerminalServer {
-  server: BunServer<NativeTerminalWebSocketData>;
+  server: BunServer<AuthenticatedWebSocketData>;
   sessionManager: NativeSessionManager;
   stop: () => Promise<void>;
 }
@@ -63,7 +63,7 @@ export function createNativeTerminalServer(
     basePath
   });
 
-  const server = Bun.serve<NativeTerminalWebSocketData>({
+  const server = Bun.serve<AuthenticatedWebSocketData>({
     port: config.daemon_port,
     hostname: config.listen_addresses[0] || '127.0.0.1',
 
@@ -99,7 +99,7 @@ export function createNativeTerminalServer(
 
         // Upgrade to WebSocket
         const upgraded = server.upgrade(req, {
-          data: { sessionName }
+          data: { sessionName, authenticated: false }
         });
 
         if (upgraded) {
@@ -115,13 +115,13 @@ export function createNativeTerminalServer(
     },
 
     websocket: {
-      open(ws: ServerWebSocket<NativeTerminalWebSocketData>) {
+      open(ws: ServerWebSocket<AuthenticatedWebSocketData>) {
         wsHandlers.websocket.open(ws);
       },
-      message(ws: ServerWebSocket<NativeTerminalWebSocketData>, message: string | Buffer) {
+      message(ws: ServerWebSocket<AuthenticatedWebSocketData>, message: string | Buffer) {
         wsHandlers.websocket.message(ws, message);
       },
-      close(ws: ServerWebSocket<NativeTerminalWebSocketData>) {
+      close(ws: ServerWebSocket<AuthenticatedWebSocketData>) {
         wsHandlers.websocket.close(ws);
       }
     }
