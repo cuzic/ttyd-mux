@@ -464,7 +464,8 @@ function loadXtermBundle(): { content: string; etag: string } {
     log.debug('Loaded xterm-bundle.js from dist');
   } catch {
     log.warn('xterm-bundle.js not found in dist, returning placeholder');
-    xtermBundleCache = '// xterm-bundle.js not built - run: bun run build:xterm\nconsole.warn("[xterm] Bundle not found");';
+    xtermBundleCache =
+      '// xterm-bundle.js not built - run: bun run build:xterm\nconsole.warn("[xterm] Bundle not found");';
   }
 
   xtermBundleEtag = generateEtag(xtermBundleCache);
@@ -485,7 +486,8 @@ function loadTerminalClient(): { content: string; etag: string } {
     log.debug('Loaded terminal-client.js from dist');
   } catch {
     log.warn('terminal-client.js not found in dist, returning placeholder');
-    terminalClientCache = '// terminal-client.js not built - run: bun run build:terminal-client\nconsole.warn("[TerminalClient] Bundle not found");';
+    terminalClientCache =
+      '// terminal-client.js not built - run: bun run build:terminal-client\nconsole.warn("[TerminalClient] Bundle not found");';
   }
 
   terminalClientEtag = generateEtag(terminalClientCache);

@@ -229,5 +229,7 @@ declare global {
       captureException(error: unknown): void;
       captureMessage(message: string, level?: string): void;
     };
+    /** Initialization function for native terminal mode */
+    initTerminalUi?: () => void;
   }
 }

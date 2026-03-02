@@ -855,6 +855,17 @@ if (config) {
   // Setup Sentry error handlers first
   setupSentryErrorHandlers(config);
 
-  const app = new ToolbarApp(config);
-  app.initialize();
+  // In native terminal mode, wait for initTerminalUi() to be called
+  // because __TERMINAL_CLIENT__ is not yet available when this script loads
+  if (config.isNativeTerminal) {
+    // Export initialization function for native mode
+    window.initTerminalUi = () => {
+      const app = new ToolbarApp(config);
+      app.initialize();
+    };
+  } else {
+    // ttyd mode: initialize immediately
+    const app = new ToolbarApp(config);
+    app.initialize();
+  }
 }

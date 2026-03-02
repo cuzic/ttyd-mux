@@ -14,11 +14,11 @@ import { createLogger } from '@/utils/logger.js';
 import { captureException, initSentry } from '@/utils/sentry.js';
 import { VERSION } from '@/version.js';
 import { getCurrentConfig, initConfigManager, reloadConfig } from './config-manager.js';
+import { type NativeTerminalServer, createNativeTerminalServer } from './native-terminal/index.js';
 import { createNotificationService } from './notification/index.js';
 import { createDaemonServer, setConfigGetter } from './server.js';
 import { sessionManager } from './session-manager.js';
 import { setNotificationService } from './ws-proxy.js';
-import { createNativeTerminalServer, type NativeTerminalServer } from './native-terminal/index.js';
 
 const log = createLogger('daemon');
 
@@ -72,7 +72,9 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
 
   const configManager = initConfigManager(options.configPath);
   const config = configManager.getConfig();
-  log.info(`Config loaded: port=${config.daemon_port}, base_path=${config.base_path}, backend=${config.session_backend ?? 'ttyd'}`);
+  log.info(
+    `Config loaded: port=${config.daemon_port}, base_path=${config.base_path}, backend=${config.session_backend ?? 'ttyd'}`
+  );
 
   // Initialize Sentry early (before setting up error handlers)
   await initSentry(config.sentry, VERSION);
@@ -131,7 +133,7 @@ async function startNativeTerminalDaemon(
   try {
     nativeServer = createNativeTerminalServer({
       config,
-      getConfig: getCurrentConfig,
+      getConfig: getCurrentConfig
     });
   } catch (error) {
     log.error(`Failed to start native terminal server: ${error}`);
@@ -159,7 +161,11 @@ async function startNativeTerminalDaemon(
       log.debug(`Unix socket received command: ${command}`);
       if (command === 'ping') {
         socket.write('pong');
-      } else if (command === 'shutdown' || command === 'shutdown-with-sessions' || command === 'shutdown-with-sessions-kill-tmux') {
+      } else if (
+        command === 'shutdown' ||
+        command === 'shutdown-with-sessions' ||
+        command === 'shutdown-with-sessions-kill-tmux'
+      ) {
         socket.write('ok');
         shutdownNative();
       } else if (command === 'reload') {
