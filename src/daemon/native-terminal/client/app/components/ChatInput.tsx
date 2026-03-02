@@ -5,7 +5,8 @@
  */
 
 import { type FC, type FormEvent, useCallback, useRef, useState } from 'react';
-import { useChatStore } from '../stores/chatStore.js';
+import { useChatStore } from '@/daemon/native-terminal/client/app/stores/chatStore.js';
+import { FileSelector } from './FileSelector.js';
 import { RunnerSelector } from './RunnerSelector.js';
 
 export interface ChatInputProps {
@@ -19,6 +20,7 @@ export const ChatInput: FC<ChatInputProps> = ({ sessionId, disabled = false }) =
   const sendMessage = useChatStore((s) => s.sendMessage);
   const isLoading = useChatStore((s) => s.isLoading);
   const contextBlockIds = useChatStore((s) => s.contextBlockIds);
+  const contextFiles = useChatStore((s) => s.contextFiles);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isFocused, setIsFocused] = useState(false);
@@ -64,7 +66,9 @@ export const ChatInput: FC<ChatInputProps> = ({ sessionId, disabled = false }) =
   );
 
   const isDisabled = disabled || isLoading;
-  const hasContext = contextBlockIds.length > 0;
+  const hasBlocks = contextBlockIds.length > 0;
+  const hasFiles = contextFiles.length > 0;
+  const hasContext = hasBlocks || hasFiles;
 
   return (
     <form onSubmit={handleSubmit} style={styles.container}>
@@ -83,11 +87,7 @@ export const ChatInput: FC<ChatInputProps> = ({ sessionId, disabled = false }) =
           onKeyDown={handleKeyDown}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          placeholder={
-            hasContext
-              ? `Ask about ${contextBlockIds.length} selected block(s)...`
-              : 'Select blocks to ask questions...'
-          }
+          placeholder={getPlaceholderText(hasBlocks, hasFiles, contextBlockIds.length, contextFiles.length)}
           disabled={isDisabled}
           rows={1}
           style={styles.textarea}
@@ -113,12 +113,13 @@ export const ChatInput: FC<ChatInputProps> = ({ sessionId, disabled = false }) =
       {/* Bottom bar */}
       <div style={styles.bottomBar}>
         <RunnerSelector disabled={isDisabled} />
+        <FileSelector sessionId={sessionId} disabled={isDisabled} />
 
         <div style={styles.hint}>
           {hasContext ? (
-            <span style={styles.contextHint}>{contextBlockIds.length} blocks in context</span>
+            <span style={styles.contextHint}>{getContextHintText(hasBlocks, hasFiles, contextBlockIds.length, contextFiles.length)}</span>
           ) : (
-            <span style={styles.noContextHint}>No blocks selected</span>
+            <span style={styles.noContextHint}>Select blocks or attach files</span>
           )}
         </div>
 
@@ -127,6 +128,32 @@ export const ChatInput: FC<ChatInputProps> = ({ sessionId, disabled = false }) =
     </form>
   );
 };
+
+// Helper functions
+function getPlaceholderText(hasBlocks: boolean, hasFiles: boolean, blockCount: number, fileCount: number): string {
+  if (!hasBlocks && !hasFiles) {
+    return 'Select blocks or attach files to ask questions...';
+  }
+  const parts: string[] = [];
+  if (hasBlocks) {
+    parts.push(`${blockCount} block${blockCount > 1 ? 's' : ''}`);
+  }
+  if (hasFiles) {
+    parts.push(`${fileCount} file${fileCount > 1 ? 's' : ''}`);
+  }
+  return `Ask about ${parts.join(' and ')}...`;
+}
+
+function getContextHintText(hasBlocks: boolean, hasFiles: boolean, blockCount: number, fileCount: number): string {
+  const parts: string[] = [];
+  if (hasBlocks) {
+    parts.push(`${blockCount} block${blockCount > 1 ? 's' : ''}`);
+  }
+  if (hasFiles) {
+    parts.push(`${fileCount} file${fileCount > 1 ? 's' : ''}`);
+  }
+  return parts.join(', ') + ' in context';
+}
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
