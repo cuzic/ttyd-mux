@@ -6,8 +6,8 @@
  */
 
 import type { Config } from '@/config/types.js';
-import { terminalUiHtml, onboardingHtml } from '@/daemon/terminal-ui/template.js';
 import { terminalUiStyles } from '@/daemon/terminal-ui/styles.js';
+import { onboardingHtml, terminalUiHtml } from '@/daemon/terminal-ui/template.js';
 
 export interface NativeTerminalHtmlOptions {
   /** Session name */
@@ -34,7 +34,7 @@ export function generateNativeTerminalHtml(options: NativeTerminalHtmlOptions): 
     sessionPath,
     config,
     isShared = false,
-    title = `${sessionName} - ttyd-mux`,
+    title = `${sessionName} - ttyd-mux`
   } = options;
 
   const wsPath = `${sessionPath}/ws`;
@@ -46,19 +46,19 @@ export function generateNativeTerminalHtml(options: NativeTerminalHtmlOptions): 
     sessionName,
     sessionPath,
     isShared,
-    isNativeTerminal: true,
+    isNativeTerminal: true
   });
 
   // Notification config for push notifications
   const notificationConfig = JSON.stringify({
     enabled: config.notifications.enabled,
-    bell_notification: config.notifications.bell_notification,
+    bell_notification: config.notifications.bell_notification
   });
 
   // Preview config
   const previewConfig = JSON.stringify({
     enabled: config.preview.enabled,
-    defaultWidth: config.preview.default_width,
+    defaultWidth: config.preview.default_width
   });
 
   return `<!DOCTYPE html>

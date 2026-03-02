@@ -62,7 +62,7 @@ export class NativeSessionManager {
       cwd: dir,
       cols: cols ?? 80,
       rows: rows ?? 24,
-      outputBufferSize: this.nativeConfig.output_buffer_size,
+      outputBufferSize: this.nativeConfig.output_buffer_size
     });
 
     // Start the session
@@ -93,7 +93,8 @@ export class NativeSessionManager {
 
       case 'none':
         // Direct shell without tmux (for native terminal mode)
-        return [process.env.SHELL || '/bin/bash', '-l'];
+        // Use -i for interactive mode to ensure the shell doesn't exit
+        return [process.env['SHELL'] || '/bin/bash', '-i'];
 
       case 'auto':
       default:
@@ -168,19 +169,18 @@ export class NativeSessionManager {
     const names = Array.from(this.sessions.keys());
 
     await Promise.all(
-      names.map((name) => this.stopSession(name).catch((err) => {
-        console.error(`[NativeSessionManager] Failed to stop session ${name}:`, err);
-      }))
+      names.map((name) =>
+        this.stopSession(name).catch((err) => {
+          console.error(`[NativeSessionManager] Failed to stop session ${name}:`, err);
+        })
+      )
     );
   }
 
   /**
    * Handle a WebSocket connection for a session
    */
-  handleWebSocket(
-    sessionName: string,
-    ws: NativeTerminalWebSocket
-  ): TerminalSession | undefined {
+  handleWebSocket(sessionName: string, ws: NativeTerminalWebSocket): TerminalSession | undefined {
     const session = this.sessions.get(sessionName);
     if (!session) {
       return undefined;
@@ -212,7 +212,7 @@ export class NativeSessionManager {
         path: `${this.config.base_path}/${info.name}`,
         pid: info.pid,
         startedAt: info.startedAt,
-        clientCount: info.clientCount,
+        clientCount: info.clientCount
       };
     });
   }

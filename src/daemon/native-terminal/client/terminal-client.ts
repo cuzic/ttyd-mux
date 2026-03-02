@@ -8,10 +8,15 @@
  * - Reconnection logic
  */
 
+import { type Block, BlockManager } from './BlockManager.js';
+import { BlockRenderer } from './BlockRenderer.js';
+
 declare global {
   interface Window {
     XtermBundle: typeof import('./xterm-bundle.js');
     TerminalClient: typeof TerminalClient;
+    BlockManager: typeof BlockManager;
+    BlockRenderer: typeof BlockRenderer;
     term: import('@xterm/xterm').Terminal | null;
     fitAddon: import('@xterm/addon-fit').FitAddon | null;
   }
@@ -34,6 +39,12 @@ interface TerminalClientOptions {
   reconnectDelay?: number;
   /** Max reconnect attempts */
   maxReconnectAttempts?: number;
+  /** Enable block UI */
+  enableBlockUI?: boolean;
+  /** Block UI event handlers */
+  onBlockCopyCommand?: (command: string) => void;
+  onBlockCopyOutput?: (output: string) => void;
+  onBlockSendToAI?: (block: Block) => void;
 }
 
 interface ClientMessage {
@@ -44,11 +55,28 @@ interface ClientMessage {
 }
 
 interface ServerMessage {
-  type: 'output' | 'title' | 'exit' | 'pong' | 'error' | 'bell';
+  type:
+    | 'output'
+    | 'title'
+    | 'exit'
+    | 'pong'
+    | 'error'
+    | 'bell'
+    | 'blockStart'
+    | 'blockEnd'
+    | 'blockOutput'
+    | 'blockList';
   data?: string;
   title?: string;
   code?: number;
   message?: string;
+  // Block-related fields
+  block?: Block;
+  blockId?: string;
+  exitCode?: number;
+  endedAt?: string;
+  endLine?: number;
+  blocks?: Block[];
 }
 
 export class TerminalClient {
@@ -61,6 +89,10 @@ export class TerminalClient {
   private pingInterval: number | null = null;
   private isClosing = false;
 
+  // Block UI
+  private blockManager: BlockManager | null = null;
+  private blockRenderer: BlockRenderer | null = null;
+
   private readonly options: Required<TerminalClientOptions>;
 
   constructor(options: TerminalClientOptions) {
@@ -71,7 +103,11 @@ export class TerminalClient {
       autoReconnect: true,
       reconnectDelay: 2000,
       maxReconnectAttempts: 5,
-      ...options,
+      enableBlockUI: true,
+      onBlockCopyCommand: undefined as unknown as (command: string) => void,
+      onBlockCopyOutput: undefined as unknown as (output: string) => void,
+      onBlockSendToAI: undefined as unknown as (block: Block) => void,
+      ...options
     };
   }
 
@@ -88,7 +124,7 @@ export class TerminalClient {
     const { terminal, fitAddon, serializeAddon } = window.XtermBundle.createTerminal({
       fontSize: this.options.fontSize,
       fontFamily: this.options.fontFamily,
-      scrollback: this.options.scrollback,
+      scrollback: this.options.scrollback
     });
 
     this.terminal = terminal;
@@ -118,8 +154,81 @@ export class TerminalClient {
       this.fit();
     });
 
+    // Initialize Block UI if enabled
+    if (this.options.enableBlockUI) {
+      this.initBlockUI();
+    }
+
     // Connect to WebSocket
     await this.connectWebSocket();
+  }
+
+  /**
+   * Initialize the Block UI components
+   */
+  private initBlockUI(): void {
+    // Create BlockManager with event handlers
+    this.blockManager = new BlockManager({
+      onBlockStart: (block) => {
+        this.blockRenderer?.addBlock(block);
+        // Update filter counts when a new block starts
+        this.blockRenderer?.updateFilterState(
+          this.blockManager?.getFilter() ?? 'all',
+          this.blockManager?.getCounts() ?? { all: 0, success: 0, error: 0, running: 0 }
+        );
+      },
+      onBlockEnd: (block) => {
+        this.blockRenderer?.updateBlock(block);
+        // Update filter counts when a block ends
+        this.blockRenderer?.updateFilterState(
+          this.blockManager?.getFilter() ?? 'all',
+          this.blockManager?.getCounts() ?? { all: 0, success: 0, error: 0, running: 0 }
+        );
+      },
+      onBlocksLoaded: (blocks) => {
+        this.blockRenderer?.renderBlocks(blocks);
+        // Update filter counts after loading blocks
+        this.blockRenderer?.updateFilterState(
+          this.blockManager?.getFilter() ?? 'all',
+          this.blockManager?.getCounts() ?? { all: 0, success: 0, error: 0, running: 0 }
+        );
+      },
+      onSelectionChange: (selectedIds) => {
+        this.blockRenderer?.updateSelectionState(selectedIds);
+      },
+      onFilterChange: (filter, counts) => {
+        this.blockRenderer?.updateFilterState(filter, counts);
+      },
+      onFocusChange: (blockId) => {
+        this.blockRenderer?.updateFocusState(blockId);
+      }
+    });
+
+    // Create BlockRenderer
+    const terminalElement = this.options.container.querySelector('.xterm') as HTMLElement;
+    if (terminalElement) {
+      this.blockRenderer = new BlockRenderer({
+        blockManager: this.blockManager,
+        container: this.options.container,
+        terminalElement,
+        onCopyCommand: this.options.onBlockCopyCommand,
+        onCopyOutput: this.options.onBlockCopyOutput,
+        onSendToAI: this.options.onBlockSendToAI,
+        onFilterBlock: (blockId) => {
+          // Filter/search within block - can be implemented later
+          console.log('[BlockUI] Filter in block:', blockId);
+        },
+        onRerunCommand: (command) => {
+          // Send command to terminal with Enter
+          this.sendInput(command + '\n');
+        },
+        onEditAndRerun: (command) => {
+          // Send command to terminal without Enter (for editing)
+          this.sendInput(command);
+          this.focus();
+        }
+      });
+    }
   }
 
   /**
@@ -138,7 +247,7 @@ export class TerminalClient {
           this.send({
             type: 'resize',
             cols: this.terminal.cols,
-            rows: this.terminal.rows,
+            rows: this.terminal.rows
           });
         }
 
@@ -212,6 +321,41 @@ export class TerminalClient {
             this.terminal.write('\x07');
           }
           break;
+
+        // Block UI messages
+        case 'blockStart':
+          if (message.block) {
+            this.blockManager?.handleBlockStart(message.block);
+          }
+          break;
+
+        case 'blockEnd':
+          if (
+            message.blockId &&
+            message.exitCode !== undefined &&
+            message.endedAt &&
+            message.endLine !== undefined
+          ) {
+            this.blockManager?.handleBlockEnd(
+              message.blockId,
+              message.exitCode,
+              message.endedAt,
+              message.endLine
+            );
+          }
+          break;
+
+        case 'blockOutput':
+          if (message.blockId && message.data) {
+            this.blockManager?.handleBlockOutput(message.blockId, message.data);
+          }
+          break;
+
+        case 'blockList':
+          if (message.blocks) {
+            this.blockManager?.handleBlockList(message.blocks);
+          }
+          break;
       }
     } catch (error) {
       console.error('[TerminalClient] Failed to parse message:', error);
@@ -252,7 +396,9 @@ export class TerminalClient {
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= this.options.maxReconnectAttempts) {
       console.log('[TerminalClient] Max reconnect attempts reached');
-      this.terminal?.write('\r\n\x1b[31m[Connection lost - max reconnect attempts reached]\x1b[0m\r\n');
+      this.terminal?.write(
+        '\r\n\x1b[31m[Connection lost - max reconnect attempts reached]\x1b[0m\r\n'
+      );
       return;
     }
 
@@ -260,7 +406,9 @@ export class TerminalClient {
     const delay = this.options.reconnectDelay * this.reconnectAttempts;
 
     console.log(`[TerminalClient] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
-    this.terminal?.write(`\r\n\x1b[33m[Reconnecting... attempt ${this.reconnectAttempts}]\x1b[0m\r\n`);
+    this.terminal?.write(
+      `\r\n\x1b[33m[Reconnecting... attempt ${this.reconnectAttempts}]\x1b[0m\r\n`
+    );
 
     this.reconnectTimer = window.setTimeout(async () => {
       try {
@@ -320,6 +468,12 @@ export class TerminalClient {
 
     this.stopPing();
 
+    // Cleanup block UI
+    this.blockRenderer?.dispose();
+    this.blockRenderer = null;
+    this.blockManager?.clear();
+    this.blockManager = null;
+
     if (this.ws) {
       this.ws.close(1000, 'Client disconnect');
       this.ws = null;
@@ -347,7 +501,44 @@ export class TerminalClient {
   get isConnected(): boolean {
     return this.ws?.readyState === WebSocket.OPEN;
   }
+
+  /**
+   * Get all blocks
+   */
+  getBlocks(): Block[] {
+    return this.blockManager?.getAllBlocks() ?? [];
+  }
+
+  /**
+   * Get the active (running) block
+   */
+  getActiveBlock(): Block | null {
+    return this.blockManager?.getActiveBlock() ?? null;
+  }
+
+  /**
+   * Toggle block UI visibility
+   */
+  toggleBlockUI(): void {
+    this.blockRenderer?.toggle();
+  }
+
+  /**
+   * Show/hide block UI
+   */
+  setBlockUIVisible(visible: boolean): void {
+    this.blockRenderer?.setVisible(visible);
+  }
+
+  /**
+   * Get decoded output for a specific block
+   */
+  getBlockOutput(blockId: string): string {
+    return this.blockManager?.getDecodedOutput(blockId) ?? '';
+  }
 }
 
 // Export for use by terminal-ui.js
 window.TerminalClient = TerminalClient;
+window.BlockManager = BlockManager;
+window.BlockRenderer = BlockRenderer;

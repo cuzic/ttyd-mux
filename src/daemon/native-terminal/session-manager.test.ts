@@ -27,19 +27,19 @@ const createTestConfig = (): Config => ({
     font_size_default_pc: 14,
     font_size_min: 10,
     font_size_max: 48,
-    double_tap_delay: 300,
+    double_tap_delay: 300
   },
   notifications: {
     enabled: false,
     bell_notification: false,
     bell_cooldown: 10,
     patterns: [],
-    default_cooldown: 300,
+    default_cooldown: 300
   },
   file_transfer: {
     enabled: false,
     max_file_size: 100 * 1024 * 1024,
-    allowed_extensions: [],
+    allowed_extensions: []
   },
   tabs: {
     enabled: false,
@@ -49,23 +49,23 @@ const createTestConfig = (): Config => ({
     tab_height: 40,
     auto_refresh_interval: 5000,
     preload_iframes: false,
-    show_session_info: true,
+    show_session_info: true
   },
   preview: {
     enabled: false,
     default_width: 400,
     debounce_ms: 300,
     auto_refresh: true,
-    allowed_extensions: ['.html', '.htm'],
+    allowed_extensions: ['.html', '.htm']
   },
   directory_browser: {
     enabled: false,
-    allowed_directories: [],
+    allowed_directories: []
   },
   native_terminal: {
     scrollback: 10000,
-    output_buffer_size: 1000,
-  },
+    output_buffer_size: 1000
+  }
 });
 
 describe('NativeSessionManager', () => {
@@ -109,7 +109,9 @@ describe('NativeSessionManager', () => {
 
   describe('error handling', () => {
     test('stopSession throws for non-existent session', async () => {
-      await expect(manager.stopSession('nonexistent')).rejects.toThrow('Session nonexistent not found');
+      await expect(manager.stopSession('nonexistent')).rejects.toThrow(
+        'Session nonexistent not found'
+      );
     });
 
     test('getSessionInfo returns undefined for non-existent session', () => {
@@ -149,7 +151,7 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     const session = await manager.createSession({
       name: 'test-pty-session',
       dir: testDir,
-      path: '/ttyd-mux/test-pty-session',
+      path: '/ttyd-mux/test-pty-session'
     });
 
     expect(session).toBeDefined();
@@ -162,14 +164,14 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     await manager.createSession({
       name: 'duplicate-session',
       dir: testDir,
-      path: '/ttyd-mux/duplicate-session',
+      path: '/ttyd-mux/duplicate-session'
     });
 
     await expect(
       manager.createSession({
         name: 'duplicate-session',
         dir: testDir,
-        path: '/ttyd-mux/duplicate-session',
+        path: '/ttyd-mux/duplicate-session'
       })
     ).rejects.toThrow('Session duplicate-session already exists');
   });
@@ -178,7 +180,7 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     await manager.createSession({
       name: 'get-session-test',
       dir: testDir,
-      path: '/ttyd-mux/get-session-test',
+      path: '/ttyd-mux/get-session-test'
     });
 
     const session = manager.getSession('get-session-test');
@@ -190,7 +192,7 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     await manager.createSession({
       name: 'path-test-session',
       dir: testDir,
-      path: '/ttyd-mux/path-test-session',
+      path: '/ttyd-mux/path-test-session'
     });
 
     const session = manager.getSessionByPath('/ttyd-mux/path-test-session');
@@ -202,7 +204,7 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     await manager.createSession({
       name: 'ws-path-session',
       dir: testDir,
-      path: '/ttyd-mux/ws-path-session',
+      path: '/ttyd-mux/ws-path-session'
     });
 
     const session = manager.getSessionByPath('/ttyd-mux/ws-path-session/ws');
@@ -214,7 +216,7 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     await manager.createSession({
       name: 'stop-test-session',
       dir: testDir,
-      path: '/ttyd-mux/stop-test-session',
+      path: '/ttyd-mux/stop-test-session'
     });
 
     expect(manager.hasSession('stop-test-session')).toBe(true);
@@ -228,7 +230,7 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     await manager.createSession({
       name: 'list-test-session',
       dir: testDir,
-      path: '/ttyd-mux/list-test-session',
+      path: '/ttyd-mux/list-test-session'
     });
 
     const sessions = manager.listSessions();
@@ -244,7 +246,7 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
       dir: testDir,
       path: '/ttyd-mux/info-test-session',
       cols: 120,
-      rows: 40,
+      rows: 40
     });
 
     const info = manager.getSessionInfo('info-test-session');
@@ -259,13 +261,13 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     await manager.createSession({
       name: 'multi-session-1',
       dir: testDir,
-      path: '/ttyd-mux/multi-session-1',
+      path: '/ttyd-mux/multi-session-1'
     });
 
     await manager.createSession({
       name: 'multi-session-2',
       dir: testDir,
-      path: '/ttyd-mux/multi-session-2',
+      path: '/ttyd-mux/multi-session-2'
     });
 
     expect(manager.sessionCount).toBe(2);
@@ -277,13 +279,13 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     await manager.createSession({
       name: 'stopall-1',
       dir: testDir,
-      path: '/ttyd-mux/stopall-1',
+      path: '/ttyd-mux/stopall-1'
     });
 
     await manager.createSession({
       name: 'stopall-2',
       dir: testDir,
-      path: '/ttyd-mux/stopall-2',
+      path: '/ttyd-mux/stopall-2'
     });
 
     expect(manager.sessionCount).toBe(2);

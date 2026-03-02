@@ -23,19 +23,19 @@ const createTestConfig = (): Config => ({
     font_size_default_pc: 14,
     font_size_min: 10,
     font_size_max: 48,
-    double_tap_delay: 300,
+    double_tap_delay: 300
   },
   notifications: {
     enabled: false,
     bell_notification: false,
     bell_cooldown: 10,
     patterns: [],
-    default_cooldown: 300,
+    default_cooldown: 300
   },
   file_transfer: {
     enabled: false,
     max_file_size: 100 * 1024 * 1024,
-    allowed_extensions: [],
+    allowed_extensions: []
   },
   tabs: {
     enabled: false,
@@ -45,23 +45,23 @@ const createTestConfig = (): Config => ({
     tab_height: 40,
     auto_refresh_interval: 5000,
     preload_iframes: false,
-    show_session_info: true,
+    show_session_info: true
   },
   preview: {
     enabled: false,
     default_width: 400,
     debounce_ms: 300,
     auto_refresh: true,
-    allowed_extensions: ['.html', '.htm'],
+    allowed_extensions: ['.html', '.htm']
   },
   directory_browser: {
     enabled: false,
-    allowed_directories: [],
+    allowed_directories: []
   },
   native_terminal: {
     scrollback: 10000,
-    output_buffer_size: 1000,
-  },
+    output_buffer_size: 1000
+  }
 });
 
 describe('generateNativeTerminalHtml', () => {
@@ -70,7 +70,7 @@ describe('generateNativeTerminalHtml', () => {
       sessionName: 'test-session',
       basePath: '/ttyd-mux',
       sessionPath: '/ttyd-mux/test-session',
-      config: createTestConfig(),
+      config: createTestConfig()
     });
 
     expect(html).toContain('<!DOCTYPE html>');
@@ -83,7 +83,7 @@ describe('generateNativeTerminalHtml', () => {
       sessionName: 'my-session',
       basePath: '/ttyd-mux',
       sessionPath: '/ttyd-mux/my-session',
-      config: createTestConfig(),
+      config: createTestConfig()
     });
 
     expect(html).toContain('<title>my-session - ttyd-mux</title>');
@@ -95,7 +95,7 @@ describe('generateNativeTerminalHtml', () => {
       basePath: '/ttyd-mux',
       sessionPath: '/ttyd-mux/test-session',
       config: createTestConfig(),
-      title: 'Custom Terminal Title',
+      title: 'Custom Terminal Title'
     });
 
     expect(html).toContain('<title>Custom Terminal Title</title>');
@@ -106,7 +106,7 @@ describe('generateNativeTerminalHtml', () => {
       sessionName: 'test-session',
       basePath: '/ttyd-mux',
       sessionPath: '/ttyd-mux/test-session',
-      config: createTestConfig(),
+      config: createTestConfig()
     });
 
     expect(html).toContain('<script src="/ttyd-mux/xterm-bundle.js"></script>');
@@ -119,7 +119,7 @@ describe('generateNativeTerminalHtml', () => {
       sessionName: 'test-session',
       basePath: '/ttyd-mux',
       sessionPath: '/ttyd-mux/test-session',
-      config: createTestConfig(),
+      config: createTestConfig()
     });
 
     expect(html).toContain('<link rel="stylesheet" href="/ttyd-mux/xterm.css">');
@@ -130,7 +130,7 @@ describe('generateNativeTerminalHtml', () => {
       sessionName: 'test-session',
       basePath: '/ttyd-mux',
       sessionPath: '/ttyd-mux/test-session',
-      config: createTestConfig(),
+      config: createTestConfig()
     });
 
     expect(html).toContain('/ttyd-mux/test-session/ws');
@@ -141,7 +141,7 @@ describe('generateNativeTerminalHtml', () => {
       sessionName: 'test-session',
       basePath: '/ttyd-mux',
       sessionPath: '/ttyd-mux/test-session',
-      config: createTestConfig(),
+      config: createTestConfig()
     });
 
     expect(html).toContain('<div id="terminal"></div>');
@@ -152,7 +152,7 @@ describe('generateNativeTerminalHtml', () => {
       sessionName: 'test-session',
       basePath: '/ttyd-mux',
       sessionPath: '/ttyd-mux/test-session',
-      config: createTestConfig(),
+      config: createTestConfig()
     });
 
     expect(html).toContain('<div id="loading">Connecting...</div>');
@@ -163,7 +163,7 @@ describe('generateNativeTerminalHtml', () => {
       sessionName: 'test-session',
       basePath: '/ttyd-mux',
       sessionPath: '/ttyd-mux/test-session',
-      config: createTestConfig(),
+      config: createTestConfig()
     });
 
     expect(html).toContain('<meta name="apple-mobile-web-app-capable" content="yes">');
@@ -175,7 +175,7 @@ describe('generateNativeTerminalHtml', () => {
       sessionName: 'test-session',
       basePath: '/ttyd-mux',
       sessionPath: '/ttyd-mux/test-session',
-      config: createTestConfig(),
+      config: createTestConfig()
     });
 
     expect(html).toContain('viewport');
@@ -187,7 +187,7 @@ describe('generateNativeTerminalHtml', () => {
       sessionName: 'test-session',
       basePath: '/ttyd-mux',
       sessionPath: '/ttyd-mux/test-session',
-      config: createTestConfig(),
+      config: createTestConfig()
     });
 
     expect(html).toContain('"isNativeTerminal":true');
@@ -199,7 +199,7 @@ describe('generateNativeTerminalHtml', () => {
       basePath: '/ttyd-mux',
       sessionPath: '/ttyd-mux/test-session',
       config: createTestConfig(),
-      isShared: true,
+      isShared: true
     });
 
     expect(html).toContain('"isShared":true');
@@ -210,7 +210,7 @@ describe('generateNativeTerminalHtml', () => {
       sessionName: '<script>alert("xss")</script>',
       basePath: '/ttyd-mux',
       sessionPath: '/ttyd-mux/test-session',
-      config: createTestConfig(),
+      config: createTestConfig()
     });
 
     expect(html).not.toContain('<script>alert("xss")</script>');
@@ -225,7 +225,7 @@ describe('generateNativeTerminalHtml', () => {
       sessionName: 'test-session',
       basePath: '/ttyd-mux',
       sessionPath: '/ttyd-mux/test-session',
-      config,
+      config
     });
 
     expect(html).toContain('scrollback: 50000');
@@ -236,7 +236,7 @@ describe('generateNativeTerminalHtml', () => {
       sessionName: 'test-session',
       basePath: '/ttyd-mux',
       sessionPath: '/ttyd-mux/test-session',
-      config: createTestConfig(),
+      config: createTestConfig()
     });
 
     // Terminal UI should include toolbar element
@@ -248,7 +248,7 @@ describe('generateNativeTerminalHtml', () => {
       sessionName: 'test-session',
       basePath: '/ttyd-mux',
       sessionPath: '/ttyd-mux/test-session',
-      config: createTestConfig(),
+      config: createTestConfig()
     });
 
     expect(html).toContain('window.__TTYD_MUX_CONFIG__');
@@ -260,7 +260,7 @@ describe('generateNativeTerminalHtml', () => {
       sessionName: 'test-session',
       basePath: '/ttyd-mux',
       sessionPath: '/ttyd-mux/test-session',
-      config: createTestConfig(),
+      config: createTestConfig()
     });
 
     expect(html).toContain('visibilitychange');
@@ -275,7 +275,7 @@ describe('generateNativeTerminalHtml', () => {
       sessionName: 'test-session',
       basePath: '/ttyd-mux',
       sessionPath: '/ttyd-mux/test-session',
-      config: createTestConfig(),
+      config: createTestConfig()
     });
 
     // Must have "base_path": not "basePath":
@@ -289,7 +289,7 @@ describe('generateNativeTerminalHtml', () => {
       sessionName: 'test-session',
       basePath: '/custom-base',
       sessionPath: '/custom-base/test-session',
-      config: createTestConfig(),
+      config: createTestConfig()
     });
 
     // The base_path in config should match the basePath parameter

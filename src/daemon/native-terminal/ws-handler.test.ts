@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import { isNativeTerminalWebSocketPath, isNativeTerminalHtmlPath } from './ws-handler.js';
+import { isNativeTerminalHtmlPath, isNativeTerminalWebSocketPath } from './ws-handler.js';
 
 describe('isNativeTerminalWebSocketPath', () => {
   const basePath = '/ttyd-mux';

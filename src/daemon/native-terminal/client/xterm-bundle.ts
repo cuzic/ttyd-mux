@@ -5,19 +5,13 @@
  * It exports the Terminal class and addon instances for use by terminal-client.js.
  */
 
-import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { WebLinksAddon } from '@xterm/addon-web-links';
-import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { SerializeAddon } from '@xterm/addon-serialize';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+import { Terminal } from '@xterm/xterm';
 
-export {
-  Terminal,
-  FitAddon,
-  WebLinksAddon,
-  Unicode11Addon,
-  SerializeAddon,
-};
+export { Terminal, FitAddon, WebLinksAddon, Unicode11Addon, SerializeAddon };
 
 /**
  * Create a fully configured Terminal instance with all addons
@@ -45,8 +39,8 @@ export function createTerminal(options?: {
       foreground: '#d4d4d4',
       cursor: '#d4d4d4',
       cursorAccent: '#1e1e1e',
-      selectionBackground: 'rgba(255, 255, 255, 0.3)',
-    },
+      selectionBackground: 'rgba(255, 255, 255, 0.3)'
+    }
   });
 
   const fitAddon = new FitAddon();
@@ -67,6 +61,6 @@ export function createTerminal(options?: {
     fitAddon,
     webLinksAddon,
     unicode11Addon,
-    serializeAddon,
+    serializeAddon
   };
 }

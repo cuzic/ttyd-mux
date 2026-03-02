@@ -6,15 +6,15 @@
  * for native terminal sessions.
  */
 
-import type { Server as BunServer, ServerWebSocket } from 'bun';
 import { normalizeBasePath } from '@/config/config.js';
 import type { Config } from '@/config/types.js';
 import { createLogger } from '@/utils/logger.js';
+import type { Server as BunServer, ServerWebSocket } from 'bun';
 import { NativeSessionManager } from './session-manager.js';
 import type { NativeTerminalWebSocketData } from './types.js';
 import {
   createNativeTerminalWebSocketHandlers,
-  isNativeTerminalWebSocketPath,
+  isNativeTerminalWebSocketPath
 } from './ws-handler.js';
 
 const log = createLogger('native-server');
@@ -51,14 +51,16 @@ export interface NativeTerminalServer {
 /**
  * Create a native terminal server using Bun.serve
  */
-export function createNativeTerminalServer(options: NativeTerminalServerOptions): NativeTerminalServer {
+export function createNativeTerminalServer(
+  options: NativeTerminalServerOptions
+): NativeTerminalServer {
   const { config, getConfig } = options;
   const sessionManager = new NativeSessionManager(config);
   const basePath = normalizeBasePath(config.base_path);
 
   const wsHandlers = createNativeTerminalWebSocketHandlers({
     sessionManager,
-    basePath,
+    basePath
   });
 
   const server = Bun.serve<NativeTerminalWebSocketData>({
@@ -86,7 +88,7 @@ export function createNativeTerminalServer(options: NativeTerminalServerOptions)
             await sessionManager.createSession({
               name: sessionName,
               dir: process.cwd(),
-              path: `${basePath}/${sessionName}`,
+              path: `${basePath}/${sessionName}`
             });
             log.info(`Created session on WebSocket connect: ${sessionName}`);
           } catch (error) {
@@ -97,7 +99,7 @@ export function createNativeTerminalServer(options: NativeTerminalServerOptions)
 
         // Upgrade to WebSocket
         const upgraded = server.upgrade(req, {
-          data: { sessionName },
+          data: { sessionName }
         });
 
         if (upgraded) {
@@ -121,8 +123,8 @@ export function createNativeTerminalServer(options: NativeTerminalServerOptions)
       },
       close(ws: ServerWebSocket<NativeTerminalWebSocketData>) {
         wsHandlers.websocket.close(ws);
-      },
-    },
+      }
+    }
   });
 
   log.info(`Native terminal server started on ${config.listen_addresses[0]}:${config.daemon_port}`);
@@ -133,6 +135,6 @@ export function createNativeTerminalServer(options: NativeTerminalServerOptions)
     async stop() {
       await sessionManager.stopAll();
       server.stop();
-    },
+    }
   };
 }

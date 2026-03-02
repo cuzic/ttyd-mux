@@ -6,7 +6,7 @@ import {
   createPongMessage,
   createTitleMessage,
   parseClientMessage,
-  serializeServerMessage,
+  serializeServerMessage
 } from './types.js';
 
 describe('parseClientMessage', () => {
@@ -77,7 +77,9 @@ describe('serializeServerMessage', () => {
 
   test('serializes error message', () => {
     const message = { type: 'error' as const, message: 'Something went wrong' };
-    expect(serializeServerMessage(message)).toBe('{"type":"error","message":"Something went wrong"}');
+    expect(serializeServerMessage(message)).toBe(
+      '{"type":"error","message":"Something went wrong"}'
+    );
   });
 });
 

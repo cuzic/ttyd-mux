@@ -8,7 +8,7 @@
 import type { ServerWebSocket } from 'bun';
 import type { NativeSessionManager } from './session-manager.js';
 import type { NativeTerminalWebSocket, NativeTerminalWebSocketData } from './types.js';
-import { serializeServerMessage, createErrorMessage } from './types.js';
+import { createErrorMessage, serializeServerMessage } from './types.js';
 
 export interface NativeTerminalWebSocketHandlerOptions {
   /** Session manager instance */
@@ -74,7 +74,7 @@ export function createNativeTerminalWebSocketHandlers(
 
       // Upgrade to WebSocket
       const upgraded = server.upgrade(req, {
-        data: { sessionName },
+        data: { sessionName }
       });
 
       if (upgraded) {
@@ -127,8 +127,8 @@ export function createNativeTerminalWebSocketHandlers(
         const { sessionName } = ws.data;
         sessionManager.handleWebSocketClose(sessionName, ws);
         console.log(`[NativeTerminalWS] Client disconnected from session: ${sessionName}`);
-      },
-    },
+      }
+    }
   };
 }
 
