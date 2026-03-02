@@ -2379,6 +2379,10 @@ body.preview-open .xterm-screen {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
+.block-filter-toolbar.hidden {
+  display: none;
+}
+
 .block-filter-btn {
   display: flex;
   align-items: center;
