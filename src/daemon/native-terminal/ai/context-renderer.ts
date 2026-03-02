@@ -4,7 +4,10 @@
  * Converts block context to LLM-friendly text format.
  */
 
-import type { BlockContext, RenderMode } from './types.js';
+import type { BlockContext, FileContext, InlineBlock, RenderMode } from './types.js';
+
+/** Maximum file content length (100KB) */
+const MAX_FILE_CONTENT_LENGTH = 100 * 1024;
 
 export interface ContextRendererOptions {
   /** Maximum output length per block (characters) */
@@ -325,4 +328,218 @@ export function getContextSummary(blocks: BlockContext[]): {
     estimatedTokens: estimateTokenCount(totalChars.toString()),
     errorCount
   };
+}
+
+/**
+ * Render file context to LLM-friendly text
+ */
+export function renderFileContext(files: FileContext[]): string {
+  if (files.length === 0) {
+    return '';
+  }
+
+  const parts: string[] = [];
+
+  parts.push(`# Attached Files\n`);
+  parts.push(`Total files: ${files.length}\n`);
+  parts.push('');
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    if (!file) continue;
+
+    const fileText = renderFile(file, i + 1);
+    if (fileText) {
+      parts.push(fileText);
+      parts.push('');
+    }
+  }
+
+  return parts.join('\n');
+}
+
+/**
+ * Render a single file
+ */
+function renderFile(file: FileContext, index: number): string {
+  const lines: string[] = [];
+
+  // File header
+  const sourceLabel = file.source === 'plans' ? 'Claude Plans' : 'Project';
+  lines.push(`## File #${index} [${sourceLabel}]`);
+  lines.push(`Path: ${file.path}`);
+  lines.push(`Size: ${formatFileSize(file.size)}`);
+  lines.push(`Modified: ${formatTimestamp(file.modifiedAt)}`);
+  lines.push('');
+
+  // File content
+  let content = file.content;
+
+  // Truncate if needed
+  if (content.length > MAX_FILE_CONTENT_LENGTH) {
+    const truncated = content.slice(0, MAX_FILE_CONTENT_LENGTH);
+    const remaining = content.length - MAX_FILE_CONTENT_LENGTH;
+    content = truncated + `\n\n... [${remaining} characters truncated]`;
+  }
+
+  // Determine language for syntax highlighting
+  const lang = detectFileLanguage(file.name);
+  lines.push(`\`\`\`${lang}`);
+  lines.push(content.trim());
+  lines.push('```');
+
+  return lines.join('\n');
+}
+
+/**
+ * Detect file language from extension
+ */
+function detectFileLanguage(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+
+  const languageMap: Record<string, string> = {
+    md: 'markdown',
+    markdown: 'markdown',
+    ts: 'typescript',
+    tsx: 'typescript',
+    js: 'javascript',
+    jsx: 'javascript',
+    json: 'json',
+    yaml: 'yaml',
+    yml: 'yaml',
+    py: 'python',
+    rb: 'ruby',
+    go: 'go',
+    rs: 'rust',
+    java: 'java',
+    c: 'c',
+    cpp: 'cpp',
+    h: 'c',
+    hpp: 'cpp',
+    sh: 'bash',
+    bash: 'bash',
+    zsh: 'bash',
+    css: 'css',
+    scss: 'scss',
+    html: 'html',
+    xml: 'xml',
+    sql: 'sql',
+    txt: ''
+  };
+
+  return languageMap[ext] ?? '';
+}
+
+/**
+ * Format file size for display
+ */
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes} bytes`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Render inline blocks (Claude turns and client-side content)
+ */
+export function renderInlineBlocks(inlineBlocks: InlineBlock[]): string {
+  if (inlineBlocks.length === 0) {
+    return '';
+  }
+
+  const parts: string[] = [];
+
+  parts.push(`# Inline Context\n`);
+  parts.push(`Total items: ${inlineBlocks.length}\n`);
+  parts.push('');
+
+  for (let i = 0; i < inlineBlocks.length; i++) {
+    const block = inlineBlocks[i];
+    if (!block) continue;
+
+    const blockText = renderInlineBlock(block, i + 1);
+    if (blockText) {
+      parts.push(blockText);
+      parts.push('');
+    }
+  }
+
+  return parts.join('\n');
+}
+
+/**
+ * Render a single inline block
+ */
+function renderInlineBlock(block: InlineBlock, index: number): string {
+  const lines: string[] = [];
+
+  // Block header
+  const typeLabel = block.type === 'claude' ? 'Claude Conversation' : 'Command Output';
+  lines.push(`## ${typeLabel} #${index} [${block.id}]`);
+
+  // Metadata
+  if (block.metadata) {
+    if (block.type === 'claude') {
+      const meta = block.metadata as { userMessage?: string; toolCallCount?: number };
+      if (meta.userMessage) {
+        lines.push(`User: ${meta.userMessage.slice(0, 100)}${meta.userMessage.length > 100 ? '...' : ''}`);
+      }
+      if (meta.toolCallCount !== undefined) {
+        lines.push(`Tool calls: ${meta.toolCallCount}`);
+      }
+    } else {
+      const meta = block.metadata as { command?: string; exitCode?: number; status?: string };
+      if (meta.command) {
+        lines.push(`Command: ${meta.command}`);
+      }
+      if (meta.exitCode !== undefined) {
+        lines.push(`Exit code: ${meta.exitCode}`);
+      }
+    }
+  }
+
+  lines.push('');
+
+  // Content
+  lines.push('### Content');
+  const lang = block.type === 'claude' ? 'markdown' : '';
+  lines.push(`\`\`\`${lang}`);
+  lines.push(block.content.trim());
+  lines.push('```');
+
+  return lines.join('\n');
+}
+
+/**
+ * Render combined context (blocks + inline blocks + files)
+ */
+export function renderCombinedContext(
+  blocks: BlockContext[],
+  files: FileContext[],
+  mode: RenderMode,
+  options: ContextRendererOptions = {},
+  inlineBlocks: InlineBlock[] = []
+): string {
+  const parts: string[] = [];
+
+  // Render blocks first
+  if (blocks.length > 0) {
+    parts.push(renderContext(blocks, mode, options));
+  }
+
+  // Render inline blocks (Claude turns, etc.)
+  if (inlineBlocks.length > 0) {
+    parts.push(renderInlineBlocks(inlineBlocks));
+  }
+
+  // Render files
+  if (files.length > 0) {
+    parts.push(renderFileContext(files));
+  }
+
+  return parts.join('\n\n---\n\n');
 }
