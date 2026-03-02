@@ -12,10 +12,21 @@ import { create } from 'zustand';
 import type {
   AIChatResponse,
   Citation,
+  FileSource,
   NextCommand,
   RunnerName,
   RunnerStatus
-} from '../../../ai/types.js';
+} from '@/daemon/native-terminal/ai/types.js';
+import { getAllBlockContents, removeBlockContent } from '@/daemon/native-terminal/client/app/hooks/useBlockContextBridge.js';
+
+/** File reference for context */
+export interface ContextFileRef {
+  source: FileSource;
+  path: string;
+  name: string;
+  size: number;
+  modifiedAt: string;
+}
 
 export interface ChatMessage {
   id: string;
@@ -41,6 +52,9 @@ interface StreamingRunState {
   gapDetected: boolean;
 }
 
+/** Maximum number of context files */
+const MAX_CONTEXT_FILES = 5;
+
 export interface ChatStoreState {
   // Messages
   messages: ChatMessage[];
@@ -50,8 +64,11 @@ export interface ChatStoreState {
   selectedRunner: RunnerName;
   availableRunners: RunnerStatus[];
 
-  // Context
+  // Context - blocks
   contextBlockIds: string[];
+
+  // Context - files
+  contextFiles: ContextFileRef[];
 
   // Thread
   threadId: string | null;
@@ -78,6 +95,11 @@ export interface ChatStoreState {
   removeContextBlock: (blockId: string) => void;
   clearContextBlocks: () => void;
   setContextBlocks: (blockIds: string[]) => void;
+
+  // File context actions
+  addContextFile: (file: ContextFileRef) => void;
+  removeContextFile: (source: FileSource, path: string) => void;
+  clearContextFiles: () => void;
 
   setThreadId: (threadId: string | null) => void;
 
@@ -150,6 +172,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
   selectedRunner: 'auto',
   availableRunners: [],
   contextBlockIds: [],
+  contextFiles: [],
   threadId: null,
   isOpen: false,
   inputValue: '',
@@ -186,14 +209,44 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
       return { contextBlockIds: [...state.contextBlockIds, blockId] };
     }),
 
-  removeContextBlock: (blockId) =>
-    set((state) => ({
+  removeContextBlock: (blockId) => {
+    // Also remove from block content registry
+    removeBlockContent(blockId);
+    return set((state) => ({
       contextBlockIds: state.contextBlockIds.filter((id) => id !== blockId)
-    })),
+    }));
+  },
 
   clearContextBlocks: () => set({ contextBlockIds: [] }),
 
   setContextBlocks: (blockIds) => set({ contextBlockIds: blockIds }),
+
+  // File context actions
+  addContextFile: (file) =>
+    set((state) => {
+      // Check if file already exists
+      const exists = state.contextFiles.some(
+        (f) => f.source === file.source && f.path === file.path
+      );
+      if (exists) {
+        return state;
+      }
+      // Check max limit
+      if (state.contextFiles.length >= MAX_CONTEXT_FILES) {
+        console.warn(`Maximum ${MAX_CONTEXT_FILES} files can be attached`);
+        return state;
+      }
+      return { contextFiles: [...state.contextFiles, file] };
+    }),
+
+  removeContextFile: (source, path) =>
+    set((state) => ({
+      contextFiles: state.contextFiles.filter(
+        (f) => !(f.source === source && f.path === path)
+      )
+    })),
+
+  clearContextFiles: () => set({ contextFiles: [] }),
 
   // Thread actions
   setThreadId: (threadId) => set({ threadId }),
@@ -453,6 +506,22 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
     }));
 
     try {
+      // Prepare file references if any
+      const files = state.contextFiles.length > 0
+        ? state.contextFiles.map((f) => ({ source: f.source, path: f.path }))
+        : undefined;
+
+      // Get block contents from registry (includes Claude turns)
+      const blockContents = getAllBlockContents(state.contextBlockIds);
+      const inlineBlocks = blockContents.length > 0
+        ? blockContents.map((entry, index) => ({
+            id: state.contextBlockIds[index],
+            type: entry.type,
+            content: entry.content,
+            metadata: entry.metadata
+          }))
+        : undefined;
+
       const response = await fetch(`${basePath}/api/ai/runs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -461,6 +530,8 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
           context: {
             sessionId,
             blocks: state.contextBlockIds,
+            inlineBlocks, // Include block contents for Claude turns
+            files,
             renderMode: 'full'
           },
           runner: state.selectedRunner === 'auto' ? undefined : state.selectedRunner,
@@ -531,6 +602,11 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
     // Send via WebSocket
     const ws = get().wsConnection;
     if (ws && ws.readyState === WebSocket.OPEN) {
+      // Prepare file references if any
+      const files = state.contextFiles.length > 0
+        ? state.contextFiles.map((f) => ({ source: f.source, path: f.path }))
+        : undefined;
+
       ws.send(
         JSON.stringify({
           type: 'ai_chat',
@@ -538,6 +614,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
           context: {
             sessionId,
             blocks: state.contextBlockIds,
+            files,
             renderMode: 'full'
           },
           runner: state.selectedRunner === 'auto' ? undefined : state.selectedRunner,
