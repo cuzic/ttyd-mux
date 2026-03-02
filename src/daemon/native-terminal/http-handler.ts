@@ -12,18 +12,37 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { addShare, getAllShares, getShare, getStateDir, removeShare } from '@/config/state.js';
 import type { Config } from '@/config/types.js';
-import { getStateDir, addShare, getAllShares, getShare, removeShare } from '@/config/state.js';
-import { createLogger } from '@/utils/logger.js';
+import { getPublicVapidKey } from '@/daemon/notification/vapid.js';
 import { generatePortalHtml } from '@/daemon/portal.js';
 import { getIconPng, getIconSvg, getManifestJson, getServiceWorker } from '@/daemon/pwa.js';
-import { getPublicVapidKey } from '@/daemon/notification/vapid.js';
 import { createShareManager } from '@/daemon/share-manager.js';
+import { createLogger } from '@/utils/logger.js';
+import { createBlockSSEStream } from './block-event-emitter.js';
+import {
+  type CommandExecutorManager,
+  createCommandExecutorManager
+} from './command-executor-manager.js';
 import { generateNativeTerminalHtml } from './html-template.js';
 import type { NativeSessionManager } from './session-manager.js';
+import type { CommandRequest } from './types.js';
 import { isNativeTerminalHtmlPath } from './ws-handler.js';
 
 const log = createLogger('native-http');
+
+// Command executor manager (lazy initialized)
+let executorManager: CommandExecutorManager | null = null;
+
+/**
+ * Get or create the command executor manager
+ */
+function getExecutorManager(sessionManager: NativeSessionManager): CommandExecutorManager {
+  if (!executorManager) {
+    executorManager = createCommandExecutorManager(sessionManager);
+  }
+  return executorManager;
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -90,7 +109,7 @@ function serveStaticFile(
   if (ifNoneMatch === etag) {
     return new Response(null, {
       status: 304,
-      headers: { ETag: etag, 'Cache-Control': 'public, max-age=0, must-revalidate' },
+      headers: { ETag: etag, 'Cache-Control': 'public, max-age=0, must-revalidate' }
     });
   }
 
@@ -98,8 +117,8 @@ function serveStaticFile(
     headers: {
       'Content-Type': contentType,
       ETag: etag,
-      'Cache-Control': 'public, max-age=0, must-revalidate',
-    },
+      'Cache-Control': 'public, max-age=0, must-revalidate'
+    }
   });
 }
 
@@ -116,7 +135,7 @@ function securityHeaders(sentryEnabled = false): Record<string, string> {
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     // Allow Google OAuth for Caddy forward_auth, and https: for general API calls
     'Content-Security-Policy': `default-src 'self'; script-src 'self' 'unsafe-inline'${sentryScriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss: https:${sentryConnectSrc}; frame-src 'self'`,
-    'Permissions-Policy': 'geolocation=(), microphone=(), camera=(), payment=()',
+    'Permissions-Policy': 'geolocation=(), microphone=(), camera=(), payment=()'
   };
 }
 
@@ -144,7 +163,7 @@ export async function handleHttpRequest(
   if (pathname === `${basePath}/manifest.json`) {
     const json = getManifestJson(basePath);
     return new Response(json, {
-      headers: { ...headers, 'Content-Type': 'application/manifest+json' },
+      headers: { ...headers, 'Content-Type': 'application/manifest+json' }
     });
   }
 
@@ -155,7 +174,7 @@ export async function handleHttpRequest(
     if (ifNoneMatch === etag) {
       return new Response(null, {
         status: 304,
-        headers: { ETag: etag, 'Cache-Control': 'public, max-age=0, must-revalidate' },
+        headers: { ETag: etag, 'Cache-Control': 'public, max-age=0, must-revalidate' }
       });
     }
     return new Response(sw, {
@@ -164,34 +183,43 @@ export async function handleHttpRequest(
         'Content-Type': 'application/javascript',
         'Service-Worker-Allowed': '/',
         ETag: etag,
-        'Cache-Control': 'public, max-age=0, must-revalidate',
-      },
+        'Cache-Control': 'public, max-age=0, must-revalidate'
+      }
     });
   }
 
   if (pathname === `${basePath}/icon.svg`) {
     return new Response(getIconSvg(), {
-      headers: { ...headers, 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' },
+      headers: {
+        ...headers,
+        'Content-Type': 'image/svg+xml',
+        'Cache-Control': 'public, max-age=86400'
+      }
     });
   }
 
   if (pathname === `${basePath}/icon-192.png`) {
     const png = getIconPng(192);
     return new Response(new Uint8Array(png), {
-      headers: { ...headers, 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' },
+      headers: { ...headers, 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' }
     });
   }
 
   if (pathname === `${basePath}/icon-512.png`) {
     const png = getIconPng(512);
     return new Response(new Uint8Array(png), {
-      headers: { ...headers, 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' },
+      headers: { ...headers, 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' }
     });
   }
 
   // Static JavaScript/CSS files
   if (pathname === `${basePath}/terminal-ui.js`) {
-    return serveStaticFile(req, 'terminal-ui.js', 'application/javascript', 'Run: bun run build:terminal-ui');
+    return serveStaticFile(
+      req,
+      'terminal-ui.js',
+      'application/javascript',
+      'Run: bun run build:terminal-ui'
+    );
   }
 
   if (pathname === `${basePath}/tabs.js`) {
@@ -199,11 +227,21 @@ export async function handleHttpRequest(
   }
 
   if (pathname === `${basePath}/xterm-bundle.js`) {
-    return serveStaticFile(req, 'xterm-bundle.js', 'application/javascript', 'Run: bun run build:xterm');
+    return serveStaticFile(
+      req,
+      'xterm-bundle.js',
+      'application/javascript',
+      'Run: bun run build:xterm'
+    );
   }
 
   if (pathname === `${basePath}/terminal-client.js`) {
-    return serveStaticFile(req, 'terminal-client.js', 'application/javascript', 'Run: bun run build:terminal-client');
+    return serveStaticFile(
+      req,
+      'terminal-client.js',
+      'application/javascript',
+      'Run: bun run build:terminal-client'
+    );
   }
 
   if (pathname === `${basePath}/xterm.css`) {
@@ -219,11 +257,11 @@ export async function handleHttpRequest(
         port: 0, // Native sessions don't use ports
         path: `/${s.name}`,
         dir: s.dir,
-        started_at: s.startedAt,
+        started_at: s.startedAt
       }));
       const html = generatePortalHtml(config, sessions);
       return new Response(html, {
-        headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' },
+        headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' }
       });
     }
   }
@@ -241,14 +279,14 @@ export async function handleHttpRequest(
           session = await sessionManager.createSession({
             name: sessionName,
             dir: process.cwd(), // Default to current directory
-            path: `${basePath}/${sessionName}`,
+            path: `${basePath}/${sessionName}`
           });
           log.info(`Created session on demand: ${sessionName}`);
         } catch (error) {
           log.error(`Failed to create session ${sessionName}: ${error}`);
           return new Response('Failed to create session', {
             status: 500,
-            headers: { ...headers, 'Content-Type': 'text/plain' },
+            headers: { ...headers, 'Content-Type': 'text/plain' }
           });
         }
       }
@@ -257,10 +295,10 @@ export async function handleHttpRequest(
         sessionName,
         basePath,
         sessionPath: `${basePath}/${sessionName}`,
-        config,
+        config
       });
       return new Response(html, {
-        headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' },
+        headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' }
       });
     }
   }
@@ -274,7 +312,7 @@ export async function handleHttpRequest(
     if (!share) {
       return new Response('Share link not found or expired', {
         status: 404,
-        headers: { ...headers, 'Content-Type': 'text/plain' },
+        headers: { ...headers, 'Content-Type': 'text/plain' }
       });
     }
 
@@ -284,7 +322,7 @@ export async function handleHttpRequest(
     if (!sessionManager.hasSession(sessionName)) {
       return new Response('Session not found', {
         status: 404,
-        headers: { ...headers, 'Content-Type': 'text/plain' },
+        headers: { ...headers, 'Content-Type': 'text/plain' }
       });
     }
 
@@ -293,17 +331,17 @@ export async function handleHttpRequest(
       basePath,
       sessionPath: `${basePath}/${sessionName}`,
       config,
-      isShared: true,
+      isShared: true
     });
     return new Response(html, {
-      headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' },
+      headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' }
     });
   }
 
   // Not found
   return new Response('Not Found', {
     status: 404,
-    headers: { ...headers, 'Content-Type': 'text/plain' },
+    headers: { ...headers, 'Content-Type': 'text/plain' }
   });
 }
 
@@ -345,7 +383,7 @@ async function handleApiRequest(
 
   const headers = {
     'Content-Type': 'application/json',
-    ...securityHeaders(config.sentry?.enabled ?? false),
+    ...securityHeaders(config.sentry?.enabled ?? false)
   };
 
   // GET /api/status
@@ -357,7 +395,7 @@ async function handleApiRequest(
       path: `/${s.name}`,
       dir: s.dir,
       started_at: s.startedAt,
-      clients: s.clientCount,
+      clients: s.clientCount
     }));
 
     return new Response(
@@ -365,9 +403,9 @@ async function handleApiRequest(
         daemon: {
           pid: process.pid,
           port: config.daemon_port,
-          backend: 'native',
+          backend: 'native'
         },
-        sessions,
+        sessions
       }),
       { headers }
     );
@@ -381,7 +419,7 @@ async function handleApiRequest(
       port: 0,
       path: `/${s.name}`,
       dir: s.dir,
-      started_at: s.startedAt,
+      started_at: s.startedAt
     }));
     return new Response(JSON.stringify(sessions), { headers });
   }
@@ -395,21 +433,21 @@ async function handleApiRequest(
       if (!name) {
         return new Response(JSON.stringify({ error: 'Session name is required' }), {
           status: 400,
-          headers,
+          headers
         });
       }
 
       if (sessionManager.hasSession(name)) {
         return new Response(JSON.stringify({ error: `Session ${name} already exists` }), {
           status: 409,
-          headers,
+          headers
         });
       }
 
       const session = await sessionManager.createSession({
         name,
         dir: dir || process.cwd(),
-        path: `${basePath}/${name}`,
+        path: `${basePath}/${name}`
       });
 
       return new Response(
@@ -417,26 +455,26 @@ async function handleApiRequest(
           name: session.name,
           pid: session.pid,
           path: `/${name}`,
-          dir: session.cwd,
+          dir: session.cwd
         }),
         { status: 201, headers }
       );
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), {
         status: 400,
-        headers,
+        headers
       });
     }
   }
 
   // DELETE /api/sessions/:name
-  if (apiPath.startsWith('/sessions/') && method === 'DELETE') {
+  if (apiPath.startsWith('/sessions/') && method === 'DELETE' && !apiPath.includes('/commands') && !apiPath.includes('/blocks') && !apiPath.includes('/integration')) {
     const sessionName = apiPath.slice('/sessions/'.length);
 
     if (!sessionManager.hasSession(sessionName)) {
       return new Response(JSON.stringify({ error: `Session ${sessionName} not found` }), {
         status: 404,
-        headers,
+        headers
       });
     }
 
@@ -446,9 +484,256 @@ async function handleApiRequest(
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), {
         status: 500,
-        headers,
+        headers
       });
     }
+  }
+
+  // === Command Block API ===
+
+  // POST /api/sessions/:name/commands - Execute a command
+  const commandsMatch = apiPath.match(/^\/sessions\/([^/]+)\/commands$/);
+  if (commandsMatch?.[1] && method === 'POST') {
+    const sessionName = decodeURIComponent(commandsMatch[1]);
+
+    if (!sessionManager.hasSession(sessionName)) {
+      return new Response(JSON.stringify({ error: `Session "${sessionName}" not found` }), {
+        status: 404,
+        headers
+      });
+    }
+
+    try {
+      const body = (await req.json()) as CommandRequest;
+
+      if (!body.command || typeof body.command !== 'string') {
+        return new Response(JSON.stringify({ error: 'command is required' }), {
+          status: 400,
+          headers
+        });
+      }
+
+      const executor = getExecutorManager(sessionManager);
+      const response = await executor.executeCommand(sessionName, body);
+
+      return new Response(JSON.stringify(response), {
+        status: 202, // Accepted
+        headers
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers
+      });
+    }
+  }
+
+  // GET /api/sessions/:name/blocks - List blocks for a session
+  const sessionBlocksMatch = apiPath.match(/^\/sessions\/([^/]+)\/blocks$/);
+  if (sessionBlocksMatch?.[1] && method === 'GET') {
+    const sessionName = decodeURIComponent(sessionBlocksMatch[1]);
+
+    if (!sessionManager.hasSession(sessionName)) {
+      return new Response(JSON.stringify({ error: `Session "${sessionName}" not found` }), {
+        status: 404,
+        headers
+      });
+    }
+
+    const executor = getExecutorManager(sessionManager);
+    const blocks = executor.getSessionBlocks(sessionName);
+
+    return new Response(JSON.stringify(blocks), { headers });
+  }
+
+  // GET /api/sessions/:name/integration - Get OSC 633 integration status
+  const integrationMatch = apiPath.match(/^\/sessions\/([^/]+)\/integration$/);
+  if (integrationMatch?.[1] && method === 'GET') {
+    const sessionName = decodeURIComponent(integrationMatch[1]);
+
+    if (!sessionManager.hasSession(sessionName)) {
+      return new Response(JSON.stringify({ error: `Session "${sessionName}" not found` }), {
+        status: 404,
+        headers
+      });
+    }
+
+    const executor = getExecutorManager(sessionManager);
+    const status = executor.getIntegrationStatus(sessionName);
+
+    if (!status) {
+      return new Response(
+        JSON.stringify({
+          osc633: false,
+          status: 'unknown',
+          testedAt: null,
+          message: 'Integration not tested. Use persistent mode to test.'
+        }),
+        { headers }
+      );
+    }
+
+    return new Response(JSON.stringify(status), { headers });
+  }
+
+  // GET /api/blocks/:blockId - Get a specific block
+  const blockMatch = apiPath.match(/^\/blocks\/([^/]+)$/);
+  if (blockMatch?.[1] && method === 'GET') {
+    const blockId = decodeURIComponent(blockMatch[1]);
+
+    const executor = getExecutorManager(sessionManager);
+    const block = executor.getBlock(blockId);
+
+    if (!block) {
+      return new Response(JSON.stringify({ error: `Block "${blockId}" not found` }), {
+        status: 404,
+        headers
+      });
+    }
+
+    return new Response(JSON.stringify(block), { headers });
+  }
+
+  // POST /api/blocks/:blockId/cancel - Cancel a running command
+  const cancelMatch = apiPath.match(/^\/blocks\/([^/]+)\/cancel$/);
+  if (cancelMatch?.[1] && method === 'POST') {
+    const blockId = decodeURIComponent(cancelMatch[1]);
+
+    const executor = getExecutorManager(sessionManager);
+    const block = executor.getBlock(blockId);
+
+    if (!block) {
+      return new Response(JSON.stringify({ error: `Block "${blockId}" not found` }), {
+        status: 404,
+        headers
+      });
+    }
+
+    try {
+      const body = (await req.json().catch(() => ({}))) as { signal?: 'SIGTERM' | 'SIGINT' | 'SIGKILL' };
+      const signal = body.signal ?? 'SIGTERM';
+
+      // Find which session this block belongs to
+      // For now, iterate through all sessions
+      let response = null;
+      for (const session of sessionManager.listSessions()) {
+        const result = executor.cancelCommand(session.name, blockId, signal);
+        if (result.success) {
+          response = result;
+          break;
+        }
+      }
+
+      if (!response) {
+        return new Response(
+          JSON.stringify({ error: 'Block is not running or cannot be canceled' }),
+          { status: 400, headers }
+        );
+      }
+
+      return new Response(JSON.stringify(response), { headers });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers
+      });
+    }
+  }
+
+  // POST /api/blocks/:blockId/pin - Pin a block
+  const pinMatch = apiPath.match(/^\/blocks\/([^/]+)\/pin$/);
+  if (pinMatch?.[1] && method === 'POST') {
+    const blockId = decodeURIComponent(pinMatch[1]);
+
+    const executor = getExecutorManager(sessionManager);
+    const success = executor.pinBlock(blockId);
+
+    if (!success) {
+      return new Response(JSON.stringify({ error: `Block "${blockId}" not found` }), {
+        status: 404,
+        headers
+      });
+    }
+
+    return new Response(JSON.stringify({ success: true, blockId }), { headers });
+  }
+
+  // DELETE /api/blocks/:blockId/pin - Unpin a block
+  if (pinMatch?.[1] && method === 'DELETE') {
+    const blockId = decodeURIComponent(pinMatch[1]);
+
+    const executor = getExecutorManager(sessionManager);
+    const success = executor.unpinBlock(blockId);
+
+    if (!success) {
+      return new Response(JSON.stringify({ error: `Block "${blockId}" not found` }), {
+        status: 404,
+        headers
+      });
+    }
+
+    return new Response(JSON.stringify({ success: true, blockId }), { headers });
+  }
+
+  // GET /api/blocks/:blockId/chunks - Get output chunks
+  const chunksMatch = apiPath.match(/^\/blocks\/([^/]+)\/chunks$/);
+  if (chunksMatch?.[1] && method === 'GET') {
+    const blockId = decodeURIComponent(chunksMatch[1]);
+    const params = new URL(req.url).searchParams;
+
+    const executor = getExecutorManager(sessionManager);
+    const block = executor.getBlock(blockId);
+
+    if (!block) {
+      return new Response(JSON.stringify({ error: `Block "${blockId}" not found` }), {
+        status: 404,
+        headers
+      });
+    }
+
+    const fromSeq = params.get('fromSeq') ? Number.parseInt(params.get('fromSeq')!, 10) : undefined;
+    const stream = params.get('stream') as 'stdout' | 'stderr' | 'all' | null;
+    const limit = params.get('limit') ? Number.parseInt(params.get('limit')!, 10) : undefined;
+
+    const result = executor.getBlockChunks(blockId, {
+      fromSeq,
+      stream: stream ?? 'all',
+      limit
+    });
+
+    return new Response(JSON.stringify(result), { headers });
+  }
+
+  // GET /api/blocks/:blockId/stream - SSE stream for block events
+  const streamMatch = apiPath.match(/^\/blocks\/([^/]+)\/stream$/);
+  if (streamMatch?.[1] && method === 'GET') {
+    const blockId = decodeURIComponent(streamMatch[1]);
+
+    const executor = getExecutorManager(sessionManager);
+    const block = executor.getBlock(blockId);
+
+    if (!block) {
+      return new Response(JSON.stringify({ error: `Block "${blockId}" not found` }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Get Last-Event-ID header for resumption
+    const lastEventId = req.headers.get('Last-Event-ID');
+    const fromSeq = lastEventId ? Number.parseInt(lastEventId, 10) : undefined;
+
+    const eventEmitter = executor.getEventEmitter();
+    const stream = createBlockSSEStream(eventEmitter, blockId, { lastEventId: fromSeq });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no' // Disable nginx buffering
+      }
+    });
   }
 
   // === Notification API ===
@@ -461,7 +746,7 @@ async function handleApiRequest(
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), {
         status: 500,
-        headers,
+        headers
       });
     }
   }
@@ -482,13 +767,13 @@ async function handleApiRequest(
   // POST /api/shares - Create a share
   if (apiPath === '/shares' && method === 'POST') {
     try {
-      const body = await req.json() as { sessionName: string; expiresIn?: string };
+      const body = (await req.json()) as { sessionName: string; expiresIn?: string };
 
       // Check if session exists
       if (!sessionManager.hasSession(body.sessionName)) {
         return new Response(JSON.stringify({ error: `Session "${body.sessionName}" not found` }), {
           status: 404,
-          headers,
+          headers
         });
       }
 
@@ -499,7 +784,7 @@ async function handleApiRequest(
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), {
         status: 400,
-        headers,
+        headers
       });
     }
   }
@@ -513,7 +798,7 @@ async function handleApiRequest(
     }
     return new Response(JSON.stringify({ error: 'Share not found or expired' }), {
       status: 404,
-      headers,
+      headers
     });
   }
 
@@ -526,7 +811,7 @@ async function handleApiRequest(
     }
     return new Response(JSON.stringify({ error: 'Share not found' }), {
       status: 404,
-      headers,
+      headers
     });
   }
 
@@ -541,7 +826,7 @@ async function handleApiRequest(
     if (!sessionName) {
       return new Response(JSON.stringify({ error: 'session parameter is required' }), {
         status: 400,
-        headers,
+        headers
       });
     }
 
@@ -549,7 +834,7 @@ async function handleApiRequest(
     if (!session) {
       return new Response(JSON.stringify({ error: `Session "${sessionName}" not found` }), {
         status: 404,
-        headers,
+        headers
       });
     }
 
@@ -561,14 +846,14 @@ async function handleApiRequest(
       if (!targetPath.startsWith(baseDir)) {
         return new Response(JSON.stringify({ error: 'Invalid path' }), {
           status: 400,
-          headers,
+          headers
         });
       }
 
       if (!existsSync(targetPath)) {
         return new Response(JSON.stringify({ error: 'Path not found' }), {
           status: 404,
-          headers,
+          headers
         });
       }
 
@@ -576,7 +861,7 @@ async function handleApiRequest(
       if (!stat.isDirectory()) {
         return new Response(JSON.stringify({ error: 'Path is not a directory' }), {
           status: 400,
-          headers,
+          headers
         });
       }
 
@@ -584,14 +869,14 @@ async function handleApiRequest(
       const files = entries.map((entry) => ({
         name: entry.name,
         isDirectory: entry.isDirectory(),
-        size: entry.isFile() ? statSync(join(targetPath, entry.name)).size : 0,
+        size: entry.isFile() ? statSync(join(targetPath, entry.name)).size : 0
       }));
 
       return new Response(JSON.stringify({ path: filePath, files }), { headers });
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), {
         status: 500,
-        headers,
+        headers
       });
     }
   }
@@ -605,7 +890,7 @@ async function handleApiRequest(
     if (!sessionName || !filePath) {
       return new Response(JSON.stringify({ error: 'session and path parameters are required' }), {
         status: 400,
-        headers,
+        headers
       });
     }
 
@@ -613,7 +898,7 @@ async function handleApiRequest(
     if (!session) {
       return new Response(JSON.stringify({ error: `Session "${sessionName}" not found` }), {
         status: 404,
-        headers,
+        headers
       });
     }
 
@@ -625,14 +910,14 @@ async function handleApiRequest(
       if (!targetPath.startsWith(baseDir)) {
         return new Response(JSON.stringify({ error: 'Invalid path' }), {
           status: 400,
-          headers,
+          headers
         });
       }
 
       if (!existsSync(targetPath)) {
         return new Response(JSON.stringify({ error: 'File not found' }), {
           status: 404,
-          headers,
+          headers
         });
       }
 
@@ -642,13 +927,13 @@ async function handleApiRequest(
       return new Response(content, {
         headers: {
           'Content-Type': 'application/octet-stream',
-          'Content-Disposition': `attachment; filename="${filename}"`,
-        },
+          'Content-Disposition': `attachment; filename="${filename}"`
+        }
       });
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), {
         status: 500,
-        headers,
+        headers
       });
     }
   }
@@ -662,7 +947,7 @@ async function handleApiRequest(
     if (!sessionName || !filePath) {
       return new Response(JSON.stringify({ error: 'session and path parameters are required' }), {
         status: 400,
-        headers,
+        headers
       });
     }
 
@@ -670,7 +955,7 @@ async function handleApiRequest(
     if (!session) {
       return new Response(JSON.stringify({ error: `Session "${sessionName}" not found` }), {
         status: 404,
-        headers,
+        headers
       });
     }
 
@@ -682,7 +967,7 @@ async function handleApiRequest(
       if (!targetPath.startsWith(baseDir)) {
         return new Response(JSON.stringify({ error: 'Invalid path' }), {
           status: 400,
-          headers,
+          headers
         });
       }
 
@@ -691,12 +976,12 @@ async function handleApiRequest(
 
       return new Response(JSON.stringify({ success: true, path: filePath }), {
         status: 201,
-        headers,
+        headers
       });
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), {
         status: 500,
-        headers,
+        headers
       });
     }
   }
@@ -712,7 +997,7 @@ async function handleApiRequest(
     if (!sessionName || !filePath) {
       return new Response(JSON.stringify({ error: 'session and path parameters are required' }), {
         status: 400,
-        headers,
+        headers
       });
     }
 
@@ -720,7 +1005,7 @@ async function handleApiRequest(
     if (!session) {
       return new Response(JSON.stringify({ error: `Session "${sessionName}" not found` }), {
         status: 404,
-        headers,
+        headers
       });
     }
 
@@ -732,27 +1017,27 @@ async function handleApiRequest(
       if (!targetPath.startsWith(baseDir)) {
         return new Response(JSON.stringify({ error: 'Invalid path' }), {
           status: 400,
-          headers,
+          headers
         });
       }
 
       if (!existsSync(targetPath)) {
         return new Response(JSON.stringify({ error: 'File not found' }), {
           status: 404,
-          headers,
+          headers
         });
       }
 
       const content = readFileSync(targetPath, 'utf-8');
       return new Response(content, {
         headers: {
-          'Content-Type': 'text/html; charset=utf-8',
-        },
+          'Content-Type': 'text/html; charset=utf-8'
+        }
       });
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), {
         status: 500,
-        headers,
+        headers
       });
     }
   }
@@ -760,6 +1045,6 @@ async function handleApiRequest(
   // Not found
   return new Response(JSON.stringify({ error: 'API endpoint not found' }), {
     status: 404,
-    headers,
+    headers
   });
 }
