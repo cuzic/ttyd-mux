@@ -10,6 +10,8 @@
 
 import { type Block, BlockManager } from './BlockManager.js';
 import { BlockRenderer } from './BlockRenderer.js';
+import { ClaudeBlockManager } from './ClaudeBlockManager.js';
+import { DecorationManager, type BlockInfo } from './DecorationManager.js';
 
 declare global {
   interface Window {
@@ -17,6 +19,8 @@ declare global {
     TerminalClient: typeof TerminalClient;
     BlockManager: typeof BlockManager;
     BlockRenderer: typeof BlockRenderer;
+    ClaudeBlockManager: typeof ClaudeBlockManager;
+    DecorationManager: typeof DecorationManager;
     term: import('@xterm/xterm').Terminal | null;
     fitAddon: import('@xterm/addon-fit').FitAddon | null;
   }
@@ -65,7 +69,15 @@ interface ServerMessage {
     | 'blockStart'
     | 'blockEnd'
     | 'blockOutput'
-    | 'blockList';
+    | 'blockList'
+    // Claude watcher messages
+    | 'claudeUserMessage'
+    | 'claudeAssistantText'
+    | 'claudeThinking'
+    | 'claudeToolUse'
+    | 'claudeToolResult'
+    | 'claudeSessionStart'
+    | 'claudeSessionEnd';
   data?: string;
   title?: string;
   code?: number;
@@ -77,6 +89,18 @@ interface ServerMessage {
   endedAt?: string;
   endLine?: number;
   blocks?: Block[];
+  // Claude-related fields
+  uuid?: string;
+  content?: string;
+  text?: string;
+  thinking?: string;
+  toolId?: string;
+  toolName?: string;
+  input?: Record<string, unknown>;
+  isError?: boolean;
+  sessionId?: string;
+  project?: string;
+  timestamp?: string;
 }
 
 export class TerminalClient {
@@ -92,6 +116,10 @@ export class TerminalClient {
   // Block UI
   private blockManager: BlockManager | null = null;
   private blockRenderer: BlockRenderer | null = null;
+
+  // Claude Block UI
+  private claudeBlockManager: ClaudeBlockManager | null = null;
+  private decorationManager: DecorationManager | null = null;
 
   private readonly options: Required<TerminalClientOptions>;
 
@@ -121,7 +149,7 @@ export class TerminalClient {
     }
 
     // Create terminal with addons
-    const { terminal, fitAddon, serializeAddon } = window.XtermBundle.createTerminal({
+    const { terminal, fitAddon, serializeAddon, searchAddon } = window.XtermBundle.createTerminal({
       fontSize: this.options.fontSize,
       fontFamily: this.options.fontFamily,
       scrollback: this.options.scrollback
@@ -130,6 +158,7 @@ export class TerminalClient {
     this.terminal = terminal;
     this.fitAddon = fitAddon;
     this.serializeAddon = serializeAddon;
+    const searchAddonRef = searchAddon;
 
     // Expose to window for debugging and terminal-ui.js access
     window.term = terminal;
@@ -139,9 +168,32 @@ export class TerminalClient {
     terminal.open(this.options.container);
     fitAddon.fit();
 
-    // Handle terminal input
+    // Setup auto-copy selection to clipboard on mouseup
+    if (window.XtermBundle.setupSelectionAutoCopy) {
+      window.XtermBundle.setupSelectionAutoCopy(terminal);
+    }
+
+    // Setup right-click to paste from clipboard
+    if (window.XtermBundle.setupRightClickPaste) {
+      window.XtermBundle.setupRightClickPaste(terminal, (text) => {
+        this.send({ type: 'input', data: this.encodeInput(text) });
+      });
+    }
+
+    // Setup selection highlight - highlight all occurrences of selected text
+    if (window.XtermBundle.setupSelectionHighlight && searchAddonRef) {
+      window.XtermBundle.setupSelectionHighlight(terminal, searchAddonRef);
+    }
+
+    // Handle terminal input (Base64 encode for binary safety)
     terminal.onData((data) => {
-      this.send({ type: 'input', data });
+      this.send({ type: 'input', data: this.encodeInput(data) });
+    });
+
+    // Handle binary input (for non-UTF-8 compatible sequences like X10 mouse mode)
+    // xterm.js provides this separate event specifically for binary data
+    terminal.onBinary((data) => {
+      this.send({ type: 'input', data: this.encodeInput(data) });
     });
 
     // Handle terminal resize
@@ -149,10 +201,32 @@ export class TerminalClient {
       this.send({ type: 'resize', cols, rows });
     });
 
-    // Handle window resize
-    window.addEventListener('resize', () => {
-      this.fit();
+    // Handle window resize with debouncing
+    let resizeTimeout: number | null = null;
+    const debouncedFit = () => {
+      if (resizeTimeout) {
+        window.clearTimeout(resizeTimeout);
+      }
+      resizeTimeout = window.setTimeout(() => {
+        this.fit();
+        // Update decoration positions after resize
+        this.decorationManager?.handleResize();
+        resizeTimeout = null;
+      }, 50);
+    };
+
+    window.addEventListener('resize', debouncedFit);
+
+    // Handle orientation change on mobile
+    window.addEventListener('orientationchange', () => {
+      setTimeout(debouncedFit, 100);
     });
+
+    // Handle Visual Viewport changes (mobile keyboard)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', debouncedFit);
+      window.visualViewport.addEventListener('scroll', debouncedFit);
+    }
 
     // Initialize Block UI if enabled
     if (this.options.enableBlockUI) {
@@ -227,6 +301,186 @@ export class TerminalClient {
           this.sendInput(command);
           this.focus();
         }
+      });
+    }
+
+    // Initialize DecorationManager for xterm.js decorations
+    if (this.terminal) {
+      this.decorationManager = new DecorationManager({
+        terminal: this.terminal,
+        onBlockClick: (blockId, event) => {
+          console.log('[DecorationManager] Block clicked:', blockId);
+          // Single click selects, Cmd/Ctrl+click handled in DecorationManager
+          if (!event.metaKey && !event.ctrlKey) {
+            this.decorationManager?.selectBlock(blockId);
+            this.decorationManager?.scrollToBlock(blockId);
+          }
+        },
+        onActionClick: (blockId, action, _event) => {
+          console.log('[DecorationManager] Action clicked:', blockId, action);
+          this.handleDecorationAction(blockId, action);
+        },
+        onBlockSelect: (blockId, selected) => {
+          console.log('[DecorationManager] Block selection changed:', blockId, selected);
+        }
+      });
+
+      // Add keyboard handler for block operations
+      this.terminal.attachCustomKeyEventHandler((event) => {
+        // Cmd/Ctrl+C with selection copies selected blocks
+        if ((event.metaKey || event.ctrlKey) && event.key === 'c' && event.type === 'keydown') {
+          const selectedIds = this.decorationManager?.getSelectedBlockIds() ?? [];
+          if (selectedIds.length > 0) {
+            this.copySelectedBlocks(selectedIds);
+            return false; // Prevent default terminal handling
+          }
+        }
+        // Escape clears selection
+        if (event.key === 'Escape' && event.type === 'keydown') {
+          this.decorationManager?.clearSelection();
+        }
+        return true; // Allow default handling
+      });
+    }
+
+    // Initialize ClaudeBlockManager
+    this.claudeBlockManager = new ClaudeBlockManager({
+      onTurnStart: (turn) => {
+        console.log('[ClaudeBlockManager] Turn started:', turn.id);
+        // Add decoration for new Claude turn
+        if (this.decorationManager && this.terminal) {
+          const blockInfo: BlockInfo = {
+            id: turn.id,
+            type: 'claude',
+            status: 'streaming',
+            startLine: this.terminal.buffer.active.cursorY,
+            userMessage: turn.userMessage
+          };
+          this.decorationManager.addBlock(blockInfo);
+        }
+      },
+      onTurnUpdate: (turn) => {
+        // Update decoration status if needed
+        if (turn.status === 'streaming') {
+          this.decorationManager?.updateStatus(turn.id, 'streaming');
+        }
+      },
+      onTurnComplete: (turn) => {
+        console.log('[ClaudeBlockManager] Turn completed:', turn.id);
+        this.decorationManager?.updateStatus(turn.id, 'success');
+      },
+      onSessionStart: (sessionId) => {
+        console.log('[ClaudeBlockManager] Session started:', sessionId);
+      },
+      onSessionEnd: (sessionId) => {
+        console.log('[ClaudeBlockManager] Session ended:', sessionId);
+      }
+    });
+  }
+
+  /**
+   * Handle decoration action button clicks
+   */
+  private handleDecorationAction(blockId: string, action: string): void {
+    // Check if it's a Claude turn
+    const claudeTurn = this.claudeBlockManager?.getTurn(blockId);
+    if (claudeTurn) {
+      switch (action) {
+        case 'copy':
+          navigator.clipboard.writeText(this.claudeBlockManager?.formatTurnForCopy(blockId) ?? '');
+          break;
+        case 'context':
+          // Add Claude turn to AI Chat context via custom event
+          this.dispatchBlockContextEvent({
+            type: 'claude',
+            blockId,
+            content: this.claudeBlockManager?.formatTurnAsMarkdown(blockId) ?? '',
+            metadata: {
+              userMessage: claudeTurn.userMessage,
+              assistantText: claudeTurn.assistantText,
+              toolCallCount: claudeTurn.toolCalls.length
+            }
+          });
+          break;
+        case 'search':
+          // Search within turn - open search panel with turn content
+          console.log('[DecorationManager] Search in Claude turn:', blockId);
+          break;
+      }
+      return;
+    }
+
+    // Otherwise it's a command block
+    const block = this.blockManager?.getBlock(blockId);
+    if (block) {
+      switch (action) {
+        case 'rerun':
+          this.sendInput(block.command + '\n');
+          break;
+        case 'copy':
+          this.options.onBlockCopyCommand?.(block.command);
+          break;
+        case 'ai':
+          // Add command block to AI Chat context via custom event
+          this.dispatchBlockContextEvent({
+            type: 'command',
+            blockId,
+            content: `$ ${block.command}\n${atob(block.output)}`,
+            metadata: {
+              command: block.command,
+              exitCode: block.exitCode,
+              status: block.status
+            }
+          });
+          this.options.onBlockSendToAI?.(block);
+          break;
+      }
+    }
+  }
+
+  /**
+   * Dispatch custom event for adding block to AI context
+   */
+  private dispatchBlockContextEvent(detail: {
+    type: 'command' | 'claude';
+    blockId: string;
+    content: string;
+    metadata: Record<string, unknown>;
+  }): void {
+    const event = new CustomEvent('ttyd-mux:add-context', {
+      detail,
+      bubbles: true
+    });
+    document.dispatchEvent(event);
+    console.log('[TerminalClient] Dispatched add-context event:', detail.blockId);
+  }
+
+  /**
+   * Copy selected blocks to clipboard
+   */
+  private copySelectedBlocks(blockIds: string[]): void {
+    const texts: string[] = [];
+
+    for (const blockId of blockIds) {
+      // Try Claude turn first
+      const claudeTurn = this.claudeBlockManager?.getTurn(blockId);
+      if (claudeTurn) {
+        texts.push(this.claudeBlockManager?.formatTurnForCopy(blockId) ?? '');
+        continue;
+      }
+
+      // Otherwise try command block
+      const block = this.blockManager?.getBlock(blockId);
+      if (block) {
+        const output = atob(block.output);
+        texts.push(`$ ${block.command}\n${output}`);
+      }
+    }
+
+    if (texts.length > 0) {
+      const content = texts.join('\n\n---\n\n');
+      navigator.clipboard.writeText(content).then(() => {
+        console.log('[TerminalClient] Copied', blockIds.length, 'blocks to clipboard');
       });
     }
   }
@@ -356,6 +610,17 @@ export class TerminalClient {
             this.blockManager?.handleBlockList(message.blocks);
           }
           break;
+
+        // Claude Watcher messages
+        case 'claudeUserMessage':
+        case 'claudeAssistantText':
+        case 'claudeThinking':
+        case 'claudeToolUse':
+        case 'claudeToolResult':
+        case 'claudeSessionStart':
+        case 'claudeSessionEnd':
+          this.claudeBlockManager?.handleMessage(message as Parameters<ClaudeBlockManager['handleMessage']>[0]);
+          break;
       }
     } catch (error) {
       console.error('[TerminalClient] Failed to parse message:', error);
@@ -434,11 +699,40 @@ export class TerminalClient {
   }
 
   /**
+   * Encode input string to Base64 for binary-safe transmission
+   * This handles mouse escape sequences that contain raw bytes (X10 mode).
+   *
+   * IMPORTANT: Do NOT use TextEncoder here! TextEncoder does UTF-8 encoding,
+   * which converts characters with code points > 127 to multi-byte sequences.
+   * For terminal escape sequences (especially X10 mouse mode), each character
+   * code point should be treated as a single byte.
+   *
+   * Example: X10 mouse at position (100, 50) sends character code 132 (100+32).
+   * - TextEncoder: 132 -> 0xC2 0x84 (2 bytes, WRONG!)
+   * - charCodeAt:  132 -> 0x84 (1 byte, CORRECT!)
+   */
+  private encodeInput(data: string): string {
+    // Use btoa directly - it treats each character code point as a byte (Latin-1 encoding)
+    // This is exactly what we need for terminal escape sequences
+    try {
+      return btoa(data);
+    } catch {
+      // If data contains characters > 255 (shouldn't happen for terminal input),
+      // fall back to byte-by-byte encoding
+      const bytes = new Uint8Array(data.length);
+      for (let i = 0; i < data.length; i++) {
+        bytes[i] = data.charCodeAt(i) & 0xff;
+      }
+      return btoa(String.fromCharCode(...bytes));
+    }
+  }
+
+  /**
    * Send input to the server (for toolbar input)
    * This sends the input through the WebSocket to the PTY
    */
   sendInput(data: string): void {
-    this.send({ type: 'input', data });
+    this.send({ type: 'input', data: this.encodeInput(data) });
   }
 
   /**
@@ -473,6 +767,12 @@ export class TerminalClient {
     this.blockRenderer = null;
     this.blockManager?.clear();
     this.blockManager = null;
+
+    // Cleanup Claude block UI
+    this.decorationManager?.dispose();
+    this.decorationManager = null;
+    this.claudeBlockManager?.clear();
+    this.claudeBlockManager = null;
 
     if (this.ws) {
       this.ws.close(1000, 'Client disconnect');
@@ -542,3 +842,5 @@ export class TerminalClient {
 window.TerminalClient = TerminalClient;
 window.BlockManager = BlockManager;
 window.BlockRenderer = BlockRenderer;
+window.ClaudeBlockManager = ClaudeBlockManager;
+window.DecorationManager = DecorationManager;

@@ -23,6 +23,8 @@ export interface BlockRendererOptions {
   onSelectionCopy?: (text: string) => void;
   onRerunCommand?: (command: string) => void;
   onEditAndRerun?: (command: string) => void;
+  /** Show filter toolbar by default (default: false) */
+  showFilterToolbar?: boolean;
 }
 
 // Patterns for potentially dangerous commands
@@ -173,6 +175,12 @@ export class BlockRenderer {
       if (modKey && e.shiftKey && e.key === 'E') {
         e.preventDefault();
         this.options.blockManager.toggleErrorsOnly();
+      }
+
+      // Cmd/Ctrl+Shift+T - Toggle filter toolbar
+      if (modKey && e.shiftKey && e.key === 'T') {
+        e.preventDefault();
+        this.toggleFilterToolbar();
       }
 
       // Cmd/Ctrl+↑ - Previous block
@@ -329,7 +337,10 @@ export class BlockRenderer {
    */
   private createFilterToolbar(): void {
     this.filterToolbar = document.createElement('div');
-    this.filterToolbar.className = 'block-filter-toolbar';
+    // Hidden by default unless showFilterToolbar option is true
+    this.filterToolbar.className = this.options.showFilterToolbar
+      ? 'block-filter-toolbar'
+      : 'block-filter-toolbar hidden';
 
     const filters: { filter: BlockFilter; label: string; shortLabel: string }[] = [
       { filter: 'all', label: 'All', shortLabel: 'All' },
@@ -1369,6 +1380,40 @@ export class BlockRenderer {
     const parts = path.split('/');
     if (parts.length <= 3) return path;
     return '.../' + parts.slice(-2).join('/');
+  }
+
+  /**
+   * Toggle filter toolbar visibility
+   */
+  toggleFilterToolbar(): void {
+    if (this.filterToolbar) {
+      this.filterToolbar.classList.toggle('hidden');
+    }
+  }
+
+  /**
+   * Show filter toolbar
+   */
+  showFilterToolbar(): void {
+    if (this.filterToolbar) {
+      this.filterToolbar.classList.remove('hidden');
+    }
+  }
+
+  /**
+   * Hide filter toolbar
+   */
+  hideFilterToolbar(): void {
+    if (this.filterToolbar) {
+      this.filterToolbar.classList.add('hidden');
+    }
+  }
+
+  /**
+   * Check if filter toolbar is visible
+   */
+  isFilterToolbarVisible(): boolean {
+    return this.filterToolbar ? !this.filterToolbar.classList.contains('hidden') : false;
   }
 
   /**
