@@ -48,6 +48,7 @@ import {
   parseTurnsFromSessionFile
 } from './claude-quotes/parsing.js';
 import { validateSecurePath } from './utils/path-security.js';
+import { readJsonlFile } from './utils/jsonl.js';
 
 const log = createLogger('native-http');
 
@@ -1947,47 +1948,44 @@ function collectMdFiles(
  * Get recent Claude sessions from ~/.claude/history.jsonl
  * This is the authoritative source for finding Claude sessions.
  */
+interface HistoryEntry {
+  sessionId?: string;
+  project?: string;
+  timestamp?: number;
+  display?: string;
+}
+
 function getRecentClaudeSessions(limit: number = 10): ClaudeSessionInfo[] {
   const historyPath = join(homedir(), '.claude', 'history.jsonl');
   if (!existsSync(historyPath)) {
     return [];
   }
 
-  try {
-    const content = readFileSync(historyPath, 'utf-8');
-    const lines = content.trim().split('\n').filter((l) => l.trim());
+  const entries = readJsonlFile<HistoryEntry>(historyPath);
 
-    // Parse all entries and group by sessionId
-    const sessionMap = new Map<string, ClaudeSessionInfo>();
+  // Group by sessionId, keeping most recent entry per session
+  const sessionMap = new Map<string, ClaudeSessionInfo>();
 
-    for (const line of lines) {
-      try {
-        const entry = JSON.parse(line);
-        // Only process entries with sessionId (newer format)
-        if (!entry.sessionId || !entry.project) continue;
+  for (const entry of entries) {
+    // Only process entries with sessionId (newer format)
+    if (!entry.sessionId || !entry.project) continue;
 
-        const existing = sessionMap.get(entry.sessionId);
-        if (!existing || entry.timestamp > existing.lastTimestamp) {
-          sessionMap.set(entry.sessionId, {
-            sessionId: entry.sessionId,
-            projectPath: entry.project,
-            projectName: entry.project.split('/').pop() || entry.project,
-            lastMessage: entry.display?.slice(0, 100) || '',
-            lastTimestamp: entry.timestamp
-          });
-        }
-      } catch {
-        // Skip invalid JSON lines
-      }
+    const existing = sessionMap.get(entry.sessionId);
+    if (!existing || (entry.timestamp ?? 0) > existing.lastTimestamp) {
+      sessionMap.set(entry.sessionId, {
+        sessionId: entry.sessionId,
+        projectPath: entry.project,
+        projectName: basename(entry.project),
+        lastMessage: entry.display?.slice(0, 100) || '',
+        lastTimestamp: entry.timestamp ?? 0
+      });
     }
-
-    // Sort by timestamp (most recent first) and limit
-    return Array.from(sessionMap.values())
-      .sort((a, b) => b.lastTimestamp - a.lastTimestamp)
-      .slice(0, limit);
-  } catch {
-    return [];
   }
+
+  // Sort by timestamp (most recent first) and limit
+  return Array.from(sessionMap.values())
+    .sort((a, b) => b.lastTimestamp - a.lastTimestamp)
+    .slice(0, limit);
 }
 
 /**
