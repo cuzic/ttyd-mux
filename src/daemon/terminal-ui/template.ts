@@ -38,6 +38,7 @@ export const terminalUiHtml = `
       <button id="tui-preview" title="HTMLプレビュー">👁</button>
       <button id="tui-notify" title="Push通知">🔔</button>
       <button id="tui-share" title="共有リンク">🔗</button>
+      <button id="tui-quote" title="引用コピー (Ctrl+Shift+Q)">📋</button>
     </div>
     <div class="tui-group" data-label="実行">
       <button id="tui-send">Send</button>
@@ -190,6 +191,29 @@ export const terminalUiHtml = `
     <div id="tui-session-modal-body">
       <input id="tui-session-search" type="text" placeholder="セッション名で検索..." />
       <div id="tui-session-list"></div>
+    </div>
+  </div>
+</div>
+<div id="tui-quote-modal" class="hidden">
+  <div id="tui-quote-modal-content">
+    <div id="tui-quote-modal-header">
+      <span>📋 引用コピー</span>
+      <button id="tui-quote-modal-close">×</button>
+    </div>
+    <div id="tui-quote-tabs">
+      <button class="tui-quote-tab active" data-tab="turns">Claude</button>
+      <button class="tui-quote-tab" data-tab="projectMd">Project *.md</button>
+      <button class="tui-quote-tab" data-tab="plans">Plans</button>
+      <button class="tui-quote-tab" data-tab="gitDiff">Git Diff</button>
+    </div>
+    <div id="tui-quote-controls">
+      <button id="tui-quote-select-all">全選択</button>
+      <button id="tui-quote-clear">クリア</button>
+    </div>
+    <div id="tui-quote-list"></div>
+    <div id="tui-quote-footer">
+      <span id="tui-quote-selection-info"></span>
+      <button id="tui-quote-copy">コピー</button>
     </div>
   </div>
 </div>

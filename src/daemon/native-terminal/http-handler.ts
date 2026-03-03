@@ -13,6 +13,7 @@ import {
   existsSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   statSync,
   writeFileSync
 } from 'node:fs';
@@ -1529,6 +1530,338 @@ async function handleApiRequest(
     }
   }
 
+  // === Claude Quotes API ===
+
+  // GET /api/claude-quotes/sessions - Get list of recent Claude sessions from history.jsonl
+  if (apiPath === '/claude-quotes/sessions' && method === 'GET') {
+    const params = new URL(req.url).searchParams;
+    const limit = Math.min(Number.parseInt(params.get('limit') ?? '10', 10), 20);
+
+    try {
+      const sessions = getRecentClaudeSessions(limit);
+      return new Response(JSON.stringify({ sessions }), { headers });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers
+      });
+    }
+  }
+
+  // GET /api/claude-quotes/recent - Get recent Claude Code turns
+  // Now accepts claudeSessionId and projectPath directly (from history.jsonl)
+  if (apiPath.startsWith('/claude-quotes/recent') && method === 'GET') {
+    const params = new URL(req.url).searchParams;
+    const claudeSessionId = params.get('claudeSessionId');
+    const projectPath = params.get('projectPath');
+    const count = Math.min(Number.parseInt(params.get('count') ?? '20', 10), 50);
+
+    // New approach: use claudeSessionId and projectPath directly
+    if (claudeSessionId && projectPath) {
+      try {
+        const turns = await getRecentClaudeTurnsFromSession(projectPath, claudeSessionId, count);
+        return new Response(JSON.stringify({ turns }), { headers });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: String(error) }), {
+          status: 500,
+          headers
+        });
+      }
+    }
+
+    // Fallback: legacy approach using ttyd-mux session name
+    const sessionName = params.get('session');
+    if (!sessionName) {
+      return new Response(
+        JSON.stringify({ error: 'Either (claudeSessionId + projectPath) or session parameter is required' }),
+        { status: 400, headers }
+      );
+    }
+
+    const session = sessionManager.getSession(sessionName);
+    if (!session) {
+      return new Response(JSON.stringify({ error: `Session "${sessionName}" not found` }), {
+        status: 404,
+        headers
+      });
+    }
+
+    try {
+      const turns = await getRecentClaudeTurns(session.cwd, count);
+      return new Response(JSON.stringify({ turns }), { headers });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers
+      });
+    }
+  }
+
+  // GET /api/claude-quotes/turn/:uuid - Get full turn content
+  const turnMatch = apiPath.match(/^\/claude-quotes\/turn\/([^/]+)$/);
+  if (turnMatch?.[1] && method === 'GET') {
+    const uuid = decodeURIComponent(turnMatch[1]);
+    const params = new URL(req.url).searchParams;
+    const claudeSessionId = params.get('claudeSessionId');
+    const projectPath = params.get('projectPath');
+
+    // New approach: use claudeSessionId and projectPath directly
+    if (claudeSessionId && projectPath) {
+      try {
+        const turn = await getClaudeTurnByUuidFromSession(projectPath, claudeSessionId, uuid);
+        if (!turn) {
+          return new Response(JSON.stringify({ error: `Turn "${uuid}" not found` }), {
+            status: 404,
+            headers
+          });
+        }
+        return new Response(JSON.stringify(turn), { headers });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: String(error) }), {
+          status: 500,
+          headers
+        });
+      }
+    }
+
+    // Fallback: legacy approach
+    const sessionName = params.get('session');
+    if (!sessionName) {
+      return new Response(
+        JSON.stringify({ error: 'Either (claudeSessionId + projectPath) or session parameter is required' }),
+        { status: 400, headers }
+      );
+    }
+
+    const session = sessionManager.getSession(sessionName);
+    if (!session) {
+      return new Response(JSON.stringify({ error: `Session "${sessionName}" not found` }), {
+        status: 404,
+        headers
+      });
+    }
+
+    try {
+      const turn = await getClaudeTurnByUuid(session.cwd, uuid);
+      if (!turn) {
+        return new Response(JSON.stringify({ error: `Turn "${uuid}" not found` }), {
+          status: 404,
+          headers
+        });
+      }
+      return new Response(JSON.stringify(turn), { headers });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers
+      });
+    }
+  }
+
+  // GET /api/claude-quotes/project-markdown - Get project markdown files
+  if (apiPath.startsWith('/claude-quotes/project-markdown') && method === 'GET') {
+    const params = new URL(req.url).searchParams;
+    const sessionName = params.get('session');
+    const count = Math.min(Number.parseInt(params.get('count') ?? '10', 10), 20);
+
+    if (!sessionName) {
+      return new Response(JSON.stringify({ error: 'session parameter is required' }), {
+        status: 400,
+        headers
+      });
+    }
+
+    const session = sessionManager.getSession(sessionName);
+    if (!session) {
+      return new Response(JSON.stringify({ error: `Session "${sessionName}" not found` }), {
+        status: 404,
+        headers
+      });
+    }
+
+    try {
+      const projectDir = session.cwd;
+      const files = collectMdFiles(projectDir, projectDir, {
+        excludeDirs: ['node_modules', '.git', 'dist', 'build', '.next', 'coverage', 'vendor']
+      });
+
+      // Sort by modifiedAt descending and limit
+      files.sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime());
+      const limitedFiles = files.slice(0, count).map((f) => ({
+        ...f,
+        relativePath: f.path
+      }));
+
+      return new Response(JSON.stringify({ files: limitedFiles }), { headers });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers
+      });
+    }
+  }
+
+  // GET /api/claude-quotes/plans - Get plan files
+  if (apiPath.startsWith('/claude-quotes/plans') && method === 'GET') {
+    const params = new URL(req.url).searchParams;
+    const count = Math.min(Number.parseInt(params.get('count') ?? '10', 10), 20);
+
+    try {
+      const plansDir = join(homedir(), '.claude', 'plans');
+      if (!existsSync(plansDir)) {
+        return new Response(JSON.stringify({ files: [] }), { headers });
+      }
+
+      const files = collectMdFiles(plansDir, plansDir);
+
+      // Sort by modifiedAt descending and limit
+      files.sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime());
+      const limitedFiles = files.slice(0, count);
+
+      return new Response(JSON.stringify({ files: limitedFiles }), { headers });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers
+      });
+    }
+  }
+
+  // GET /api/claude-quotes/file-content - Get file content
+  if (apiPath.startsWith('/claude-quotes/file-content') && method === 'GET') {
+    const params = new URL(req.url).searchParams;
+    const filePath = params.get('path');
+    const source = params.get('source') as 'project' | 'plans' | null;
+    const sessionName = params.get('session');
+
+    if (!filePath || !source) {
+      return new Response(JSON.stringify({ error: 'path and source parameters are required' }), {
+        status: 400,
+        headers
+      });
+    }
+
+    try {
+      let baseDir: string;
+      if (source === 'plans') {
+        baseDir = join(homedir(), '.claude', 'plans');
+      } else if (source === 'project') {
+        if (!sessionName) {
+          return new Response(JSON.stringify({ error: 'session parameter is required for project files' }), {
+            status: 400,
+            headers
+          });
+        }
+        const session = sessionManager.getSession(sessionName);
+        if (!session) {
+          return new Response(JSON.stringify({ error: `Session "${sessionName}" not found` }), {
+            status: 404,
+            headers
+          });
+        }
+        baseDir = session.cwd;
+      } else {
+        return new Response(JSON.stringify({ error: 'source must be "project" or "plans"' }), {
+          status: 400,
+          headers
+        });
+      }
+
+      const targetPath = resolve(baseDir, filePath);
+
+      // Security check
+      if (!targetPath.startsWith(baseDir)) {
+        return new Response(JSON.stringify({ error: 'Invalid path' }), {
+          status: 400,
+          headers
+        });
+      }
+
+      if (!existsSync(targetPath)) {
+        return new Response(JSON.stringify({ error: 'File not found' }), {
+          status: 404,
+          headers
+        });
+      }
+
+      // Limit to first 200 lines
+      const fullContent = readFileSync(targetPath, 'utf-8');
+      const lines = fullContent.split('\n');
+      const content = lines.slice(0, 200).join('\n');
+      const truncated = lines.length > 200;
+
+      return new Response(JSON.stringify({ content, truncated, totalLines: lines.length }), { headers });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers
+      });
+    }
+  }
+
+  // GET /api/claude-quotes/git-diff - Get git diff file list
+  if (apiPath.startsWith('/claude-quotes/git-diff') && method === 'GET' && !apiPath.includes('/git-diff-file')) {
+    const params = new URL(req.url).searchParams;
+    const sessionName = params.get('session');
+
+    if (!sessionName) {
+      return new Response(JSON.stringify({ error: 'session parameter is required' }), {
+        status: 400,
+        headers
+      });
+    }
+
+    const session = sessionManager.getSession(sessionName);
+    if (!session) {
+      return new Response(JSON.stringify({ error: `Session "${sessionName}" not found` }), {
+        status: 404,
+        headers
+      });
+    }
+
+    try {
+      const result = await getGitDiff(session.cwd);
+      return new Response(JSON.stringify(result), { headers });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers
+      });
+    }
+  }
+
+  // GET /api/claude-quotes/git-diff-file - Get specific file diff
+  if (apiPath.startsWith('/claude-quotes/git-diff-file') && method === 'GET') {
+    const params = new URL(req.url).searchParams;
+    const sessionName = params.get('session');
+    const filePath = params.get('path');
+
+    if (!sessionName || !filePath) {
+      return new Response(JSON.stringify({ error: 'session and path parameters are required' }), {
+        status: 400,
+        headers
+      });
+    }
+
+    const session = sessionManager.getSession(sessionName);
+    if (!session) {
+      return new Response(JSON.stringify({ error: `Session "${sessionName}" not found` }), {
+        status: 404,
+        headers
+      });
+    }
+
+    try {
+      const diff = await getGitFileDiff(session.cwd, filePath);
+      return new Response(JSON.stringify({ path: filePath, diff }), { headers });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers
+      });
+    }
+  }
+
   // Not found
   return new Response(JSON.stringify({ error: 'API endpoint not found' }), {
     status: 404,
@@ -1601,4 +1934,674 @@ function collectMdFiles(
   }
 
   return files;
+}
+
+// === Claude Quotes Helper Functions ===
+
+/**
+ * Claude session info from history.jsonl
+ */
+interface ClaudeSessionInfo {
+  sessionId: string;
+  projectPath: string;
+  projectName: string;
+  lastMessage: string;
+  lastTimestamp: number;
+}
+
+/**
+ * Get recent Claude sessions from ~/.claude/history.jsonl
+ * This is the authoritative source for finding Claude sessions.
+ */
+function getRecentClaudeSessions(limit: number = 10): ClaudeSessionInfo[] {
+  const historyPath = join(homedir(), '.claude', 'history.jsonl');
+  if (!existsSync(historyPath)) {
+    return [];
+  }
+
+  try {
+    const content = readFileSync(historyPath, 'utf-8');
+    const lines = content.trim().split('\n').filter((l) => l.trim());
+
+    // Parse all entries and group by sessionId
+    const sessionMap = new Map<string, ClaudeSessionInfo>();
+
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line);
+        // Only process entries with sessionId (newer format)
+        if (!entry.sessionId || !entry.project) continue;
+
+        const existing = sessionMap.get(entry.sessionId);
+        if (!existing || entry.timestamp > existing.lastTimestamp) {
+          sessionMap.set(entry.sessionId, {
+            sessionId: entry.sessionId,
+            projectPath: entry.project,
+            projectName: entry.project.split('/').pop() || entry.project,
+            lastMessage: entry.display?.slice(0, 100) || '',
+            lastTimestamp: entry.timestamp
+          });
+        }
+      } catch {
+        // Skip invalid JSON lines
+      }
+    }
+
+    // Sort by timestamp (most recent first) and limit
+    return Array.from(sessionMap.values())
+      .sort((a, b) => b.lastTimestamp - a.lastTimestamp)
+      .slice(0, limit);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Convert project path to Claude slug
+ * Example: /home/cuzic/ttyd-mux → -home-cuzic-ttyd-mux
+ */
+function projectPathToSlug(projectPath: string): string {
+  return projectPath.replace(/\//g, '-');
+}
+
+/**
+ * Get the session file path for a Claude session
+ */
+function getClaudeSessionFilePath(projectPath: string, sessionId: string): string | null {
+  const slug = projectPathToSlug(projectPath);
+  const sessionFile = join(homedir(), '.claude', 'projects', slug, `${sessionId}.jsonl`);
+
+  if (existsSync(sessionFile)) {
+    return sessionFile;
+  }
+
+  return null;
+}
+
+interface ClaudeTurnSummary {
+  uuid: string;
+  userContent: string;
+  assistantSummary: string;
+  timestamp: string;
+  hasToolUse: boolean;
+  editedFiles?: string[];
+}
+
+interface ClaudeTurnFull {
+  uuid: string;
+  userContent: string;
+  assistantContent: string;
+  timestamp: string;
+  toolUses: Array<{
+    name: string;
+    input: Record<string, unknown>;
+  }>;
+}
+
+interface GitDiffFile {
+  path: string;
+  status: 'M' | 'A' | 'D' | 'R';
+  additions: number;
+  deletions: number;
+}
+
+interface GitDiffResponse {
+  files: GitDiffFile[];
+  fullDiff: string;
+  summary: string;
+}
+
+/**
+ * Find the Claude project slug for a directory.
+ * Claude uses a slug format where / is replaced with -.
+ * Example: /home/cuzic/ttyd-mux → -home-cuzic-ttyd-mux
+ */
+function findClaudeProjectSlug(projectDir: string): string | null {
+  const claudeProjectsDir = join(homedir(), '.claude', 'projects');
+
+  if (!existsSync(claudeProjectsDir)) {
+    return null;
+  }
+
+  // Normalize the path:
+  // 1. Resolve to absolute path
+  // 2. Remove trailing slashes
+  // 3. Resolve symlinks if possible
+  let normalizedDir = projectDir;
+  try {
+    // Try to resolve symlinks to get canonical path
+    normalizedDir = realpathSync(projectDir);
+  } catch {
+    // If realpath fails, just use the original path
+  }
+  // Remove trailing slashes
+  normalizedDir = normalizedDir.replace(/\/+$/, '');
+
+  // The slug is the project path with / replaced by -
+  const expectedSlug = normalizedDir.replace(/\//g, '-');
+
+  // Check if the directory exists
+  const slugPath = join(claudeProjectsDir, expectedSlug);
+  if (existsSync(slugPath)) {
+    return expectedSlug;
+  }
+
+  // Fallback: search through existing directories to find a match
+  // This handles cases where the path might differ (e.g., symlinks, different mount points)
+  try {
+    const dirs = readdirSync(claudeProjectsDir);
+    // Get the basename of the project directory for partial matching
+    const baseName = normalizedDir.split('/').pop();
+    if (baseName) {
+      // Look for directories that end with the project basename
+      const candidates = dirs.filter((d) => d.endsWith(`-${baseName}`));
+      if (candidates.length === 1 && candidates[0]) {
+        return candidates[0];
+      }
+      // If multiple candidates, try to match more precisely
+      // by checking if any candidate slug converts back to the project dir
+      for (const candidate of candidates) {
+        const candidatePath = candidate.replace(/^-/, '/').replace(/-/g, '/');
+        // Check if the candidate path matches (with some flexibility)
+        if (normalizedDir === candidatePath || normalizedDir.endsWith(candidatePath)) {
+          return candidate;
+        }
+      }
+      // If still no match but we have candidates, use the most recently modified one
+      if (candidates.length > 0) {
+        const candidatesWithMtime = candidates.map((c) => ({
+          name: c,
+          mtime: statSync(join(claudeProjectsDir, c)).mtime.getTime()
+        }));
+        candidatesWithMtime.sort((a, b) => b.mtime - a.mtime);
+        const mostRecent = candidatesWithMtime[0];
+        if (mostRecent) {
+          return mostRecent.name;
+        }
+      }
+    }
+  } catch {
+    // If search fails, return null
+  }
+
+  return null;
+}
+
+/**
+ * Find the most recent session JSONL file for a project
+ */
+function findRecentSessionFile(projectDir: string): string | null {
+  const slug = findClaudeProjectSlug(projectDir);
+  if (!slug) {
+    return null;
+  }
+
+  const projectSlugDir = join(homedir(), '.claude', 'projects', slug);
+  if (!existsSync(projectSlugDir)) {
+    return null;
+  }
+
+  try {
+    const files = readdirSync(projectSlugDir)
+      .filter((f) => f.endsWith('.jsonl') && !f.startsWith('history'))
+      .map((f) => ({
+        name: f,
+        path: join(projectSlugDir, f),
+        mtime: statSync(join(projectSlugDir, f)).mtime.getTime()
+      }))
+      .sort((a, b) => b.mtime - a.mtime);
+
+    return files[0]?.path ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get recent Claude Code turns
+ */
+async function getRecentClaudeTurns(projectDir: string, count: number): Promise<ClaudeTurnSummary[]> {
+  const sessionFile = findRecentSessionFile(projectDir);
+  if (!sessionFile) {
+    return [];
+  }
+
+  try {
+    const content = readFileSync(sessionFile, 'utf-8');
+    const lines = content.trim().split('\n').filter((l) => l.trim());
+
+    const turns: ClaudeTurnSummary[] = [];
+    let currentUserContent = '';
+    let currentUuid = '';
+    let currentTimestamp = '';
+    let currentHasToolUse = false;
+    let currentEditedFiles: string[] = [];
+
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line);
+
+        // Skip meta entries
+        if (entry.isMeta) continue;
+
+        if (entry.type === 'user' && entry.message?.role === 'user') {
+          // Only store human user messages (string content), not tool results (array content)
+          if (typeof entry.message.content === 'string') {
+            currentUserContent = entry.message.content.slice(0, 500);
+            currentUuid = entry.uuid;
+            currentTimestamp = entry.timestamp;
+            currentHasToolUse = false;
+            currentEditedFiles = [];
+          }
+          // Skip tool_result entries (array content) - they don't start a new turn
+        } else if (entry.type === 'assistant' && Array.isArray(entry.message?.content)) {
+          // Extract summary from assistant content
+          // Note: message structure is { role: 'assistant', content: [...blocks] }
+          let assistantSummary = '';
+
+          for (const block of entry.message.content) {
+            if (block.type === 'text' && !assistantSummary) {
+              assistantSummary = block.text.slice(0, 500);
+            }
+            if (block.type === 'tool_use') {
+              currentHasToolUse = true;
+              // Track edited files
+              if (block.name === 'Edit' || block.name === 'Write') {
+                const filePath = block.input?.file_path || block.input?.path;
+                if (typeof filePath === 'string') {
+                  currentEditedFiles.push(filePath);
+                }
+              }
+            }
+          }
+
+          // Only create a turn when we have text content (not just tool_use)
+          if (currentUuid && assistantSummary) {
+            turns.push({
+              uuid: currentUuid,
+              userContent: currentUserContent,
+              assistantSummary,
+              timestamp: currentTimestamp,
+              hasToolUse: currentHasToolUse,
+              editedFiles: currentEditedFiles.length > 0 ? [...currentEditedFiles] : undefined
+            });
+
+            // Reset for next turn
+            currentUserContent = '';
+            currentUuid = '';
+            currentTimestamp = '';
+            currentHasToolUse = false;
+            currentEditedFiles = [];
+          }
+          // If no text content, keep accumulating tool info for next assistant entry
+        }
+      } catch {
+        // Skip invalid JSON lines
+      }
+    }
+
+    // Return most recent turns (reversed so newest first)
+    return turns.slice(-count).reverse();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Get a full turn by UUID
+ */
+async function getClaudeTurnByUuid(projectDir: string, uuid: string): Promise<ClaudeTurnFull | null> {
+  const sessionFile = findRecentSessionFile(projectDir);
+  if (!sessionFile) {
+    return null;
+  }
+
+  try {
+    const content = readFileSync(sessionFile, 'utf-8');
+    const lines = content.trim().split('\n').filter((l) => l.trim());
+
+    let userContent = '';
+    let timestamp = '';
+    let foundUser = false;
+
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line);
+
+        if (entry.uuid === uuid && entry.type === 'user' && entry.message?.role === 'user') {
+          userContent = typeof entry.message.content === 'string' ? entry.message.content : '';
+          timestamp = entry.timestamp;
+          foundUser = true;
+        } else if (foundUser && entry.parentUuid === uuid && entry.type === 'assistant') {
+          // Extract full assistant content
+          let assistantContent = '';
+          const toolUses: Array<{ name: string; input: Record<string, unknown> }> = [];
+
+          for (const block of entry.message?.content || []) {
+            if (block.type === 'text') {
+              assistantContent += block.text + '\n\n';
+            }
+            if (block.type === 'tool_use') {
+              toolUses.push({
+                name: block.name,
+                input: block.input
+              });
+            }
+          }
+
+          return {
+            uuid,
+            userContent,
+            assistantContent: assistantContent.trim(),
+            timestamp,
+            toolUses
+          };
+        }
+      } catch {
+        // Skip invalid JSON lines
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get recent Claude Code turns from a specific session (new approach using history.jsonl data)
+ */
+async function getRecentClaudeTurnsFromSession(
+  projectPath: string,
+  sessionId: string,
+  count: number
+): Promise<ClaudeTurnSummary[]> {
+  const sessionFile = getClaudeSessionFilePath(projectPath, sessionId);
+  if (!sessionFile) {
+    return [];
+  }
+
+  try {
+    const content = readFileSync(sessionFile, 'utf-8');
+    const lines = content.trim().split('\n').filter((l) => l.trim());
+
+    const turns: ClaudeTurnSummary[] = [];
+    let currentUserContent = '';
+    let currentUuid = '';
+    let currentTimestamp = '';
+    let currentHasToolUse = false;
+    let currentEditedFiles: string[] = [];
+
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line);
+
+        // Skip meta entries
+        if (entry.isMeta) continue;
+
+        if (entry.type === 'user' && entry.message?.role === 'user') {
+          // Only store human user messages (string content), not tool results (array content)
+          if (typeof entry.message.content === 'string') {
+            currentUserContent = entry.message.content.slice(0, 500);
+            currentUuid = entry.uuid;
+            currentTimestamp = entry.timestamp;
+            currentHasToolUse = false;
+            currentEditedFiles = [];
+          }
+          // Skip tool_result entries (array content) - they don't start a new turn
+        } else if (entry.type === 'assistant' && Array.isArray(entry.message?.content)) {
+          // Extract summary from assistant content
+          // Note: message structure is { role: 'assistant', content: [...blocks] }
+          let assistantSummary = '';
+
+          for (const block of entry.message.content) {
+            if (block.type === 'text' && !assistantSummary) {
+              assistantSummary = block.text.slice(0, 500);
+            }
+            if (block.type === 'tool_use') {
+              currentHasToolUse = true;
+              // Track edited files
+              if (block.name === 'Edit' || block.name === 'Write') {
+                const filePath = block.input?.file_path || block.input?.path;
+                if (typeof filePath === 'string') {
+                  currentEditedFiles.push(filePath);
+                }
+              }
+            }
+          }
+
+          // Only create a turn when we have text content (not just tool_use)
+          if (currentUuid && assistantSummary) {
+            turns.push({
+              uuid: currentUuid,
+              userContent: currentUserContent,
+              assistantSummary,
+              timestamp: currentTimestamp,
+              hasToolUse: currentHasToolUse,
+              editedFiles: currentEditedFiles.length > 0 ? [...currentEditedFiles] : undefined
+            });
+
+            // Reset for next turn
+            currentUserContent = '';
+            currentUuid = '';
+            currentTimestamp = '';
+            currentHasToolUse = false;
+            currentEditedFiles = [];
+          }
+          // If no text content, keep accumulating tool info for next assistant entry
+        }
+      } catch {
+        // Skip invalid JSON lines
+      }
+    }
+
+    // Return most recent turns (reversed so newest first)
+    return turns.slice(-count).reverse();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Get a full turn by UUID from a specific session (new approach)
+ */
+async function getClaudeTurnByUuidFromSession(
+  projectPath: string,
+  sessionId: string,
+  uuid: string
+): Promise<ClaudeTurnFull | null> {
+  const sessionFile = getClaudeSessionFilePath(projectPath, sessionId);
+  if (!sessionFile) {
+    return null;
+  }
+
+  try {
+    const content = readFileSync(sessionFile, 'utf-8');
+    const lines = content.trim().split('\n').filter((l) => l.trim());
+
+    let userContent = '';
+    let timestamp = '';
+    let foundUser = false;
+
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line);
+
+        if (entry.uuid === uuid && entry.type === 'user' && entry.message?.role === 'user') {
+          userContent = typeof entry.message.content === 'string' ? entry.message.content : '';
+          timestamp = entry.timestamp;
+          foundUser = true;
+        } else if (foundUser && entry.parentUuid === uuid && entry.type === 'assistant') {
+          // Extract full assistant content
+          let assistantContent = '';
+          const toolUses: Array<{ name: string; input: Record<string, unknown> }> = [];
+
+          for (const block of entry.message?.content || []) {
+            if (block.type === 'text') {
+              assistantContent += block.text + '\n\n';
+            }
+            if (block.type === 'tool_use') {
+              toolUses.push({
+                name: block.name,
+                input: block.input
+              });
+            }
+          }
+
+          return {
+            uuid,
+            userContent,
+            assistantContent: assistantContent.trim(),
+            timestamp,
+            toolUses
+          };
+        }
+      } catch {
+        // Skip invalid JSON lines
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get git diff information
+ */
+async function getGitDiff(cwd: string): Promise<GitDiffResponse> {
+  const { spawn } = await import('node:child_process');
+
+  // Helper to run git commands
+  const runGit = (args: string[]): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const proc = spawn('git', args, { cwd });
+      let stdout = '';
+      let stderr = '';
+
+      proc.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+      proc.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      proc.on('close', (code) => {
+        if (code === 0) {
+          resolve(stdout);
+        } else {
+          reject(new Error(stderr || `git exited with code ${code}`));
+        }
+      });
+
+      proc.on('error', reject);
+    });
+  };
+
+  try {
+    // Get diff stat
+    const statOutput = await runGit(['diff', '--numstat']);
+    const files: GitDiffFile[] = [];
+
+    for (const line of statOutput.trim().split('\n')) {
+      if (!line.trim()) continue;
+      const parts = line.split('\t');
+      const path = parts[2];
+      if (path) {
+        files.push({
+          path,
+          status: 'M', // Simplified - could detect from git diff --name-status
+          additions: Number.parseInt(parts[0] ?? '0', 10) || 0,
+          deletions: Number.parseInt(parts[1] ?? '0', 10) || 0
+        });
+      }
+    }
+
+    // Also check for staged files
+    const stagedOutput = await runGit(['diff', '--cached', '--numstat']);
+    for (const line of stagedOutput.trim().split('\n')) {
+      if (!line.trim()) continue;
+      const parts = line.split('\t');
+      const path = parts[2];
+      if (path && !files.some((f) => f.path === path)) {
+        files.push({
+          path,
+          status: 'M',
+          additions: Number.parseInt(parts[0] ?? '0', 10) || 0,
+          deletions: Number.parseInt(parts[1] ?? '0', 10) || 0
+        });
+      }
+    }
+
+    // Get full diff (limited to 50KB)
+    let fullDiff = '';
+    try {
+      fullDiff = await runGit(['diff']);
+      const stagedDiff = await runGit(['diff', '--cached']);
+      if (stagedDiff.trim()) {
+        fullDiff = stagedDiff + '\n' + fullDiff;
+      }
+      // Limit to 50KB
+      const MAX_DIFF_SIZE = 50 * 1024;
+      if (fullDiff.length > MAX_DIFF_SIZE) {
+        fullDiff = fullDiff.slice(0, MAX_DIFF_SIZE) + '\n... [truncated]';
+      }
+    } catch {
+      // Ignore errors getting full diff
+    }
+
+    // Calculate summary
+    const totalAdditions = files.reduce((sum, f) => sum + f.additions, 0);
+    const totalDeletions = files.reduce((sum, f) => sum + f.deletions, 0);
+    const summary = `${files.length} files changed, +${totalAdditions} -${totalDeletions}`;
+
+    return { files: files.slice(0, 50), fullDiff, summary };
+  } catch (error) {
+    // Not a git repo or git error
+    return { files: [], fullDiff: '', summary: 'Not a git repository' };
+  }
+}
+
+/**
+ * Get git diff for a specific file
+ */
+async function getGitFileDiff(cwd: string, filePath: string): Promise<string> {
+  const { spawn } = await import('node:child_process');
+
+  return new Promise((resolve, reject) => {
+    const proc = spawn('git', ['diff', '--', filePath], { cwd });
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+    proc.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    proc.on('close', (code) => {
+      if (code === 0) {
+        // Also get staged diff
+        const stagedProc = spawn('git', ['diff', '--cached', '--', filePath], { cwd });
+        let stagedOutput = '';
+
+        stagedProc.stdout.on('data', (data) => {
+          stagedOutput += data.toString();
+        });
+
+        stagedProc.on('close', () => {
+          const combined = stagedOutput + stdout;
+          resolve(combined.trim());
+        });
+
+        stagedProc.on('error', () => resolve(stdout.trim()));
+      } else {
+        reject(new Error(stderr || `git exited with code ${code}`));
+      }
+    });
+
+    proc.on('error', reject);
+  });
 }

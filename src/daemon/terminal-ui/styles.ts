@@ -2841,4 +2841,304 @@ body.preview-open .xterm-screen {
     bottom: 16px;
   }
 }
+
+/* =============================================================================
+   Quote Modal
+   ============================================================================= */
+
+#tui-quote-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 10vh;
+}
+
+#tui-quote-modal.hidden {
+  display: none;
+}
+
+#tui-quote-modal-content {
+  background: #252525;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+#tui-quote-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #333;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+#tui-quote-modal-close {
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+#tui-quote-modal-close:hover {
+  color: #fff;
+}
+
+#tui-quote-tabs {
+  display: flex;
+  padding: 0 12px;
+  border-bottom: 1px solid #333;
+  overflow-x: auto;
+}
+
+.tui-quote-tab {
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #888;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+.tui-quote-tab:hover {
+  color: #ccc;
+}
+
+.tui-quote-tab.active {
+  color: #3a86ff;
+  border-bottom-color: #3a86ff;
+}
+
+#tui-quote-controls {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #333;
+}
+
+#tui-quote-controls button {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #aaa;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid #444;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+#tui-quote-controls button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+#tui-quote-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.tui-quote-session-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(0, 122, 204, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 8px;
+}
+
+.tui-quote-session-label {
+  color: #888;
+  font-size: 12px;
+}
+
+.tui-quote-session-select {
+  flex: 1;
+  background: #2d2d2d;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #d4d4d4;
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tui-quote-session-select:focus {
+  outline: none;
+  border-color: #007acc;
+}
+
+.tui-quote-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.tui-quote-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tui-quote-item input[type="checkbox"] {
+  margin-right: 12px;
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #3a86ff;
+}
+
+.tui-quote-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.tui-quote-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.tui-quote-item-title {
+  flex: 1;
+  font-size: 13px;
+  color: #ddd;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tui-quote-item-time {
+  font-size: 11px;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.tui-quote-item-summary {
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tui-quote-item-meta {
+  font-size: 11px;
+  color: #666;
+  margin-top: 2px;
+}
+
+.tui-quote-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: #666;
+}
+
+.tui-quote-full-diff {
+  background: rgba(58, 134, 255, 0.1);
+  border-bottom: 1px solid #333;
+}
+
+.tui-quote-status-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #aaa;
+}
+
+.tui-quote-diff-stats {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.tui-quote-additions {
+  color: #4caf50;
+}
+
+.tui-quote-deletions {
+  color: #f44336;
+}
+
+#tui-quote-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid #333;
+}
+
+#tui-quote-selection-info {
+  font-size: 12px;
+  color: #888;
+}
+
+#tui-quote-copy {
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  background: #3a86ff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+#tui-quote-copy:hover:not(:disabled) {
+  background: #2a76ef;
+}
+
+#tui-quote-copy:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Mobile adjustments for quote modal */
+@media (max-width: 768px) {
+  #tui-quote-modal {
+    padding-top: 5vh;
+  }
+
+  #tui-quote-modal-content {
+    max-width: none;
+    width: calc(100% - 32px);
+    margin: 16px;
+    max-height: 80vh;
+  }
+
+  .tui-quote-tab {
+    padding: 12px 10px;
+    font-size: 12px;
+  }
+
+  .tui-quote-item {
+    padding: 12px 12px;
+  }
+}
 `;

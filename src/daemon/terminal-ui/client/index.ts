@@ -16,6 +16,7 @@ import { ModifierKeyState } from './ModifierKeyState.js';
 import { NotificationManager } from './NotificationManager.js';
 import { PreviewManager } from './PreviewManager.js';
 import { PreviewPane } from './PreviewPane.js';
+import { QuoteManager } from './QuoteManager.js';
 import { SearchManager } from './SearchManager.js';
 import { SessionSwitcher } from './SessionSwitcher.js';
 import { ShareManager } from './ShareManager.js';
@@ -57,6 +58,7 @@ class ToolbarApp {
   private fileWatcher: FileWatcherClient;
   private preview: PreviewManager;
   private sessionSwitcher: SessionSwitcher;
+  private quote: QuoteManager;
 
   private isMobile: boolean;
 
@@ -89,6 +91,7 @@ class ToolbarApp {
       watcher: this.fileWatcher
     });
     this.sessionSwitcher = new SessionSwitcher(config);
+    this.quote = new QuoteManager(config);
   }
 
   /**
@@ -279,6 +282,21 @@ class ToolbarApp {
       sessionBtn: document.getElementById('tui-session') as HTMLButtonElement
     };
     this.sessionSwitcher.bindElements(sessionSwitcherElements);
+
+    // Quote modal elements
+    this.quote.bindElements({
+      modal: document.getElementById('tui-quote-modal') as HTMLElement,
+      modalClose: document.getElementById('tui-quote-modal-close') as HTMLButtonElement,
+      tabs: document.getElementById('tui-quote-tabs') as HTMLElement,
+      controls: document.getElementById('tui-quote-controls') as HTMLElement,
+      selectAllBtn: document.getElementById('tui-quote-select-all') as HTMLButtonElement,
+      clearBtn: document.getElementById('tui-quote-clear') as HTMLButtonElement,
+      list: document.getElementById('tui-quote-list') as HTMLElement,
+      footer: document.getElementById('tui-quote-footer') as HTMLElement,
+      selectionInfo: document.getElementById('tui-quote-selection-info') as HTMLElement,
+      copyBtn: document.getElementById('tui-quote-copy') as HTMLButtonElement,
+      quoteBtn: document.getElementById('tui-quote') as HTMLButtonElement
+    });
 
     // Setup event listeners
     this.setupEventListeners();
@@ -496,6 +514,11 @@ class ToolbarApp {
       if (e.ctrlKey && e.shiftKey && e.key === 'V') {
         e.preventDefault();
         this.terminal.paste(this.input, this.clipboardHistory);
+      }
+      // Ctrl+Shift+Q to open quote modal
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'q') {
+        e.preventDefault();
+        this.quote.toggle();
       }
     });
   }
