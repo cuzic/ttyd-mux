@@ -43,13 +43,13 @@ export function parseTurnsFromSessionFile(
     if (!Array.isArray(entry.message?.content)) continue;
 
     // Extract text and tool info from assistant content
-    let assistantSummary = '';
+    let fullText = '';
     let hasToolUse = false;
     const editedFiles: string[] = [];
 
     for (const block of entry.message.content) {
-      if (block.type === 'text' && block.text && !assistantSummary) {
-        assistantSummary = block.text.slice(0, 500);
+      if (block.type === 'text' && block.text && !fullText) {
+        fullText = block.text;
       }
       if (block.type === 'tool_use') {
         hasToolUse = true;
@@ -63,8 +63,10 @@ export function parseTurnsFromSessionFile(
       }
     }
 
-    // Only include entries with text content (not just tool_use)
-    if (assistantSummary && entry.uuid) {
+    // Only include entries with text content that has 3+ lines
+    const lineCount = fullText.split('\n').length;
+    if (fullText && entry.uuid && lineCount >= 3) {
+      const assistantSummary = fullText.slice(0, 500);
       turns.push({
         uuid: entry.uuid,
         assistantSummary,
