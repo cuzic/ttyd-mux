@@ -96,6 +96,38 @@ export class TouchGestureHandler {
     this.setupDoubleTap();
     this.setupEdgeSwipe();
     this.setupAltScroll();
+    this.setupMobileKeyboardSuppress();
+  }
+
+  /**
+   * Suppress keyboard popup on mobile when tapping terminal
+   * Users should use the toolbar input field for typing
+   */
+  private setupMobileKeyboardSuppress(): void {
+    // Only apply on touch devices
+    if (!('ontouchstart' in window)) {
+      return;
+    }
+
+    // Prevent xterm.js helper textarea from receiving focus on tap
+    document.addEventListener(
+      'touchend',
+      (e: TouchEvent) => {
+        const target = e.target as HTMLElement;
+
+        // Check if tap is on terminal screen area
+        if (target.closest('.xterm-screen') || target.closest('.xterm')) {
+          // Small delay to let xterm process the touch, then blur
+          setTimeout(() => {
+            const helperTextarea = document.querySelector('.xterm-helper-textarea') as HTMLElement;
+            if (helperTextarea && document.activeElement === helperTextarea) {
+              helperTextarea.blur();
+            }
+          }, 10);
+        }
+      },
+      { passive: true }
+    );
   }
 
   /**
