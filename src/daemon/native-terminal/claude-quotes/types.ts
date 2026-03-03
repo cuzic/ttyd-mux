@@ -17,11 +17,11 @@ export interface ClaudeSessionInfo {
 }
 
 /**
- * Summary of a Claude conversation turn (for listing)
+ * Summary of a Claude assistant response (for listing)
  */
 export interface ClaudeTurnSummary {
   uuid: string;
-  userContent: string;
+  /** First 500 chars of assistant text response */
   assistantSummary: string;
   timestamp: string;
   hasToolUse: boolean;
@@ -29,11 +29,11 @@ export interface ClaudeTurnSummary {
 }
 
 /**
- * Full content of a Claude conversation turn (for copying)
+ * Full content of a Claude assistant response (for copying)
  */
 export interface ClaudeTurnFull {
   uuid: string;
-  userContent: string;
+  /** Full assistant text content */
   assistantContent: string;
   timestamp: string;
   toolUses: Array<{

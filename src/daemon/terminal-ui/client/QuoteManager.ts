@@ -478,25 +478,16 @@ export class QuoteManager {
 
       const header = document.createElement('div');
       header.className = 'tui-quote-item-header';
-      // Truncate display to 100 chars, but tooltip shows full 500 chars
-      const displayUserContent = turn.userContent.length > 100
-        ? turn.userContent.slice(0, 100) + '...'
-        : turn.userContent;
+      // Show assistant response as main text (truncate to 150 chars for display)
+      const displayText = turn.assistantSummary.length > 150
+        ? turn.assistantSummary.slice(0, 150) + '...'
+        : turn.assistantSummary;
       header.innerHTML = `
-        <span class="tui-quote-item-title">${this.escapeHtml(displayUserContent)}</span>
+        <span class="tui-quote-item-title">${this.escapeHtml(displayText)}</span>
         <span class="tui-quote-item-time">${this.formatRelativeTime(turn.timestamp)}</span>
       `;
 
-      const summary = document.createElement('div');
-      summary.className = 'tui-quote-item-summary';
-      // Truncate display to 100 chars
-      const displaySummary = turn.assistantSummary
-        ? (turn.assistantSummary.length > 100 ? turn.assistantSummary.slice(0, 100) + '...' : turn.assistantSummary)
-        : '(no response)';
-      summary.textContent = displaySummary;
-
       content.appendChild(header);
-      content.appendChild(summary);
 
       if (turn.hasToolUse) {
         const meta = document.createElement('div');
@@ -766,9 +757,9 @@ export class QuoteManager {
     this.elements.copyBtn.textContent = 'コピー中...';
 
     try {
-      // Collect Claude turns
+      // Collect Claude assistant responses
       if (this.selectedTurnUuids.size > 0 && this.selectedClaudeSession) {
-        parts.push('## Claude Code Conversation\n');
+        parts.push('## Claude Code\n');
 
         for (const uuid of this.selectedTurnUuids) {
           try {
@@ -777,13 +768,8 @@ export class QuoteManager {
             );
             if (response.ok) {
               const turn: ClaudeTurnFull = await response.json();
-              const date = new Date(turn.timestamp);
-              const dateStr = date.toLocaleString();
 
-              parts.push(`### User (${dateStr})`);
-              parts.push(turn.userContent);
-              parts.push('');
-              parts.push('### Assistant');
+              // Only include assistant content
               parts.push(turn.assistantContent);
 
               if (turn.toolUses.length > 0) {
@@ -906,17 +892,11 @@ export class QuoteManager {
   }
 
   /**
-   * Format turn content for tooltip
+   * Format assistant response for tooltip
    */
   private formatTurnTooltip(turn: ClaudeTurnSummary): string {
-    const userSection = `<div style="margin-bottom: 4px;">
-      <span style="color: #7ecfff; font-weight: bold; font-size: 10px;">User: </span>
-      <span style="color: #e0e0e0;">${this.escapeHtml(turn.userContent)}</span>
-    </div>`;
-
     const assistantSection = `<div style="margin-bottom: 2px;">
-      <span style="color: #7eff7e; font-weight: bold; font-size: 10px;">Asst: </span>
-      <span style="color: #e0e0e0;">${this.escapeHtml(turn.assistantSummary || '(no response)')}</span>
+      <span style="color: #e0e0e0;">${this.escapeHtml(turn.assistantSummary)}</span>
     </div>`;
 
     let metaSection = '';
@@ -924,12 +904,12 @@ export class QuoteManager {
       const tools = turn.editedFiles?.length
         ? `Edited: ${turn.editedFiles.join(', ')}`
         : 'Used tools';
-      metaSection = `<div style="color: #888; font-size: 9px; margin-top: 2px;">🔧 ${this.escapeHtml(tools)}</div>`;
+      metaSection = `<div style="color: #888; font-size: 9px; margin-top: 4px;">🔧 ${this.escapeHtml(tools)}</div>`;
     }
 
-    const timeSection = `<span style="color: #666; font-size: 9px; float: right;">${this.formatRelativeTime(turn.timestamp)}</span>`;
+    const timeSection = `<div style="color: #666; font-size: 9px; margin-top: 4px;">${this.formatRelativeTime(turn.timestamp)}</div>`;
 
-    return userSection + assistantSection + metaSection + timeSection;
+    return assistantSection + metaSection + timeSection;
   }
 
   /**
