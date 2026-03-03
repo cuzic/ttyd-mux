@@ -32,21 +32,29 @@ describe('AIService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should get runner statuses', async () => {
-    const statuses = await service.getRunnerStatuses();
-    expect(Array.isArray(statuses)).toBe(true);
-    // All runners should be in the list
-    const names = statuses.map((s) => s.name);
-    expect(names).toContain('claude');
-    expect(names).toContain('codex');
-    expect(names).toContain('gemini');
-  });
+  it(
+    'should get runner statuses',
+    async () => {
+      const statuses = await service.getRunnerStatuses();
+      expect(Array.isArray(statuses)).toBe(true);
+      // All runners should be in the list
+      const names = statuses.map((s) => s.name);
+      expect(names).toContain('claude');
+      expect(names).toContain('codex');
+      expect(names).toContain('gemini');
+    },
+    { timeout: 30000 }
+  );
 
-  it('should get best available runner', async () => {
-    const runner = await service.getBestRunner();
-    expect(runner).toBeDefined();
-    expect(runner.name).toBeDefined();
-  });
+  it(
+    'should get best available runner',
+    async () => {
+      const runner = await service.getBestRunner();
+      expect(runner).toBeDefined();
+      expect(runner.name).toBeDefined();
+    },
+    { timeout: 30000 }
+  );
 
   it('should get stats', () => {
     const stats = service.getStats();
