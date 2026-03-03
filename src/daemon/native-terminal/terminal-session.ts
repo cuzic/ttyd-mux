@@ -37,6 +37,13 @@ const BELL_CHAR = 0x07;
 const OSC_START = '\x1b]633;';
 const OSC_END = '\x07';
 
+// CSI (Control Sequence Introducer) for terminal responses
+// These are responses FROM the terminal TO applications, not display content
+// DA1 response: CSI ? Ps ; Ps ; ... c
+// DA2 response: CSI > Ps ; Ps ; ... c
+// DA3 response: CSI = Ps ; Ps ; ... c
+const CSI_DA_RESPONSE_PATTERN = /\x1b\[[>?=][\d;]*c/g;
+
 // OSC 633 sequence types
 type OSC633Type = 'A' | 'B' | 'C' | 'D' | 'E' | 'P';
 
@@ -247,6 +254,11 @@ export class TerminalSession {
         i++;
       }
     }
+
+    // Filter out terminal response sequences (DA1, DA2, DA3)
+    // These are responses from the terminal emulator that shouldn't be displayed
+    // e.g., [>0;276;0c (DA2 response from xterm.js)
+    filteredOutput = filteredOutput.replace(CSI_DA_RESPONSE_PATTERN, '');
 
     return { filteredOutput, sequences };
   }
