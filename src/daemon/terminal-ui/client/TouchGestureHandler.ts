@@ -281,15 +281,13 @@ export class TouchGestureHandler {
 
   /**
    * Setup pinch-to-zoom for font size
+   * Works with 2-finger pinch gesture (no modifier keys required)
    */
   private setupPinchZoom(): void {
     document.addEventListener(
       'touchstart',
       (e: TouchEvent) => {
-        if (
-          e.touches.length === 2 &&
-          (this.modifiers.isCtrlActive() || this.modifiers.isShiftActive())
-        ) {
+        if (e.touches.length === 2) {
           this.pinchStartDistance = this.getTouchDistance(e.touches);
           this.pinchStartFontSize = this.terminal.getCurrentFontSize();
         }
@@ -300,11 +298,7 @@ export class TouchGestureHandler {
     document.addEventListener(
       'touchmove',
       (e: TouchEvent) => {
-        if (
-          e.touches.length === 2 &&
-          (this.modifiers.isCtrlActive() || this.modifiers.isShiftActive()) &&
-          this.pinchStartDistance > 0
-        ) {
+        if (e.touches.length === 2 && this.pinchStartDistance > 0) {
           e.preventDefault(); // Suppress browser zoom
           const currentDistance = this.getTouchDistance(e.touches);
           const scale = currentDistance / this.pinchStartDistance;
