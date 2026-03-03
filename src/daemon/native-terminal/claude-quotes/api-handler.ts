@@ -13,6 +13,7 @@
  * - GET /api/claude-quotes/git-diff-file - Get single file diff
  */
 
+import { spawn } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
@@ -28,6 +29,14 @@ import type {
   MarkdownFile
 } from './types.js';
 import type { NativeSessionManager } from '../session-manager.js';
+
+/** JSON response helper */
+const jsonResponse = (data: unknown, headers: Record<string, string>, status = 200) =>
+  new Response(JSON.stringify(data), { status, headers });
+
+/** Error response helper */
+const errorResponse = (error: string, headers: Record<string, string>, status = 400) =>
+  new Response(JSON.stringify({ error }), { status, headers });
 
 /**
  * History.jsonl entry structure
@@ -58,67 +67,50 @@ export async function handleClaudeQuotesApi(
   headers: Record<string, string>,
   sessionManager: NativeSessionManager
 ): Promise<Response | null> {
+  const params = new URL(req.url).searchParams;
+
   // GET /api/claude-quotes/sessions
   if (apiPath === '/claude-quotes/sessions' && method === 'GET') {
-    const params = new URL(req.url).searchParams;
     const limit = Math.min(Number.parseInt(params.get('limit') ?? '10', 10), 20);
-
     try {
-      const sessions = getRecentClaudeSessions(limit);
-      return new Response(JSON.stringify({ sessions }), { headers });
+      return jsonResponse({ sessions: getRecentClaudeSessions(limit) }, headers);
     } catch (error) {
-      return new Response(JSON.stringify({ error: String(error) }), {
-        status: 500,
-        headers
-      });
+      return errorResponse(String(error), headers, 500);
     }
   }
 
   // GET /api/claude-quotes/recent
   if (apiPath.startsWith('/claude-quotes/recent') && method === 'GET') {
-    const params = new URL(req.url).searchParams;
     const claudeSessionId = params.get('claudeSessionId');
     const projectPath = params.get('projectPath');
     const count = Math.min(Number.parseInt(params.get('count') ?? '20', 10), 50);
 
-    // New approach: use claudeSessionId and projectPath directly
+    // Use claudeSessionId + projectPath if provided
     if (claudeSessionId && projectPath) {
       try {
         const turns = await getRecentClaudeTurnsFromSession(projectPath, claudeSessionId, count);
-        return new Response(JSON.stringify({ turns }), { headers });
+        return jsonResponse({ turns }, headers);
       } catch (error) {
-        return new Response(JSON.stringify({ error: String(error) }), {
-          status: 500,
-          headers
-        });
+        return errorResponse(String(error), headers, 500);
       }
     }
 
     // Fallback: legacy approach using ttyd-mux session name
     const sessionName = params.get('session');
     if (!sessionName) {
-      return new Response(
-        JSON.stringify({ error: 'Either (claudeSessionId + projectPath) or session parameter is required' }),
-        { status: 400, headers }
-      );
+      return errorResponse('Either (claudeSessionId + projectPath) or session parameter is required', headers);
     }
 
     const session = sessionManager.getSession(sessionName);
     if (!session) {
-      return new Response(JSON.stringify({ error: 'Session not found', turns: [] }), {
-        status: 200,
-        headers
-      });
+      return jsonResponse({ error: 'Session not found', turns: [] }, headers);
     }
 
     try {
       const turns = await getRecentClaudeTurns(session.cwd, count);
-      return new Response(JSON.stringify({ turns }), { headers });
+      return jsonResponse({ turns }, headers);
     } catch (error) {
-      return new Response(JSON.stringify({ error: String(error) }), {
-        status: 500,
-        headers
-      });
+      return errorResponse(String(error), headers, 500);
     }
   }
 
@@ -126,82 +118,50 @@ export async function handleClaudeQuotesApi(
   const turnMatch = apiPath.match(/^\/claude-quotes\/turn\/([^/]+)$/);
   if (turnMatch?.[1] && method === 'GET') {
     const uuid = decodeURIComponent(turnMatch[1]);
-    const params = new URL(req.url).searchParams;
     const claudeSessionId = params.get('claudeSessionId');
     const projectPath = params.get('projectPath');
 
-    // New approach: use claudeSessionId and projectPath directly
+    // Use claudeSessionId + projectPath if provided
     if (claudeSessionId && projectPath) {
       try {
         const turn = await getClaudeTurnByUuidFromSession(projectPath, claudeSessionId, uuid);
-        if (!turn) {
-          return new Response(JSON.stringify({ error: 'Turn not found' }), {
-            status: 404,
-            headers
-          });
-        }
-        return new Response(JSON.stringify(turn), { headers });
+        return turn ? jsonResponse(turn, headers) : errorResponse('Turn not found', headers, 404);
       } catch (error) {
-        return new Response(JSON.stringify({ error: String(error) }), {
-          status: 500,
-          headers
-        });
+        return errorResponse(String(error), headers, 500);
       }
     }
 
     // Fallback: legacy approach
     const sessionName = params.get('session');
     if (!sessionName) {
-      return new Response(
-        JSON.stringify({ error: 'Either (claudeSessionId + projectPath) or session parameter is required' }),
-        { status: 400, headers }
-      );
+      return errorResponse('Either (claudeSessionId + projectPath) or session parameter is required', headers);
     }
 
     const session = sessionManager.getSession(sessionName);
     if (!session) {
-      return new Response(JSON.stringify({ error: 'Session not found' }), {
-        status: 404,
-        headers
-      });
+      return errorResponse('Session not found', headers, 404);
     }
 
     try {
       const turn = await getClaudeTurnByUuid(session.cwd, uuid);
-      if (!turn) {
-        return new Response(JSON.stringify({ error: 'Turn not found' }), {
-          status: 404,
-          headers
-        });
-      }
-      return new Response(JSON.stringify(turn), { headers });
+      return turn ? jsonResponse(turn, headers) : errorResponse('Turn not found', headers, 404);
     } catch (error) {
-      return new Response(JSON.stringify({ error: String(error) }), {
-        status: 500,
-        headers
-      });
+      return errorResponse(String(error), headers, 500);
     }
   }
 
   // GET /api/claude-quotes/project-markdown
   if (apiPath.startsWith('/claude-quotes/project-markdown') && method === 'GET') {
-    const params = new URL(req.url).searchParams;
     const sessionName = params.get('session');
     const count = Math.min(Number.parseInt(params.get('count') ?? '10', 10), 50);
 
     if (!sessionName) {
-      return new Response(JSON.stringify({ error: 'session parameter required' }), {
-        status: 400,
-        headers
-      });
+      return errorResponse('session parameter required', headers);
     }
 
     const session = sessionManager.getSession(sessionName);
     if (!session) {
-      return new Response(JSON.stringify({ error: 'Session not found', files: [] }), {
-        status: 200,
-        headers
-      });
+      return jsonResponse({ error: 'Session not found', files: [] }, headers);
     }
 
     try {
@@ -209,30 +169,23 @@ export async function handleClaudeQuotesApi(
         excludeDirs: ['node_modules', '.git', 'dist', 'build', 'coverage'],
         maxDepth: 3
       });
-
-      // Sort by modified time (most recent first) and limit
       const files = allFiles
         .sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime())
         .slice(0, count);
-
-      return new Response(JSON.stringify({ files }), { headers });
+      return jsonResponse({ files }, headers);
     } catch (error) {
-      return new Response(JSON.stringify({ error: String(error) }), {
-        status: 500,
-        headers
-      });
+      return errorResponse(String(error), headers, 500);
     }
   }
 
   // GET /api/claude-quotes/plans
   if (apiPath.startsWith('/claude-quotes/plans') && method === 'GET') {
-    const params = new URL(req.url).searchParams;
     const count = Math.min(Number.parseInt(params.get('count') ?? '10', 10), 50);
 
     try {
       const plansDir = join(homedir(), '.claude', 'plans');
       if (!existsSync(plansDir)) {
-        return new Response(JSON.stringify({ files: [] }), { headers });
+        return jsonResponse({ files: [] }, headers);
       }
 
       const files: MarkdownFile[] = readdirSync(plansDir)
@@ -240,37 +193,25 @@ export async function handleClaudeQuotesApi(
         .map((f) => {
           const fullPath = join(plansDir, f);
           const stat = statSync(fullPath);
-          return {
-            path: f,
-            name: f,
-            modifiedAt: stat.mtime.toISOString(),
-            size: stat.size
-          };
+          return { path: f, name: f, modifiedAt: stat.mtime.toISOString(), size: stat.size };
         })
         .sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime())
         .slice(0, count);
 
-      return new Response(JSON.stringify({ files }), { headers });
+      return jsonResponse({ files }, headers);
     } catch (error) {
-      return new Response(JSON.stringify({ error: String(error) }), {
-        status: 500,
-        headers
-      });
+      return errorResponse(String(error), headers, 500);
     }
   }
 
   // GET /api/claude-quotes/file-content
   if (apiPath.startsWith('/claude-quotes/file-content') && method === 'GET') {
-    const params = new URL(req.url).searchParams;
     const source = params.get('source');
     const filePath = params.get('path');
     const sessionName = params.get('session');
 
     if (!source || !filePath) {
-      return new Response(JSON.stringify({ error: 'source and path parameters required' }), {
-        status: 400,
-        headers
-      });
+      return errorResponse('source and path parameters required', headers);
     }
 
     let baseDir: string;
@@ -278,119 +219,76 @@ export async function handleClaudeQuotesApi(
       baseDir = join(homedir(), '.claude', 'plans');
     } else if (source === 'project') {
       if (!sessionName) {
-        return new Response(JSON.stringify({ error: 'session parameter required for project source' }), {
-          status: 400,
-          headers
-        });
+        return errorResponse('session parameter required for project source', headers);
       }
       const session = sessionManager.getSession(sessionName);
       if (!session) {
-        return new Response(JSON.stringify({ error: 'Session not found' }), {
-          status: 404,
-          headers
-        });
+        return errorResponse('Session not found', headers, 404);
       }
       baseDir = session.cwd;
     } else {
-      return new Response(JSON.stringify({ error: 'source must be "project" or "plans"' }), {
-        status: 400,
-        headers
-      });
+      return errorResponse('source must be "project" or "plans"', headers);
     }
 
     const pathResult = validateSecurePath(baseDir, filePath);
     if (!pathResult.valid) {
-      return new Response(JSON.stringify({ error: pathResult.error }), {
-        status: 400,
-        headers
-      });
-    }
-    const targetPath = pathResult.targetPath;
-
-    if (!existsSync(targetPath)) {
-      return new Response(JSON.stringify({ error: 'File not found' }), {
-        status: 404,
-        headers
-      });
+      return errorResponse(pathResult.error ?? 'Invalid path', headers);
     }
 
-    // Limit to first 200 lines
-    const fullContent = readFileSync(targetPath, 'utf-8');
+    if (!existsSync(pathResult.targetPath)) {
+      return errorResponse('File not found', headers, 404);
+    }
+
+    const fullContent = readFileSync(pathResult.targetPath, 'utf-8');
     const lines = fullContent.split('\n');
     const maxLines = 200;
     const truncated = lines.length > maxLines;
-    const content = truncated ? lines.slice(0, maxLines).join('\n') : fullContent;
 
-    return new Response(
-      JSON.stringify({
-        content,
-        truncated,
-        totalLines: lines.length
-      }),
-      { headers }
-    );
+    return jsonResponse({
+      content: truncated ? lines.slice(0, maxLines).join('\n') : fullContent,
+      truncated,
+      totalLines: lines.length
+    }, headers);
   }
 
   // GET /api/claude-quotes/git-diff
   if (apiPath.startsWith('/claude-quotes/git-diff') && method === 'GET' && !apiPath.includes('/git-diff-file')) {
-    const params = new URL(req.url).searchParams;
     const sessionName = params.get('session');
-
     if (!sessionName) {
-      return new Response(JSON.stringify({ error: 'session parameter required' }), {
-        status: 400,
-        headers
-      });
+      return errorResponse('session parameter required', headers);
     }
 
     const session = sessionManager.getSession(sessionName);
     if (!session) {
-      return new Response(JSON.stringify({ error: 'Session not found' }), {
-        status: 404,
-        headers
-      });
+      return errorResponse('Session not found', headers, 404);
     }
 
     try {
-      const diff = await getGitDiff(session.cwd);
-      return new Response(JSON.stringify(diff), { headers });
+      return jsonResponse(await getGitDiff(session.cwd), headers);
     } catch (error) {
-      return new Response(JSON.stringify({ error: String(error) }), {
-        status: 500,
-        headers
-      });
+      return errorResponse(String(error), headers, 500);
     }
   }
 
   // GET /api/claude-quotes/git-diff-file
   if (apiPath.startsWith('/claude-quotes/git-diff-file') && method === 'GET') {
-    const params = new URL(req.url).searchParams;
     const sessionName = params.get('session');
     const filePath = params.get('path');
 
     if (!sessionName || !filePath) {
-      return new Response(JSON.stringify({ error: 'session and path parameters required' }), {
-        status: 400,
-        headers
-      });
+      return errorResponse('session and path parameters required', headers);
     }
 
     const session = sessionManager.getSession(sessionName);
     if (!session) {
-      return new Response(JSON.stringify({ error: 'Session not found' }), {
-        status: 404,
-        headers
-      });
+      return errorResponse('Session not found', headers, 404);
     }
 
     try {
       const diff = await getFileDiff(session.cwd, filePath);
-      return new Response(JSON.stringify({ path: filePath, diff }), { headers });
+      return jsonResponse({ path: filePath, diff }, headers);
     } catch (error) {
-      return new Response(JSON.stringify({ error: String(error) }), {
-        status: 500,
-        headers
-      });
+      return errorResponse(String(error), headers, 500);
     }
   }
 
@@ -606,9 +504,7 @@ function collectMdFiles(
 /**
  * Get git diff information
  */
-async function getGitDiff(cwd: string): Promise<GitDiffResponse> {
-  const { spawn } = await import('node:child_process');
-
+function getGitDiff(cwd: string): Promise<GitDiffResponse> {
   return new Promise((resolve) => {
     // Get both staged and unstaged changes
     const proc = spawn('git', ['diff', '--numstat', 'HEAD'], { cwd });
@@ -665,9 +561,7 @@ async function getGitDiff(cwd: string): Promise<GitDiffResponse> {
 /**
  * Get full git diff (limited to 50KB)
  */
-async function getFullDiff(cwd: string): Promise<string> {
-  const { spawn } = await import('node:child_process');
-
+function getFullDiff(cwd: string): Promise<string> {
   return new Promise((resolve) => {
     // Include both staged and unstaged changes
     const stagedProc = spawn('git', ['diff', '--staged'], { cwd });
@@ -703,9 +597,7 @@ async function getFullDiff(cwd: string): Promise<string> {
 /**
  * Get diff for a specific file
  */
-async function getFileDiff(cwd: string, filePath: string): Promise<string> {
-  const { spawn } = await import('node:child_process');
-
+function getFileDiff(cwd: string, filePath: string): Promise<string> {
   return new Promise((resolve) => {
     const proc = spawn('git', ['diff', 'HEAD', '--', filePath], { cwd });
 

@@ -18,8 +18,60 @@ interface SessionEntry {
   timestamp?: string;
   message?: {
     role?: string;
-    content?: string | Array<{ type: string; text?: string; name?: string; input?: Record<string, unknown> }>;
+    content?: string | Array<ContentBlock>;
   };
+}
+
+/**
+ * Content block in assistant message
+ */
+interface ContentBlock {
+  type: string;
+  text?: string;
+  name?: string;
+  input?: Record<string, unknown>;
+}
+
+/**
+ * Parsed assistant content
+ */
+interface ParsedAssistantContent {
+  fullText: string;
+  hasToolUse: boolean;
+  editedFiles: string[];
+  toolUses: Array<{ name: string; input: Record<string, unknown> }>;
+}
+
+/**
+ * Parse content blocks from an assistant entry
+ */
+function parseAssistantContent(blocks: ContentBlock[]): ParsedAssistantContent {
+  let fullText = '';
+  let hasToolUse = false;
+  const editedFiles: string[] = [];
+  const toolUses: Array<{ name: string; input: Record<string, unknown> }> = [];
+
+  for (const block of blocks) {
+    if (block.type === 'text' && block.text) {
+      if (!fullText) {
+        fullText = block.text;
+      }
+    }
+    if (block.type === 'tool_use' && block.name) {
+      hasToolUse = true;
+      if (block.input) {
+        toolUses.push({ name: block.name, input: block.input });
+      }
+      if (block.name === 'Edit' || block.name === 'Write') {
+        const filePath = block.input?.['file_path'] || block.input?.['path'];
+        if (typeof filePath === 'string') {
+          editedFiles.push(filePath);
+        }
+      }
+    }
+  }
+
+  return { fullText, hasToolUse, editedFiles, toolUses };
 }
 
 /**
@@ -33,43 +85,20 @@ export function parseTurnsFromSessionFile(
   count: number
 ): ClaudeTurnSummary[] {
   const entries = readJsonlFile<SessionEntry>(sessionFile);
-
   const turns: ClaudeTurnSummary[] = [];
 
   for (const entry of entries) {
-    // Skip meta entries and user entries - only process assistant entries
-    if (entry.isMeta) continue;
-    if (entry.type !== 'assistant') continue;
-    if (!Array.isArray(entry.message?.content)) continue;
-
-    // Extract text and tool info from assistant content
-    let fullText = '';
-    let hasToolUse = false;
-    const editedFiles: string[] = [];
-
-    for (const block of entry.message.content) {
-      if (block.type === 'text' && block.text && !fullText) {
-        fullText = block.text;
-      }
-      if (block.type === 'tool_use') {
-        hasToolUse = true;
-        // Track edited files
-        if (block.name === 'Edit' || block.name === 'Write') {
-          const filePath = block.input?.['file_path'] || block.input?.['path'];
-          if (typeof filePath === 'string') {
-            editedFiles.push(filePath);
-          }
-        }
-      }
+    if (entry.isMeta || entry.type !== 'assistant' || !Array.isArray(entry.message?.content)) {
+      continue;
     }
 
+    const { fullText, hasToolUse, editedFiles } = parseAssistantContent(entry.message.content);
+
     // Only include entries with text content that has 3+ lines
-    const lineCount = fullText.split('\n').length;
-    if (fullText && entry.uuid && lineCount >= 3) {
-      const assistantSummary = fullText.slice(0, 500);
+    if (fullText && entry.uuid && fullText.split('\n').length >= 3) {
       turns.push({
         uuid: entry.uuid,
-        assistantSummary,
+        assistantSummary: fullText.slice(0, 500),
         timestamp: entry.timestamp ?? '',
         hasToolUse,
         editedFiles: editedFiles.length > 0 ? editedFiles : undefined
@@ -77,7 +106,6 @@ export function parseTurnsFromSessionFile(
     }
   }
 
-  // Return most recent turns (reversed so newest first)
   return turns.slice(-count).reverse();
 }
 
@@ -94,33 +122,18 @@ export function parseTurnByUuidFromSessionFile(
   const entries = readJsonlFile<SessionEntry>(sessionFile);
 
   for (const entry of entries) {
-    // Find the assistant entry with matching UUID
-    if (entry.uuid === uuid && entry.type === 'assistant') {
-      let assistantContent = '';
-      const toolUses: Array<{ name: string; input: Record<string, unknown> }> = [];
-
-      const content = entry.message?.content;
-      if (Array.isArray(content)) {
-        for (const block of content) {
-          if (block.type === 'text' && block.text) {
-            assistantContent += block.text + '\n\n';
-          }
-          if (block.type === 'tool_use' && block.name && block.input) {
-            toolUses.push({
-              name: block.name,
-              input: block.input
-            });
-          }
-        }
-      }
-
-      return {
-        uuid,
-        assistantContent: assistantContent.trim(),
-        timestamp: entry.timestamp ?? '',
-        toolUses
-      };
+    if (entry.uuid !== uuid || entry.type !== 'assistant' || !Array.isArray(entry.message?.content)) {
+      continue;
     }
+
+    const { fullText, toolUses } = parseAssistantContent(entry.message.content);
+
+    return {
+      uuid,
+      assistantContent: fullText,
+      timestamp: entry.timestamp ?? '',
+      toolUses
+    };
   }
 
   return null;
