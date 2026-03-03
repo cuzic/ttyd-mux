@@ -90,7 +90,16 @@ export class TerminalController {
     );
 
     term.options.fontSize = clampedSize;
+
+    // Fit immediately
     this.fitTerminal();
+
+    // On mobile, fit again after a short delay to ensure proper layout
+    if (this.isMobile) {
+      setTimeout(() => this.fitTerminal(), 50);
+      setTimeout(() => this.fitTerminal(), 150);
+    }
+
     return true;
   }
 
