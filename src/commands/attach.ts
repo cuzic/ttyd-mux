@@ -3,6 +3,18 @@ import { getSessions, isDaemonRunning } from '@/client/index.js';
 import { loadConfig } from '@/config/config.js';
 import type { SessionResponse } from '@/config/types.js';
 
+/**
+ * Check if tmux is installed on the system
+ */
+function isTmuxInstalled(): boolean {
+  try {
+    execSync('which tmux', { stdio: ['pipe', 'pipe', 'pipe'] });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface AttachOptions {
   config?: string;
 }
@@ -49,8 +61,14 @@ async function interactiveAttach(_options: AttachOptions): Promise<void> {
   }
 
   if (allSessions.size === 0) {
-    console.log('No tmux sessions available.');
-    console.log('Start one with: ttyd-mux up');
+    if (!isTmuxInstalled()) {
+      console.log('tmux is not installed.');
+      console.log('The attach command requires tmux.');
+      console.log('Install tmux or use bunterm without tmux (default mode).');
+    } else {
+      console.log('No tmux sessions available.');
+      console.log('Start one with: bunterm up');
+    }
     return;
   }
 
@@ -92,6 +110,13 @@ async function interactiveAttach(_options: AttachOptions): Promise<void> {
 }
 
 async function attachToSession(name: string): Promise<void> {
+  // Check if tmux is installed
+  if (!isTmuxInstalled()) {
+    console.error('tmux is not installed.');
+    console.error('Install tmux or use bunterm without tmux (default mode).');
+    process.exit(1);
+  }
+
   // Check if inside tmux
   const insideTmux = !!process.env['TMUX'];
 
