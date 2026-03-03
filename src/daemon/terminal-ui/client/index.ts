@@ -613,7 +613,7 @@ class ToolbarApp {
 
   /**
    * Fit terminal after toolbar visibility change
-   * Dynamically adjusts terminal container height based on actual toolbar height.
+   * Dynamically adjusts terminal container size based on actual viewport and toolbar.
    * Uses !important to override CSS rules that use hard-coded values.
    */
   private fitAfterToolbarChange(): void {
@@ -622,17 +622,19 @@ class ToolbarApp {
       const toolbar = this.elements.container;
       const toolbarHeight = toolbar.classList.contains('hidden') ? 0 : toolbar.offsetHeight;
 
-      // Find terminal container and adjust its height
+      // Find terminal container and adjust its size
       const terminalContainer = document.getElementById('terminal') ||
                                 document.querySelector('.terminal') ||
                                 document.querySelector('.terminal-pane');
 
       if (terminalContainer) {
         const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
         const newHeight = viewportHeight - toolbarHeight;
 
         // Use setProperty with 'important' to override CSS !important rules
         (terminalContainer as HTMLElement).style.setProperty('height', `${newHeight}px`, 'important');
+        (terminalContainer as HTMLElement).style.setProperty('width', `${viewportWidth}px`, 'important');
 
         // Also update xterm internal elements for proper fit
         const xterm = terminalContainer.querySelector('.xterm') as HTMLElement;
@@ -641,12 +643,15 @@ class ToolbarApp {
 
         if (xterm) {
           xterm.style.setProperty('height', '100%', 'important');
+          xterm.style.setProperty('width', '100%', 'important');
         }
         if (xtermViewport) {
           xtermViewport.style.setProperty('height', '100%', 'important');
+          xtermViewport.style.setProperty('width', '100%', 'important');
         }
         if (xtermScreen) {
           xtermScreen.style.setProperty('height', '100%', 'important');
+          xtermScreen.style.setProperty('width', '100%', 'important');
         }
       }
 
