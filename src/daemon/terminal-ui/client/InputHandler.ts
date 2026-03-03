@@ -92,23 +92,56 @@ export class InputHandler {
 
   /**
    * Send mouse wheel event (SGR extended mode)
+   * tmux with mouse mode expects: ESC [ < Cb ; Cx ; Cy M
    * @param direction - 'up' or 'down'
    * @param count - number of wheel ticks (default: 1)
    */
   sendWheel(direction: 'up' | 'down', count = 1): void {
     // SGR extended mouse mode: ESC [ < Cb ; Cx ; Cy M
-    // Wheel up: Cb = 64, Wheel down: Cb = 65
+    // For wheel events:
+    // Wheel up: button code = 64 (0x40)
+    // Wheel down: button code = 65 (0x41)
     const button = direction === 'up' ? 64 : 65;
 
-    // Use center of terminal as coordinates (typical default)
-    const x = 40;
-    const y = 12;
+    // Use coordinates near center of typical terminal
+    // Coordinates are 1-based in SGR mode
+    const x = 10;
+    const y = 10;
 
-    const seq = `\x1b[<${button};${x};${y}M`;
-    const bytes = Array.from(new TextEncoder().encode(seq));
+    // Send both press (M) and release (m) for complete wheel event
+    const pressSeq = `\x1b[<${button};${x};${y}M`;
+    const releaseSeq = `\x1b[<${button};${x};${y}m`;
 
     for (let i = 0; i < count; i++) {
-      this.ws.sendBytes(bytes);
+      // Send press event
+      this.ws.sendText(pressSeq);
+      // Send release event
+      this.ws.sendText(releaseSeq);
     }
+  }
+
+  /**
+   * Send tmux scroll command
+   * Enters copy mode and sends Page Up/Down
+   * @param direction - 'up' or 'down'
+   * @param count - number of pages (default: 1)
+   */
+  sendTmuxScroll(direction: 'up' | 'down', count = 1): void {
+
+    // Build the complete sequence: Ctrl+B [ PageUp/PageDown
+    // Ctrl+B = \x02, [ = \x5b
+    // Page Up: ESC [ 5 ~  -> \x1b \x5b \x35 \x7e
+    // Page Down: ESC [ 6 ~ -> \x1b \x5b \x36 \x7e
+    const pageKey = direction === 'up'
+      ? [0x1b, 0x5b, 0x35, 0x7e]  // Page Up
+      : [0x1b, 0x5b, 0x36, 0x7e]; // Page Down
+
+    // Send all keys in one message to ensure proper sequencing
+    const sequence: number[] = [0x02, 0x5b]; // Ctrl+B [
+    for (let i = 0; i < count; i++) {
+      sequence.push(...pageKey);
+    }
+
+    this.ws.sendBytes(sequence);
   }
 }

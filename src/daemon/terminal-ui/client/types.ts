@@ -16,6 +16,7 @@ export interface Terminal {
   getSelection(): string;
   loadAddon(addon: unknown): void;
   onBell(callback: () => void): void;
+  scrollLines(amount: number): void;
 }
 
 /** Terminal buffer interface */
@@ -81,6 +82,8 @@ export interface TerminalUiConfig {
   reconnect_interval: number;
   preview_allowed_extensions?: string[];
   sentry?: ClientSentryConfig;
+  /** tmux mode: 'none' | 'auto' | 'new' | 'attach' */
+  tmuxMode?: string;
 }
 
 /** DOM element IDs for toolbar */

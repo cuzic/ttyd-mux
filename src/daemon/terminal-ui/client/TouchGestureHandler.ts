@@ -531,8 +531,18 @@ export class TouchGestureHandler {
 
         if (Math.abs(deltaY) >= ALT_SCROLL_THRESHOLD) {
           const ticks = Math.floor(Math.abs(deltaY) / ALT_SCROLL_THRESHOLD);
-          const direction = deltaY > 0 ? 'down' : 'up';
-          this.input.sendWheel(direction, ticks);
+          // deltaY > 0 means finger moved up → scroll up (towards older content)
+          const direction = deltaY > 0 ? 'up' : 'down';
+
+          if (this.config.tmuxMode && this.config.tmuxMode !== 'none') {
+            // tmux mode: send mouse wheel events to tmux
+            // Requires 'set -g mouse on' in tmux config
+            this.input.sendWheel(direction, ticks);
+          } else {
+            // Non-tmux mode: use xterm.js scrollLines
+            const scrollAmount = deltaY > 0 ? -ticks : ticks;
+            this.terminal.scrollLines(scrollAmount);
+          }
           this.altScrollLastY = touch.clientY;
         }
         e.preventDefault();

@@ -590,10 +590,20 @@ class ToolbarApp {
 
     if (isHidden) {
       const terminal = document.querySelector('.xterm-helper-textarea') as HTMLElement;
-      terminal?.focus();
+      if (this.isMobile) {
+        // On mobile, blur to prevent keyboard from appearing
+        terminal?.blur();
+      } else {
+        // On desktop, focus terminal for keyboard input
+        terminal?.focus();
+      }
       setTimeout(() => this.terminal.fitTerminal(), 100);
     } else {
-      input.focus();
+      if (!this.isMobile) {
+        // On desktop, auto-focus input for immediate typing
+        input.focus();
+      }
+      // On mobile, user must tap input to show keyboard
       // Fit terminal after showing toolbar
       setTimeout(() => this.terminal.fitTerminal(), 100);
     }

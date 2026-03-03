@@ -189,6 +189,17 @@ export class TerminalController {
   }
 
   /**
+   * Scroll terminal by specified number of lines
+   * Positive: scroll down (towards newer), Negative: scroll up (towards older)
+   */
+  scrollLines(amount: number): void {
+    const term = this.findTerminal();
+    if (term && typeof term.scrollLines === 'function') {
+      term.scrollLines(amount);
+    }
+  }
+
+  /**
    * Setup visual bell handler
    */
   setupBellHandler(onBell?: () => void): void {

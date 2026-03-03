@@ -46,7 +46,8 @@ export function generateNativeTerminalHtml(options: NativeTerminalHtmlOptions): 
     sessionName,
     sessionPath,
     isShared,
-    isNativeTerminal: true
+    isNativeTerminal: true,
+    tmuxMode: config.tmux_mode
   });
 
   // Notification config for push notifications
