@@ -18,6 +18,54 @@ import type { IDisposable } from '@xterm/xterm';
 export { Terminal, FitAddon, WebLinksAddon, Unicode11Addon, SerializeAddon, SearchAddon, ClipboardAddon };
 
 /**
+ * Check if data contains mouse escape sequences.
+ * Mouse sequences that shells don't understand cause garbage output.
+ *
+ * Patterns:
+ * - X10 mode: \x1b[M followed by 3 bytes (Cb Cx Cy)
+ * - SGR mode: \x1b[< followed by parameters and M or m
+ * - URXVT mode: \x1b[ followed by parameters and M
+ */
+export function containsMouseSequence(data: string): boolean {
+  // X10 mouse mode: ESC [ M Cb Cx Cy (6 bytes total)
+  if (data.includes('\x1b[M')) {
+    return true;
+  }
+
+  // SGR extended mouse mode: ESC [ < Cb ; Cx ; Cy M (or m for release)
+  // Example: \x1b[<0;27;10M
+  if (/\x1b\[<[\d;]+[Mm]/.test(data)) {
+    return true;
+  }
+
+  // URXVT mode: ESC [ Cb ; Cx ; Cy M
+  // Similar to SGR but without the '<'
+  if (/\x1b\[\d+;\d+;\d+M/.test(data)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Filter out mouse escape sequences from input data.
+ * Returns the data with mouse sequences removed, or empty string if only mouse data.
+ */
+export function filterMouseSequences(data: string): string {
+  // X10 mouse mode: ESC [ M Cb Cx Cy (always 6 bytes)
+  // Remove all occurrences
+  let filtered = data.replace(/\x1b\[M.../g, '');
+
+  // SGR extended mouse mode: ESC [ < params M/m
+  filtered = filtered.replace(/\x1b\[<[\d;]+[Mm]/g, '');
+
+  // URXVT mode: ESC [ params M
+  filtered = filtered.replace(/\x1b\[\d+;\d+;\d+M/g, '');
+
+  return filtered;
+}
+
+/**
  * Create a fully configured Terminal instance with all addons
  */
 export function createTerminal(options?: {
@@ -25,6 +73,8 @@ export function createTerminal(options?: {
   fontFamily?: string;
   cursorBlink?: boolean;
   scrollback?: number;
+  /** Disable mouse reporting to PTY (prevents garbage when shell doesn't handle mouse) */
+  disableMouseReporting?: boolean;
 }): {
   terminal: Terminal;
   fitAddon: FitAddon;

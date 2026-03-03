@@ -15,7 +15,10 @@ import { DecorationManager, type BlockInfo } from './DecorationManager.js';
 
 declare global {
   interface Window {
-    XtermBundle: typeof import('./xterm-bundle.js');
+    XtermBundle: typeof import('./xterm-bundle.js') & {
+      filterMouseSequences?: (data: string) => string;
+      containsMouseSequence?: (data: string) => boolean;
+    };
     TerminalClient: typeof TerminalClient;
     BlockManager: typeof BlockManager;
     BlockRenderer: typeof BlockRenderer;
@@ -45,6 +48,13 @@ interface TerminalClientOptions {
   maxReconnectAttempts?: number;
   /** Enable block UI */
   enableBlockUI?: boolean;
+  /**
+   * Filter mouse reporting to PTY.
+   * When true, mouse escape sequences are filtered out before sending to PTY.
+   * This prevents garbage output when the shell doesn't handle mouse events.
+   * Default: true (filter enabled)
+   */
+  filterMouseReporting?: boolean;
   /** Block UI event handlers */
   onBlockCopyCommand?: (command: string) => void;
   onBlockCopyOutput?: (output: string) => void;
@@ -132,6 +142,7 @@ export class TerminalClient {
       reconnectDelay: 2000,
       maxReconnectAttempts: 5,
       enableBlockUI: true,
+      filterMouseReporting: false, // Disabled by default - enable if shell shows garbage on mouse move
       onBlockCopyCommand: undefined as unknown as (command: string) => void,
       onBlockCopyOutput: undefined as unknown as (output: string) => void,
       onBlockSendToAI: undefined as unknown as (block: Block) => void,
@@ -187,13 +198,33 @@ export class TerminalClient {
 
     // Handle terminal input (UTF-8 text including IME input like Japanese)
     terminal.onData((data) => {
-      this.send({ type: 'input', data: this.encodeTextInput(data) });
+      let inputData = data;
+
+      // Filter mouse sequences if enabled (prevents garbage when shell doesn't handle mouse)
+      if (this.options.filterMouseReporting && window.XtermBundle.filterMouseSequences) {
+        inputData = window.XtermBundle.filterMouseSequences(data);
+        if (!inputData) {
+          return; // All data was mouse sequences, nothing to send
+        }
+      }
+
+      this.send({ type: 'input', data: this.encodeTextInput(inputData) });
     });
 
     // Handle binary input (for non-UTF-8 compatible sequences like X10 mouse mode)
     // xterm.js provides this separate event specifically for binary data
     terminal.onBinary((data) => {
-      this.send({ type: 'input', data: this.encodeBinaryInput(data) });
+      let inputData = data;
+
+      // Filter mouse sequences if enabled (prevents garbage when shell doesn't handle mouse)
+      if (this.options.filterMouseReporting && window.XtermBundle.filterMouseSequences) {
+        inputData = window.XtermBundle.filterMouseSequences(data);
+        if (!inputData) {
+          return; // All data was mouse sequences, nothing to send
+        }
+      }
+
+      this.send({ type: 'input', data: this.encodeBinaryInput(inputData) });
     });
 
     // Handle terminal resize
@@ -496,6 +527,12 @@ export class TerminalClient {
         console.log('[TerminalClient] Connected');
         this.reconnectAttempts = 0;
 
+        // Reset xterm.js mouse tracking state on connect/reconnect.
+        // This prevents "stuck" mouse tracking from previous sessions
+        // (e.g., vim/tmux enabled mouse but the OFF sequence was never received).
+        // Apps that need mouse will re-enable it when they start.
+        this.resetMouseTracking();
+
         // Send initial resize
         if (this.terminal) {
           this.send({
@@ -696,6 +733,29 @@ export class TerminalClient {
    */
   write(data: string): void {
     this.terminal?.write(data);
+  }
+
+  /**
+   * Reset xterm.js mouse tracking state.
+   * This sends escape sequences to disable all mouse tracking modes.
+   * Call this on connect/reconnect to clear any "stuck" mouse tracking state
+   * from previous sessions.
+   *
+   * Note: This doesn't break apps that need mouse - they will re-enable
+   * tracking when they start (e.g., vim sends \x1b[?1006h on startup).
+   */
+  private resetMouseTracking(): void {
+    if (!this.terminal) return;
+
+    // Send mouse tracking OFF sequences to xterm.js
+    // These are written to xterm.js (not PTY) to reset its internal state
+    this.terminal.write(
+      '\x1b[?1000l' + // X10 mouse off
+        '\x1b[?1002l' + // Button-event tracking off
+        '\x1b[?1003l' + // Any-event tracking off
+        '\x1b[?1006l' + // SGR extended mouse mode off
+        '\x1b[?1015l' // URXVT mouse mode off
+    );
   }
 
   /**
