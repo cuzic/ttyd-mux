@@ -3,6 +3,13 @@
  */
 
 export const terminalUiStyles = `
+/* CSS Variables for layout (managed by LayoutManager.ts) */
+:root {
+  --vvh: 100vh;      /* Visual viewport height - updated by JS */
+  --tui-h: 0px;      /* Toolbar height - updated by JS */
+  --vv-offset-top: 0px; /* Visual viewport offset (iOS keyboard) */
+}
+
 #tui {
   position: fixed;
   bottom: 0;
@@ -126,6 +133,34 @@ export const terminalUiStyles = `
   align-items: flex-end;
 }
 
+#tui-buttons-toggle {
+  background: #3a3a3a;
+  border: 1px solid #555;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 8px 10px;
+  min-height: 40px;
+  min-width: 36px;
+  touch-action: manipulation;
+  flex-shrink: 0;
+}
+
+#tui-buttons-toggle:hover, #tui-buttons-toggle:active {
+  background: #4a4a4a;
+}
+
+/* Hide buttons when collapsed */
+#tui.buttons-collapsed #tui-buttons {
+  display: none;
+}
+
+#tui.buttons-collapsed #tui-buttons-toggle {
+  background: #007acc;
+  border-color: #005a9e;
+}
+
 #tui-input {
   flex: 1;
   background: #2d2d2d;
@@ -224,18 +259,28 @@ export const terminalUiStyles = `
   display: none;
 }
 
-/* Adjust layout when toolbar is visible */
+/* Adjust layout when toolbar is visible - using CSS variables from LayoutManager */
+html:has(#tui:not(.hidden)) {
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
 body:has(#tui:not(.hidden)) {
-  padding-bottom: 150px !important;
+  position: fixed !important;
+  top: var(--vv-offset-top, 0px) !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: var(--vvh) !important;
+  max-height: var(--vvh) !important;
+  overflow: hidden !important;
   box-sizing: border-box;
-  height: 100vh;
-  overflow: hidden;
+  padding-bottom: var(--tui-h) !important;
 }
 
 body:has(#tui:not(.hidden)) .terminal,
 body:has(#tui:not(.hidden)) #terminal,
 body:has(#tui:not(.hidden)) .terminal-pane {
-  height: calc(100vh - 150px) !important;
+  height: calc(var(--vvh) - var(--tui-h)) !important;
 }
 
 body:has(#tui:not(.hidden)) .xterm {
@@ -247,16 +292,39 @@ body:has(#tui:not(.hidden)) .xterm-screen {
   height: 100% !important;
 }
 
-/* Adjust layout when minimized toolbar is visible */
-body:has(#tui.minimized:not(.hidden)) {
-  padding-bottom: 60px !important;
+/* Adjust layout when toolbar is hidden - still use visualViewport for mobile keyboard */
+html:has(#tui.hidden) {
+  height: 100% !important;
+  overflow: hidden !important;
 }
 
-body:has(#tui.minimized:not(.hidden)) .terminal,
-body:has(#tui.minimized:not(.hidden)) #terminal,
-body:has(#tui.minimized:not(.hidden)) .terminal-pane {
-  height: calc(100vh - 60px) !important;
+body:has(#tui.hidden) {
+  position: fixed !important;
+  top: var(--vv-offset-top, 0px) !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: var(--vvh) !important;
+  max-height: var(--vvh) !important;
+  overflow: hidden !important;
+  box-sizing: border-box;
 }
+
+body:has(#tui.hidden) .terminal,
+body:has(#tui.hidden) #terminal,
+body:has(#tui.hidden) .terminal-pane {
+  height: var(--vvh) !important;
+}
+
+body:has(#tui.hidden) .xterm {
+  height: 100% !important;
+}
+
+body:has(#tui.hidden) .xterm-viewport,
+body:has(#tui.hidden) .xterm-screen {
+  height: 100% !important;
+}
+
+/* Note: minimized mode height is now handled automatically by --tui-h variable */
 
 /* Minimized mode - compact toolbar with input only */
 #tui.minimized #tui-buttons {
@@ -351,8 +419,38 @@ body:has(#tui.minimized:not(.hidden)) .terminal-pane {
   font-family: monospace;
 }
 
+/* Mobile-only elements (hidden on desktop) */
+.tui-mobile-only {
+  display: none;
+}
+
+/* Reinitialize button */
+#tui-reinit {
+  background: #5865f2 !important;
+  border-color: #4752c4 !important;
+}
+
+#tui-reinit:hover, #tui-reinit:active {
+  background: #4752c4 !important;
+}
+
+/* Reload button */
+#tui-reload {
+  background: #ed4245 !important;
+  border-color: #c03537 !important;
+}
+
+#tui-reload:hover, #tui-reload:active {
+  background: #c03537 !important;
+}
+
 /* Mobile optimizations */
 @media (max-width: 768px) {
+  /* Show mobile-only elements */
+  .tui-mobile-only {
+    display: inline-flex !important;
+  }
+
   #tui {
     padding: 6px;
   }
@@ -402,25 +500,8 @@ body:has(#tui.minimized:not(.hidden)) .terminal-pane {
     width: 64px;
   }
 
-  body:has(#tui:not(.hidden)) {
-    padding-bottom: 120px !important;
-  }
-
-  body:has(#tui:not(.hidden)) .terminal,
-  body:has(#tui:not(.hidden)) #terminal,
-  body:has(#tui:not(.hidden)) .terminal-pane {
-    height: calc(100vh - 120px) !important;
-  }
-
-  body:has(#tui.minimized:not(.hidden)) {
-    padding-bottom: 60px !important;
-  }
-
-  body:has(#tui.minimized:not(.hidden)) .terminal,
-  body:has(#tui.minimized:not(.hidden)) #terminal,
-  body:has(#tui.minimized:not(.hidden)) .terminal-pane {
-    height: calc(100vh - 60px) !important;
-  }
+  /* Mobile: Layout now uses CSS variables from LayoutManager */
+  /* No fixed values needed - --vvh and --tui-h handle everything */
 
   #tui-onboarding {
     left: 16px;
@@ -3139,6 +3220,302 @@ body.preview-open .xterm-screen {
 
   .tui-quote-item {
     padding: 12px 12px;
+  }
+}
+
+/* =============================================================================
+   Path Link Popup
+   ============================================================================= */
+
+.path-link-popup {
+  position: fixed;
+  z-index: 10100;
+  background: #2d2d2d;
+  border: 1px solid #555;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  min-width: 200px;
+  max-width: 400px;
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.path-link-popup.hidden {
+  display: none;
+}
+
+.popup-header {
+  padding: 8px 12px;
+  border-bottom: 1px solid #444;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.popup-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.popup-path {
+  color: #4fc3f7;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  line-height: 1.4;
+}
+
+.popup-actions {
+  display: flex;
+  flex-direction: column;
+}
+
+.popup-actions button {
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: #e0e0e0;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  transition: background 0.15s ease;
+}
+
+.popup-actions button:hover {
+  background: #3a3a3a;
+}
+
+.popup-actions button:first-child {
+  border-radius: 0;
+}
+
+.popup-actions button:last-child {
+  border-radius: 0 0 5px 5px;
+}
+
+/* xterm link layer custom styles */
+.xterm .xterm-screen a {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.xterm .xterm-screen a:hover {
+  text-decoration-style: solid;
+}
+
+/* Mobile adjustments for path link popup */
+@media (max-width: 768px) {
+  .path-link-popup {
+    min-width: 180px;
+    max-width: calc(100vw - 32px);
+  }
+
+  .popup-actions button {
+    padding: 12px;
+    min-height: 44px;
+  }
+}
+
+/* =============================================================================
+   File Operations Sidebar
+   ============================================================================= */
+
+#tui-file-ops-pane {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--file-ops-width, 300px);
+  background: #1e1e1e;
+  border-left: 2px solid #007acc;
+  z-index: 9998;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -2px 0 10px rgba(0,0,0,0.3);
+}
+
+#tui-file-ops-pane.hidden {
+  display: none !important;
+}
+
+#tui-file-ops-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #252526;
+  border-bottom: 1px solid #333;
+  font-size: 14px;
+  font-weight: bold;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+#tui-file-ops-actions {
+  display: flex;
+  gap: 8px;
+}
+
+#tui-file-ops-actions button {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+
+#tui-file-ops-actions button:hover {
+  color: #fff;
+  background: #3a3a3a;
+}
+
+#tui-file-ops-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+#tui-file-ops-resizer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: ew-resize;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+#tui-file-ops-resizer:hover {
+  background: #007acc;
+}
+
+/* File operation item */
+.file-ops-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #2a2a2a;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.file-ops-item:hover {
+  background: #2a2d2e;
+}
+
+.file-ops-item:last-child {
+  border-bottom: none;
+}
+
+.file-ops-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+}
+
+.file-ops-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-ops-filename {
+  font-size: 13px;
+  font-weight: 500;
+  color: #e0e0e0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-ops-path {
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-ops-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #4caf50;
+}
+
+.file-ops-status.pending {
+  background: #ffc107;
+  animation: pulse-pending 1s ease-in-out infinite;
+}
+
+.file-ops-status.error {
+  background: #f44336;
+}
+
+@keyframes pulse-pending {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* Tool-specific icon colors */
+.file-ops-item[data-tool="Read"] .file-ops-icon { color: #2196f3; }
+.file-ops-item[data-tool="Edit"] .file-ops-icon { color: #ff9800; }
+.file-ops-item[data-tool="Write"] .file-ops-icon { color: #4caf50; }
+.file-ops-item[data-tool="Grep"] .file-ops-icon { color: #9c27b0; }
+.file-ops-item[data-tool="Glob"] .file-ops-icon { color: #9c27b0; }
+.file-ops-item[data-tool="NotebookEdit"] .file-ops-icon { color: #ff5722; }
+
+/* Adjust terminal width when sidebar is open */
+body.file-ops-open #terminal,
+body.file-ops-open .terminal,
+body.file-ops-open .terminal-pane {
+  width: calc(100% - var(--file-ops-width, 300px)) !important;
+}
+
+/* When both preview pane and file-ops sidebar are open */
+body.preview-open.file-ops-open #tui-preview-pane {
+  right: var(--file-ops-width, 300px);
+}
+
+body.preview-open.file-ops-open #terminal {
+  width: calc(100vw - var(--preview-width, 400px) - var(--file-ops-width, 300px)) !important;
+  max-width: calc(100vw - var(--preview-width, 400px) - var(--file-ops-width, 300px)) !important;
+}
+
+body.preview-open.file-ops-open .terminal,
+body.preview-open.file-ops-open .xterm {
+  max-width: calc(100vw - var(--preview-width, 400px) - var(--file-ops-width, 300px)) !important;
+}
+
+/* Hide sidebar on mobile */
+@media (max-width: 768px) {
+  #tui-file-ops-pane {
+    display: none !important;
+  }
+
+  body.file-ops-open #terminal,
+  body.file-ops-open .terminal,
+  body.file-ops-open .terminal-pane {
+    width: 100% !important;
+  }
+
+  /* Reset preview pane position on mobile */
+  body.preview-open.file-ops-open #tui-preview-pane {
+    right: 0;
   }
 }
 `;
