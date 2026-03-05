@@ -9,8 +9,9 @@
  */
 
 import { toolbarEvents } from './events.js';
+import { type Mountable, type Scope, on, onBus } from './lifecycle.js';
 import type { SessionSwitcherElements, TerminalUiConfig } from './types.js';
-import { bindClick } from './utils.js';
+import { bindClickScoped } from './utils.js';
 
 /** Session data from API */
 interface SessionInfo {
@@ -20,7 +21,7 @@ interface SessionInfo {
   fullPath: string;
 }
 
-export class SessionSwitcher {
+export class SessionSwitcher implements Mountable {
   private config: TerminalUiConfig;
   private elements: SessionSwitcherElements | null = null;
   private sessions: SessionInfo[] = [];
@@ -52,40 +53,56 @@ export class SessionSwitcher {
   }
 
   /**
-   * Bind DOM elements
+   * Bind DOM elements (stores reference only)
    */
   bindElements(elements: SessionSwitcherElements): void {
     this.elements = elements;
+  }
+
+  /**
+   * Mount event listeners to scope for automatic cleanup
+   */
+  mount(scope: Scope): void {
+    const { elements } = this;
+    if (!elements) {
+      return;
+    }
 
     // Close button
-    bindClick(elements.modalClose, () => this.hide());
+    bindClickScoped(scope, elements.modalClose, () => this.hide());
 
     // Refresh button
-    bindClick(elements.refreshBtn, () => this.loadSessions());
+    bindClickScoped(scope, elements.refreshBtn, () => this.loadSessions());
 
     // Session button in toolbar
-    bindClick(elements.sessionBtn, () => this.toggle());
+    bindClickScoped(scope, elements.sessionBtn, () => this.toggle());
 
     // Search input
-    elements.searchInput.addEventListener('input', () => {
-      this.filterSessions();
-      this.selectedIndex = 0;
-      this.renderSessions();
-    });
+    scope.add(
+      on(elements.searchInput, 'input', () => {
+        this.filterSessions();
+        this.selectedIndex = 0;
+        this.renderSessions();
+      })
+    );
 
     // Keyboard navigation
-    elements.searchInput.addEventListener('keydown', (e) => this.handleKeydown(e));
-    elements.modal.addEventListener('keydown', (e) => this.handleKeydown(e));
+    scope.add(
+      on(elements.searchInput, 'keydown', (e: Event) => this.handleKeydown(e as KeyboardEvent))
+    );
+    scope.add(on(elements.modal, 'keydown', (e: Event) => this.handleKeydown(e as KeyboardEvent)));
 
     // Close on backdrop click
-    elements.modal.addEventListener('click', (e) => {
-      if (e.target === elements.modal) {
-        this.hide();
-      }
-    });
+    scope.add(
+      on(elements.modal, 'click', (e: Event) => {
+        if (e.target === elements.modal) {
+          this.hide();
+        }
+      })
+    );
 
     // Listen for session:open event
-    toolbarEvents.on('session:open', () => this.show());
+    scope.add(onBus(toolbarEvents, 'session:open', () => this.show()));
   }
 
   /**

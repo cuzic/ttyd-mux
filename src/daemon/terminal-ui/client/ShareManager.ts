@@ -6,11 +6,12 @@
 
 import qrcode from 'qrcode-generator';
 import { type ToolbarApiClient, createApiClient } from './ApiClient.js';
+import { type Mountable, type Scope, on } from './lifecycle.js';
 import { type ModalController, createModalController } from './ModalController.js';
 import type { TerminalUiConfig } from './types.js';
-import { getSessionNameFromURL } from './utils.js';
+import { bindClickScoped, getSessionNameFromURL } from './utils.js';
 
-export class ShareManager {
+export class ShareManager implements Mountable {
   private config: TerminalUiConfig;
   private apiClient: ToolbarApiClient;
   private shareBtn: HTMLElement | null = null;
@@ -30,7 +31,7 @@ export class ShareManager {
   }
 
   /**
-   * Bind modal elements
+   * Bind modal elements (stores reference only)
    */
   bindElements(
     shareBtn: HTMLElement,
@@ -53,47 +54,34 @@ export class ShareManager {
     this.expiryOptions = document.querySelectorAll(
       'input[name="tui-share-expiry"]'
     ) as NodeListOf<HTMLInputElement>;
-
-    this.setupEventListeners();
   }
 
   /**
-   * Setup event listeners
+   * Mount event listeners to scope for automatic cleanup
    */
-  private setupEventListeners(): void {
-    // Setup modal controller for show/hide/backdrop/escape
+  mount(scope: Scope): void {
+    // Setup modal controller for show/hide/backdrop
+    // Note: Escape key handling is now centralized in KeyRouter
     if (this.modal) {
       this.modalController = createModalController({
         modal: this.modal,
         closeBtn: this.modalClose,
         backdropClose: true,
-        escapeClose: true
+        escapeClose: false // Handled by KeyRouter
       });
     }
 
     // Open modal
-    this.shareBtn?.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.show();
-    });
+    bindClickScoped(scope, this.shareBtn, () => this.show());
 
     // Create share link
-    this.createBtn?.addEventListener('click', async (e) => {
-      e.preventDefault();
-      await this.createShare();
-    });
+    bindClickScoped(scope, this.createBtn, () => this.createShare());
 
     // Copy URL
-    this.copyBtn?.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.copyUrl();
-    });
+    bindClickScoped(scope, this.copyBtn, () => this.copyUrl());
 
     // Show QR code
-    this.qrBtn?.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.showQR();
-    });
+    bindClickScoped(scope, this.qrBtn, () => this.showQR());
   }
 
   /**

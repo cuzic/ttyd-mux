@@ -7,9 +7,11 @@
 
 import { z } from 'zod';
 import type { InputHandler } from './InputHandler.js';
+import { type Mountable, type Scope, on } from './lifecycle.js';
 import { type StorageManager, createStorageManager } from './StorageManager.js';
 import type { Snippet, SnippetElements } from './types.js';
 import { STORAGE_KEYS } from './types.js';
+import { bindClickScoped } from './utils.js';
 
 // Schema for snippet storage
 const snippetSchema = z.object({
@@ -29,7 +31,7 @@ type SnippetStorageType = z.infer<typeof snippetStorageSchema>;
 // Current storage version for migration
 const STORAGE_VERSION = 1;
 
-export class SnippetManager {
+export class SnippetManager implements Mountable {
   private inputHandler: InputHandler;
   private snippets: Snippet[] = [];
   private elements: SnippetElements | null = null;
@@ -47,7 +49,7 @@ export class SnippetManager {
   }
 
   /**
-   * Bind modal elements and setup event listeners
+   * Bind modal elements (stores reference only)
    */
   bindElements(
     snippetBtn: HTMLButtonElement,
@@ -80,94 +82,78 @@ export class SnippetManager {
       addCancelBtn
     };
 
-    this.setupEventListeners();
     this.renderList();
   }
 
   /**
-   * Setup event listeners
+   * Mount event listeners to scope for automatic cleanup
    */
-  private setupEventListeners(): void {
-    if (!this.elements) {
+  mount(scope: Scope): void {
+    const { elements } = this;
+    if (!elements) {
       return;
     }
 
     // Open modal
-    this.elements.snippetBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.show();
-    });
+    bindClickScoped(scope, elements.snippetBtn, () => this.show());
 
     // Close modal
-    this.elements.modalClose.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.hide();
-    });
+    bindClickScoped(scope, elements.modalClose, () => this.hide());
 
     // Close on backdrop click
-    this.elements.modal.addEventListener('click', (e) => {
-      if (e.target === this.elements?.modal) {
-        this.hide();
-      }
-    });
+    scope.add(
+      on(elements.modal, 'click', (e: Event) => {
+        if (e.target === elements.modal) {
+          this.hide();
+        }
+      })
+    );
 
     // Show add form
-    this.elements.addBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.showAddForm();
-    });
+    bindClickScoped(scope, elements.addBtn, () => this.showAddForm());
 
     // Import
-    this.elements.importBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.importSnippets();
-    });
+    bindClickScoped(scope, elements.importBtn, () => this.importSnippets());
 
     // Export
-    this.elements.exportBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.exportSnippets();
-    });
+    bindClickScoped(scope, elements.exportBtn, () => this.exportSnippets());
 
     // Search
-    this.elements.searchInput.addEventListener('input', () => {
-      this.searchQuery = this.elements?.searchInput.value.trim().toLowerCase() || '';
-      this.renderList();
-    });
+    scope.add(
+      on(elements.searchInput, 'input', () => {
+        this.searchQuery = elements.searchInput.value.trim().toLowerCase();
+        this.renderList();
+      })
+    );
 
     // Save new snippet
-    this.elements.addSaveBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.saveNewSnippet();
-    });
+    bindClickScoped(scope, elements.addSaveBtn, () => this.saveNewSnippet());
 
     // Cancel add
-    this.elements.addCancelBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.hideAddForm();
-    });
+    bindClickScoped(scope, elements.addCancelBtn, () => this.hideAddForm());
 
-    // Close on Escape key
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.isVisible()) {
-        this.hide();
-      }
-    });
+    // Note: Escape key handling is now centralized in KeyRouter
 
     // Handle Enter in add form
-    this.elements.addNameInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        this.elements?.addCommandInput.focus();
-      }
-    });
+    scope.add(
+      on(elements.addNameInput, 'keydown', (e: Event) => {
+        const ke = e as KeyboardEvent;
+        if (ke.key === 'Enter') {
+          ke.preventDefault();
+          elements.addCommandInput.focus();
+        }
+      })
+    );
 
-    this.elements.addCommandInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && e.ctrlKey) {
-        e.preventDefault();
-        this.saveNewSnippet();
-      }
-    });
+    scope.add(
+      on(elements.addCommandInput, 'keydown', (e: Event) => {
+        const ke = e as KeyboardEvent;
+        if (ke.key === 'Enter' && ke.ctrlKey) {
+          ke.preventDefault();
+          this.saveNewSnippet();
+        }
+      })
+    );
   }
 
   /**
@@ -389,7 +375,7 @@ export class SnippetManager {
 
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ttyd-mux-snippets-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `bunterm-snippets-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
 
     URL.revokeObjectURL(url);

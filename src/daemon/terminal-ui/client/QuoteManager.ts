@@ -5,7 +5,6 @@
  * Supports 4 tabs: Claude Turns, Project Markdown, Plans, Git Diff
  */
 
-import type { TerminalUiConfig } from './types.js';
 import type {
   ClaudeSessionInfo,
   ClaudeTurnFull,
@@ -13,6 +12,9 @@ import type {
   GitDiffResponse,
   MarkdownFile
 } from '../../native-terminal/claude-quotes/types.js';
+import { type Mountable, type Scope, on } from './lifecycle.js';
+import type { TerminalUiConfig } from './types.js';
+import { bindClickScoped } from './utils.js';
 
 // Types
 type QuoteTab = 'turns' | 'projectMd' | 'plans' | 'gitDiff';
@@ -31,7 +33,7 @@ interface QuoteElements {
   quoteBtn: HTMLButtonElement;
 }
 
-export class QuoteManager {
+export class QuoteManager implements Mountable {
   private config: TerminalUiConfig;
   private elements: QuoteElements | null = null;
   private isOpen = false;
@@ -141,49 +143,57 @@ export class QuoteManager {
   }
 
   /**
-   * Bind DOM elements
+   * Bind DOM elements (stores reference only)
    */
   bindElements(elements: QuoteElements): void {
     this.elements = elements;
+  }
+
+  /**
+   * Mount event listeners to scope for automatic cleanup
+   */
+  mount(scope: Scope): void {
+    const { elements } = this;
+    if (!elements) {
+      return;
+    }
 
     // Modal close
-    elements.modalClose.addEventListener('click', () => this.close());
+    bindClickScoped(scope, elements.modalClose, () => this.close());
 
     // Tab switching
     const tabButtons = elements.tabs.querySelectorAll('.tui-quote-tab');
     tabButtons.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const tab = (btn as HTMLElement).dataset['tab'] as QuoteTab;
-        if (tab) {
-          this.switchTab(tab);
-        }
-      });
+      scope.add(
+        on(btn, 'click', () => {
+          const tab = (btn as HTMLElement).dataset['tab'] as QuoteTab;
+          if (tab) {
+            this.switchTab(tab);
+          }
+        })
+      );
     });
 
     // Controls
-    elements.selectAllBtn.addEventListener('click', () => this.selectAll());
-    elements.clearBtn.addEventListener('click', () => this.clearSelection());
+    bindClickScoped(scope, elements.selectAllBtn, () => this.selectAll());
+    bindClickScoped(scope, elements.clearBtn, () => this.clearSelection());
 
     // Copy button
-    elements.copyBtn.addEventListener('click', () => this.copyToClipboard());
+    bindClickScoped(scope, elements.copyBtn, () => this.copyToClipboard());
 
     // Quote button
-    elements.quoteBtn.addEventListener('click', () => this.toggle());
+    bindClickScoped(scope, elements.quoteBtn, () => this.toggle());
 
-    // Close on escape
-    document.addEventListener('keydown', (e) => {
-      if (this.isOpen && e.key === 'Escape') {
-        e.preventDefault();
-        this.close();
-      }
-    });
+    // Note: Escape key handling is now centralized in KeyRouter
 
     // Close on backdrop click
-    elements.modal.addEventListener('click', (e) => {
-      if (e.target === elements.modal) {
-        this.close();
-      }
-    });
+    scope.add(
+      on(elements.modal, 'click', (e: Event) => {
+        if (e.target === elements.modal) {
+          this.close();
+        }
+      })
+    );
   }
 
   /**
@@ -479,9 +489,10 @@ export class QuoteManager {
       const header = document.createElement('div');
       header.className = 'tui-quote-item-header';
       // Show assistant response as main text (truncate to 150 chars for display)
-      const displayText = turn.assistantSummary.length > 150
-        ? turn.assistantSummary.slice(0, 150) + '...'
-        : turn.assistantSummary;
+      const displayText =
+        turn.assistantSummary.length > 150
+          ? turn.assistantSummary.slice(0, 150) + '...'
+          : turn.assistantSummary;
       header.innerHTML = `
         <span class="tui-quote-item-title">${this.escapeHtml(displayText)}</span>
         <span class="tui-quote-item-time">${this.formatRelativeTime(turn.timestamp)}</span>
@@ -524,7 +535,11 @@ export class QuoteManager {
   /**
    * Render markdown files
    */
-  private renderMarkdownFiles(container: HTMLElement, files: MarkdownFile[], source: 'project' | 'plans'): void {
+  private renderMarkdownFiles(
+    container: HTMLElement,
+    files: MarkdownFile[],
+    source: 'project' | 'plans'
+  ): void {
     if (files.length === 0) {
       container.innerHTML = `<div class="tui-quote-empty">${source === 'project' ? 'プロジェクト内' : ''}マークダウンファイルが見つかりません</div>`;
       return;
@@ -659,7 +674,8 @@ export class QuoteManager {
   private updateSelectionInfo(): void {
     if (!this.elements) return;
 
-    const count = this.selectedTurnUuids.size +
+    const count =
+      this.selectedTurnUuids.size +
       this.selectedFilePaths.size +
       this.selectedGitFiles.size +
       (this.selectFullDiff ? 1 : 0);

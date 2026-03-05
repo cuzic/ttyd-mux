@@ -4,6 +4,8 @@
  * Shared utility functions for toolbar client modules.
  */
 
+import { type Scope, on } from './lifecycle.js';
+
 /**
  * Check if the current device is a mobile device
  */
@@ -12,7 +14,7 @@ export const isMobileDevice = (): boolean =>
 
 /**
  * Extract session name from URL path
- * @param basePath - The base path prefix (e.g., '/ttyd-mux')
+ * @param basePath - The base path prefix (e.g., '/bunterm')
  * @returns Session name or empty string if not found
  */
 export function getSessionNameFromURL(basePath: string): string {
@@ -32,6 +34,7 @@ export function getSessionNameFromURL(basePath: string): string {
  * @param element - The element to bind to (null-safe)
  * @param handler - The click handler function
  * @returns Cleanup function to remove the listener
+ * @deprecated Use bindClickScoped with a Scope for automatic cleanup
  */
 export function bindClick(
   element: HTMLElement | null,
@@ -49,6 +52,29 @@ export function bindClick(
   element.addEventListener('click', wrappedHandler);
 
   return () => element.removeEventListener('click', wrappedHandler);
+}
+
+/**
+ * Bind a click event handler to an element with automatic cleanup via Scope.
+ * @param scope - Scope for automatic cleanup
+ * @param element - The element to bind to (null-safe)
+ * @param handler - The click handler function
+ */
+export function bindClickScoped(
+  scope: Scope,
+  element: HTMLElement | null,
+  handler: (e?: MouseEvent) => void
+): void {
+  if (!element) {
+    return;
+  }
+
+  scope.add(
+    on(element, 'click', (e: Event) => {
+      e.preventDefault();
+      handler(e as MouseEvent);
+    })
+  );
 }
 
 /**

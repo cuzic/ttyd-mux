@@ -26,6 +26,8 @@ import { TerminalController } from './TerminalController.js';
 import { TouchGestureHandler } from './TouchGestureHandler.js';
 import { WebSocketConnection } from './WebSocketConnection.js';
 import { toolbarEvents } from './events.js';
+import { KeyPriority, KeyRouter } from './key-router.js';
+import { Scope, on, onBus } from './lifecycle.js';
 import type {
   SessionSwitcherElements,
   SmartPasteElements,
@@ -33,11 +35,15 @@ import type {
   ToolbarElements
 } from './types.js';
 import { STORAGE_KEYS } from './types.js';
-import { bindClick, isMobileDevice } from './utils.js';
+import { bindClickScoped, isMobileDevice } from './utils.js';
 
 class ToolbarApp {
   private config: TerminalUiConfig;
   private elements: ToolbarElements;
+
+  // Lifecycle management
+  private scope = new Scope();
+  private keyRouter = new KeyRouter();
 
   private ws: WebSocketConnection;
   private terminal: TerminalController;
@@ -102,20 +108,20 @@ class ToolbarApp {
     const path = window.location.pathname;
 
     // Remove base path and extract session name
-    // Path format: /ttyd-mux/session-name/ or /ttyd-mux/session-name
+    // Path format: /bunterm/session-name/ or /bunterm/session-name
     if (path.startsWith(basePath)) {
       const remainder = path.slice(basePath.length);
       // Remove leading/trailing slashes and get first segment
       const segments = remainder.split('/').filter((s) => s.length > 0);
       if (segments.length > 0) {
         const sessionName = decodeURIComponent(segments[0]);
-        document.title = `${sessionName} - ttyd-mux`;
+        document.title = `${sessionName} - bunterm`;
         return;
       }
     }
 
     // Fallback
-    document.title = 'ttyd-mux';
+    document.title = 'bunterm';
   }
 
   /**
@@ -129,6 +135,8 @@ class ToolbarApp {
       enterBtn: document.getElementById('tui-enter') as HTMLButtonElement,
       zoomInBtn: document.getElementById('tui-zoomin') as HTMLButtonElement,
       zoomOutBtn: document.getElementById('tui-zoomout') as HTMLButtonElement,
+      reinitBtn: document.getElementById('tui-reinit') as HTMLButtonElement,
+      reloadBtn: document.getElementById('tui-reload') as HTMLButtonElement,
       runBtn: document.getElementById('tui-run') as HTMLButtonElement,
       toggleBtn: document.getElementById('tui-toggle') as HTMLButtonElement,
       ctrlBtn: document.getElementById('tui-ctrl') as HTMLButtonElement,
@@ -300,8 +308,15 @@ class ToolbarApp {
     // Setup event listeners
     this.setupEventListeners();
 
-    // Setup touch gestures
-    this.touch.setup();
+    // Mount all Mountable components to scope for automatic cleanup
+    this.touch.mount(this.scope);
+    this.sessionSwitcher.mount(this.scope);
+    this.snippet.mount(this.scope);
+    this.fileTransfer.mount(this.scope);
+    this.share.mount(this.scope);
+    this.preview.mount(this.scope);
+    this.quote.mount(this.scope);
+    this.clipboardHistory.mount(this.scope);
 
     // Setup bell handler (emits 'notification:bell' via EventBus)
     // and initialize link addon for clickable URLs
@@ -333,47 +348,64 @@ class ToolbarApp {
    * Setup all event listeners
    */
   private setupEventListeners(): void {
-    const { elements } = this;
+    const { elements, scope } = this;
 
     // Send button
-    bindClick(elements.sendBtn, () => this.submitInput());
+    bindClickScoped(scope, elements.sendBtn, () => this.submitInput());
 
     // Enter button
-    bindClick(elements.enterBtn, () => this.input.sendEnter());
+    bindClickScoped(scope, elements.enterBtn, () => this.input.sendEnter());
 
     // Run button
-    bindClick(elements.runBtn, () => this.runInput());
+    bindClickScoped(scope, elements.runBtn, () => this.runInput());
 
     // Zoom buttons
-    bindClick(elements.zoomInBtn, () => {
+    bindClickScoped(scope, elements.zoomInBtn, () => {
       this.terminal.zoomTerminal(2);
       toolbarEvents.emit('font:change', this.terminal.getCurrentFontSize());
     });
 
-    bindClick(elements.zoomOutBtn, () => {
+    bindClickScoped(scope, elements.zoomOutBtn, () => {
       this.terminal.zoomTerminal(-2);
       toolbarEvents.emit('font:change', this.terminal.getCurrentFontSize());
     });
 
+    // Reinitialize button - recreate xterm.js instance
+    bindClickScoped(scope, elements.reinitBtn, () => {
+      const success = this.terminal.reinitialize();
+      if (success) {
+        // After reinitialize, fit terminal to container
+        setTimeout(() => this.fitAfterToolbarChange(), 100);
+      } else {
+        // Fall back to page reload if reinitialize not available
+        this.terminal.forceReload();
+      }
+    });
+
+    // Force reload button - full page reload (mobile only)
+    bindClickScoped(scope, elements.reloadBtn, () => {
+      this.terminal.forceReload();
+    });
+
     // Modifier buttons
-    bindClick(elements.ctrlBtn, () => this.modifiers.toggle('ctrl'));
-    bindClick(elements.altBtn, () => this.modifiers.toggle('alt'));
-    bindClick(elements.shiftBtn, () => this.modifiers.toggle('shift'));
+    bindClickScoped(scope, elements.ctrlBtn, () => this.modifiers.toggle('ctrl'));
+    bindClickScoped(scope, elements.altBtn, () => this.modifiers.toggle('alt'));
+    bindClickScoped(scope, elements.shiftBtn, () => this.modifiers.toggle('shift'));
 
     // Auto-run button
-    bindClick(elements.autoBtn, () => this.autoRun.toggle());
+    bindClickScoped(scope, elements.autoBtn, () => this.autoRun.toggle());
 
     // Special key buttons
-    bindClick(elements.escBtn, () => this.input.sendEsc());
-    bindClick(elements.tabBtn, () => this.input.sendTab());
-    bindClick(elements.upBtn, () => this.input.sendArrow('up'));
-    bindClick(elements.downBtn, () => this.input.sendArrow('down'));
+    bindClickScoped(scope, elements.escBtn, () => this.input.sendEsc());
+    bindClickScoped(scope, elements.tabBtn, () => this.input.sendTab());
+    bindClickScoped(scope, elements.upBtn, () => this.input.sendArrow('up'));
+    bindClickScoped(scope, elements.downBtn, () => this.input.sendArrow('down'));
 
     // Copy all button
-    bindClick(elements.copyAllBtn, () => this.terminal.copyAll());
+    bindClickScoped(scope, elements.copyAllBtn, () => this.terminal.copyAll());
 
     // Paste button - uses smart paste for text/image detection
-    bindClick(elements.pasteBtn, () => {
+    bindClickScoped(scope, elements.pasteBtn, () => {
       // Don't paste if this was a long press (history popup shown)
       if (this.clipboardHistory.isLongPressInProgress()) {
         return;
@@ -383,10 +415,10 @@ class ToolbarApp {
     });
 
     // Notification button
-    bindClick(elements.notifyBtn, () => this.notifications.toggle());
+    bindClickScoped(scope, elements.notifyBtn, () => this.notifications.toggle());
 
     // Minimize button
-    bindClick(elements.minimizeBtn, () => {
+    bindClickScoped(scope, elements.minimizeBtn, () => {
       elements.container.classList.toggle('minimized');
       const isMinimized = elements.container.classList.contains('minimized');
       // Update title to show opposite action
@@ -396,7 +428,7 @@ class ToolbarApp {
     });
 
     // Toggle button
-    bindClick(elements.toggleBtn, () => this.toggleToolbar());
+    bindClickScoped(scope, elements.toggleBtn, () => this.toggleToolbar());
 
     // Search bar events
     this.setupSearchEvents();
@@ -404,7 +436,7 @@ class ToolbarApp {
     // Input textarea events
     this.setupInputEvents();
 
-    // Global keyboard shortcuts
+    // Global keyboard shortcuts via KeyRouter
     this.setupKeyboardShortcuts();
   }
 
@@ -412,39 +444,44 @@ class ToolbarApp {
    * Setup search bar event listeners
    */
   private setupSearchEvents(): void {
-    const { elements } = this;
+    const { elements, scope } = this;
 
-    bindClick(elements.searchToolbarBtn, () => this.search.toggle());
-    bindClick(elements.searchCloseBtn, () => this.search.toggle(false));
-    bindClick(elements.searchNextBtn, () => this.search.findNext());
-    bindClick(elements.searchPrevBtn, () => this.search.findPrevious());
-    bindClick(elements.searchCaseBtn, () => this.search.toggleCaseSensitive());
-    bindClick(elements.searchRegexBtn, () => this.search.toggleRegex());
+    bindClickScoped(scope, elements.searchToolbarBtn, () => this.search.toggle());
+    bindClickScoped(scope, elements.searchCloseBtn, () => this.search.toggle(false));
+    bindClickScoped(scope, elements.searchNextBtn, () => this.search.findNext());
+    bindClickScoped(scope, elements.searchPrevBtn, () => this.search.findPrevious());
+    bindClickScoped(scope, elements.searchCaseBtn, () => this.search.toggleCaseSensitive());
+    bindClickScoped(scope, elements.searchRegexBtn, () => this.search.toggleRegex());
 
-    elements.searchInput.addEventListener('input', () => {
-      this.search.doSearch();
-    });
+    scope.add(
+      on(elements.searchInput, 'input', () => {
+        this.search.doSearch();
+      })
+    );
 
-    elements.searchInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !(e as KeyboardEvent & { isComposing: boolean }).isComposing) {
-        e.preventDefault();
-        if (e.shiftKey) {
-          this.search.findPrevious();
-        } else {
-          this.search.findNext();
+    scope.add(
+      on(elements.searchInput, 'keydown', (e: Event) => {
+        const ke = e as KeyboardEvent;
+        if (ke.key === 'Enter' && !ke.isComposing) {
+          ke.preventDefault();
+          if (ke.shiftKey) {
+            this.search.findPrevious();
+          } else {
+            this.search.findNext();
+          }
+        } else if (ke.key === 'Escape') {
+          ke.preventDefault();
+          this.search.toggle(false);
+        } else if (ke.key === 'F3') {
+          ke.preventDefault();
+          if (ke.shiftKey) {
+            this.search.findPrevious();
+          } else {
+            this.search.findNext();
+          }
         }
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        this.search.toggle(false);
-      } else if (e.key === 'F3') {
-        e.preventDefault();
-        if (e.shiftKey) {
-          this.search.findPrevious();
-        } else {
-          this.search.findNext();
-        }
-      }
-    });
+      })
+    );
   }
 
   /**
@@ -452,76 +489,234 @@ class ToolbarApp {
    */
   private setupInputEvents(): void {
     const { input } = this.elements;
+    const { scope } = this;
 
-    input.addEventListener('input', () => this.adjustTextareaHeight());
+    scope.add(on(input, 'input', () => this.adjustTextareaHeight()));
 
-    input.addEventListener('keydown', (e) => {
-      if (
-        e.key === 'Enter' &&
-        !e.shiftKey &&
-        !(e as KeyboardEvent & { isComposing: boolean }).isComposing
-      ) {
-        e.preventDefault();
-        this.submitInput();
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        this.toggleToolbar(false);
-      }
-    });
+    scope.add(
+      on(input, 'keydown', (e: Event) => {
+        const ke = e as KeyboardEvent;
+        if (ke.key === 'Enter' && !ke.shiftKey && !ke.isComposing) {
+          ke.preventDefault();
+          this.submitInput();
+        } else if (ke.key === 'Escape') {
+          ke.preventDefault();
+          this.toggleToolbar(false);
+        }
+      })
+    );
   }
 
   /**
-   * Setup global keyboard shortcuts
+   * Setup global keyboard shortcuts via KeyRouter
+   * All keyboard handlers are registered with priorities for proper event routing.
    */
   private setupKeyboardShortcuts(): void {
-    document.addEventListener('keydown', (e) => {
-      // Ctrl+J to toggle toolbar
-      if (e.ctrlKey && e.key === 'j') {
+    const { scope, keyRouter } = this;
+
+    // Mount the KeyRouter to handle document keydown events
+    keyRouter.mount(scope);
+
+    // Priority: CRITICAL (200) - SmartPaste preview modal Escape
+    scope.add(
+      keyRouter.register((e) => {
+        // Skip IME composition
+        if (e.isComposing) return false;
+        if (e.key !== 'Escape' || !this.smartPaste.isPreviewVisible()) return false;
+        // SmartPasteManager handles this internally, but we consume the event here
+        // to prevent lower priority handlers from also triggering
+        return true;
+      }, KeyPriority.CRITICAL)
+    );
+
+    // Priority: MODAL_HIGH (100) - Snippet modal Escape
+    scope.add(
+      keyRouter.register((e) => {
+        if (e.isComposing) return false;
+        if (e.key !== 'Escape' || !this.snippet.isVisible()) return false;
         e.preventDefault();
-        this.toggleToolbar();
-      }
-      // Ctrl+K to toggle session switcher
-      if (e.ctrlKey && e.key === 'k') {
+        this.snippet.hide();
+        return true;
+      }, KeyPriority.MODAL_HIGH)
+    );
+
+    // Priority: MODAL_HIGH (100) - File transfer modal Escape
+    scope.add(
+      keyRouter.register((e) => {
+        if (e.isComposing) return false;
+        if (e.key !== 'Escape' || !this.fileTransfer.isVisible()) return false;
         e.preventDefault();
-        this.sessionSwitcher.toggle();
-      }
-      // Ctrl+Shift+F to toggle search bar
-      if (e.ctrlKey && e.shiftKey && e.key === 'F') {
+        this.fileTransfer.hide();
+        return true;
+      }, KeyPriority.MODAL_HIGH)
+    );
+
+    // Priority: MODAL_HIGH (100) - Share modal Escape
+    scope.add(
+      keyRouter.register((e) => {
+        if (e.isComposing) return false;
+        if (e.key !== 'Escape' || !this.share.isVisible()) return false;
         e.preventDefault();
-        this.search.toggle();
-      }
-      // Ctrl+V for smart paste (intercept default paste)
-      if (e.ctrlKey && !e.shiftKey && e.key === 'v') {
+        this.share.hide();
+        return true;
+      }, KeyPriority.MODAL_HIGH)
+    );
+
+    // Priority: MODAL (80) - Quote modal Escape
+    scope.add(
+      keyRouter.register((e) => {
+        if (e.isComposing) return false;
+        if (e.key !== 'Escape') return false;
+        // Check if quote modal is open (accessed via private isOpen)
+        const quoteModal = document.getElementById('tui-quote-modal');
+        if (!quoteModal || quoteModal.classList.contains('hidden')) return false;
         e.preventDefault();
-        this.smartPaste.smartPaste();
-      }
-      // Ctrl+Shift+C to copy selection to clipboard
-      if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+        this.quote.close();
+        return true;
+      }, KeyPriority.MODAL)
+    );
+
+    // Priority: PANE (60) - Preview pane Escape
+    scope.add(
+      keyRouter.register((e) => {
+        if (e.isComposing) return false;
+        if (e.key !== 'Escape' || !this.preview.isVisible()) return false;
         e.preventDefault();
-        this.terminal.copySelection().then((success) => {
-          if (success) {
-            // Visual feedback - brief flash on terminal
-            const termEl = document.querySelector('.xterm') as HTMLElement;
-            if (termEl) {
-              termEl.style.opacity = '0.7';
-              setTimeout(() => {
-                termEl.style.opacity = '1';
-              }, 100);
+        this.preview.close();
+        return true;
+      }, KeyPriority.PANE)
+    );
+
+    // Priority: SEARCH (40) - Search bar Ctrl+Shift+F toggle
+    scope.add(
+      keyRouter.register((e) => {
+        // Modifier shortcuts don't need isComposing check
+        if (e.key === 'F' && e.ctrlKey && e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          this.search.toggle();
+          return true;
+        }
+        return false;
+      }, KeyPriority.SEARCH)
+    );
+
+    // Priority: SEARCH (40) - Search bar Escape
+    scope.add(
+      keyRouter.register((e) => {
+        if (e.isComposing) return false;
+        if (e.key !== 'Escape' || !this.search.isVisible()) return false;
+        e.preventDefault();
+        this.search.toggle(false);
+        return true;
+      }, KeyPriority.SEARCH)
+    );
+
+    // Priority: GLOBAL (0) - Ctrl+J toggle toolbar
+    scope.add(
+      keyRouter.register((e) => {
+        if (e.key === 'j' && e.ctrlKey && !e.altKey && !e.shiftKey) {
+          e.preventDefault();
+          this.toggleToolbar();
+          return true;
+        }
+        return false;
+      }, KeyPriority.GLOBAL)
+    );
+
+    // Priority: GLOBAL (0) - Ctrl+K toggle session switcher
+    scope.add(
+      keyRouter.register((e) => {
+        if (e.key === 'k' && e.ctrlKey && !e.altKey && !e.shiftKey) {
+          e.preventDefault();
+          this.sessionSwitcher.toggle();
+          return true;
+        }
+        return false;
+      }, KeyPriority.GLOBAL)
+    );
+
+    // Priority: GLOBAL (0) - Alt+V smart paste
+    scope.add(
+      keyRouter.register((e) => {
+        if (e.altKey && !e.ctrlKey && !e.shiftKey && e.key === 'v') {
+          e.preventDefault();
+          this.smartPaste.smartPaste();
+          return true;
+        }
+        return false;
+      }, KeyPriority.GLOBAL)
+    );
+
+    // Priority: GLOBAL (0) - Ctrl+Shift+C copy selection
+    scope.add(
+      keyRouter.register((e) => {
+        if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+          e.preventDefault();
+          this.terminal.copySelection().then((success) => {
+            if (success) {
+              // Visual feedback - brief flash on terminal
+              const termEl = document.querySelector('.xterm') as HTMLElement;
+              if (termEl) {
+                termEl.style.opacity = '0.7';
+                setTimeout(() => {
+                  termEl.style.opacity = '1';
+                }, 100);
+              }
             }
+          });
+          return true;
+        }
+        return false;
+      }, KeyPriority.GLOBAL)
+    );
+
+    // Priority: GLOBAL (0) - Ctrl+Shift+V paste
+    scope.add(
+      keyRouter.register((e) => {
+        if (e.ctrlKey && e.shiftKey && e.key === 'V') {
+          e.preventDefault();
+          this.terminal.paste(this.input, this.clipboardHistory);
+          return true;
+        }
+        return false;
+      }, KeyPriority.GLOBAL)
+    );
+
+    // Priority: GLOBAL (0) - Ctrl+Shift+Q quote modal
+    scope.add(
+      keyRouter.register((e) => {
+        if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'q') {
+          e.preventDefault();
+          this.quote.toggle();
+          return true;
+        }
+        return false;
+      }, KeyPriority.GLOBAL)
+    );
+
+    // Priority: GLOBAL (0) - Escape in toolbar input
+    scope.add(
+      keyRouter.register((e) => {
+        if (e.isComposing) return false;
+        if (e.key !== 'Escape') return false;
+
+        // If toolbar input has focus
+        if (document.activeElement === this.elements.input) {
+          e.preventDefault();
+          // If input is not empty, clear it
+          if (this.elements.input.value) {
+            this.elements.input.value = '';
+            this.elements.input.style.height = 'auto';
+          } else {
+            // Empty input - close toolbar and focus terminal
+            this.toggleToolbar();
+            this.terminal.focus();
           }
-        });
-      }
-      // Ctrl+Shift+V to paste from clipboard
-      if (e.ctrlKey && e.shiftKey && e.key === 'V') {
-        e.preventDefault();
-        this.terminal.paste(this.input, this.clipboardHistory);
-      }
-      // Ctrl+Shift+Q to open quote modal
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'q') {
-        e.preventDefault();
-        this.quote.toggle();
-      }
-    });
+          return true;
+        }
+        return false;
+      }, KeyPriority.GLOBAL)
+    );
   }
 
   /**
@@ -623,9 +818,10 @@ class ToolbarApp {
       const toolbarHeight = toolbar.classList.contains('hidden') ? 0 : toolbar.offsetHeight;
 
       // Find terminal container and adjust its size
-      const terminalContainer = document.getElementById('terminal') ||
-                                document.querySelector('.terminal') ||
-                                document.querySelector('.terminal-pane');
+      const terminalContainer =
+        document.getElementById('terminal') ||
+        document.querySelector('.terminal') ||
+        document.querySelector('.terminal-pane');
 
       if (terminalContainer) {
         const viewportHeight = window.innerHeight;
@@ -633,8 +829,16 @@ class ToolbarApp {
         const newHeight = viewportHeight - toolbarHeight;
 
         // Use setProperty with 'important' to override CSS !important rules
-        (terminalContainer as HTMLElement).style.setProperty('height', `${newHeight}px`, 'important');
-        (terminalContainer as HTMLElement).style.setProperty('width', `${viewportWidth}px`, 'important');
+        (terminalContainer as HTMLElement).style.setProperty(
+          'height',
+          `${newHeight}px`,
+          'important'
+        );
+        (terminalContainer as HTMLElement).style.setProperty(
+          'width',
+          `${viewportWidth}px`,
+          'important'
+        );
 
         // Also update xterm internal elements for proper fit
         const xterm = terminalContainer.querySelector('.xterm') as HTMLElement;
@@ -690,49 +894,59 @@ class ToolbarApp {
    * Setup EventBus listeners for inter-manager communication
    */
   private setupEventBusListeners(): void {
+    const { scope } = this;
+
     // Listen for bell events
-    toolbarEvents.on('notification:bell', () => {});
+    scope.add(onBus(toolbarEvents, 'notification:bell', () => {}));
 
     // Listen for font change events
-    toolbarEvents.on('font:change', (size) => {
-      this.fontSizeManager.save(size);
-    });
+    scope.add(
+      onBus(toolbarEvents, 'font:change', (size) => {
+        this.fontSizeManager.save(size);
+      })
+    );
 
     // Listen for error events
-    toolbarEvents.on('error', (_error) => {});
+    scope.add(onBus(toolbarEvents, 'error', (_error) => {}));
 
     // Listen for preview file select events
-    document.addEventListener('tui-preview-select', ((e: CustomEvent) => {
-      const callback = e.detail?.callback as
-        | ((selection: { path: string; isDirectory: boolean }) => void)
-        | undefined;
-      if (callback) {
-        this.fileTransfer.openForPreview(callback);
-      }
-    }) as EventListener);
+    scope.add(
+      on(document, 'tui-preview-select', ((e: CustomEvent) => {
+        const callback = e.detail?.callback as
+          | ((selection: { path: string; isDirectory: boolean }) => void)
+          | undefined;
+        if (callback) {
+          this.fileTransfer.openForPreview(callback);
+        }
+      }) as EventListener)
+    );
   }
 
   /**
    * Setup visibility change handler for auto-reload
    */
   private setupVisibilityHandler(): void {
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) {
-        if (!this.ws.isConnected()) {
-          this.handleReconnect();
+    this.scope.add(
+      on(document, 'visibilitychange', () => {
+        if (!document.hidden) {
+          if (!this.ws.isConnected()) {
+            this.handleReconnect();
+          }
         }
-      }
-    });
+      })
+    );
 
     // Listen for WebSocket close events (dispatched by interception script)
-    window.addEventListener('ttyd-ws-close', () => {
-      // Small delay to avoid immediate reconnect on page unload
-      setTimeout(() => {
-        if (!this.ws.isConnected()) {
-          this.handleReconnect();
-        }
-      }, 500);
-    });
+    this.scope.add(
+      on(window, 'ttyd-ws-close', () => {
+        // Small delay to avoid immediate reconnect on page unload
+        setTimeout(() => {
+          if (!this.ws.isConnected()) {
+            this.handleReconnect();
+          }
+        }, 500);
+      })
+    );
   }
 
   /**
@@ -772,7 +986,7 @@ class ToolbarApp {
           // Max retries reached, show error
           this.hideRetryStatus();
           this.showReconnectError(
-            'サーバーに接続できません。ttyd-mux が起動しているか確認してください。'
+            'サーバーに接続できません。bunterm が起動しているか確認してください。'
           );
         }
       });

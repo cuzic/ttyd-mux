@@ -6,9 +6,10 @@
  */
 
 import type { FileChangeEvent, FileWatcherClient } from './FileWatcherClient.js';
+import { type Mountable, type Scope, on } from './lifecycle.js';
 import type { PreviewError, PreviewPane, PreviewPaneElements } from './PreviewPane.js';
 import type { TerminalUiConfig } from './types.js';
-import { getSessionNameFromURL, isPreviewable as isPreviewableUtil } from './utils.js';
+import { bindClickScoped, getSessionNameFromURL, isPreviewable as isPreviewableUtil } from './utils.js';
 
 export type PreviewErrorHandler = (error: PreviewError) => void;
 
@@ -24,7 +25,7 @@ export interface PreviewManagerDeps {
   watcher: FileWatcherClient;
 }
 
-export class PreviewManager {
+export class PreviewManager implements Mountable {
   private config: TerminalUiConfig;
   private pane: PreviewPane;
   private watcher: FileWatcherClient;
@@ -58,42 +59,37 @@ export class PreviewManager {
   }
 
   /**
-   * Bind DOM elements and setup event listeners
+   * Bind DOM elements (stores reference only)
    */
   bindElements(previewBtn: HTMLButtonElement, paneElements: PreviewPaneElements): void {
     this.elements = { previewBtn, paneElements };
     this.pane.bindElements(paneElements);
+  }
+
+  /**
+   * Mount event listeners to scope for automatic cleanup
+   */
+  mount(scope: Scope): void {
+    const { elements } = this;
+    if (!elements) {
+      return;
+    }
+
+    const { previewBtn, paneElements } = elements;
 
     // Preview button toggles pane
-    previewBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.toggle();
-    });
+    bindClickScoped(scope, previewBtn, () => this.toggle());
 
     // Pane close button
-    paneElements.closeBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.close();
-    });
+    bindClickScoped(scope, paneElements.closeBtn, () => this.close());
 
     // Pane refresh button
-    paneElements.refreshBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.refresh();
-    });
+    bindClickScoped(scope, paneElements.refreshBtn, () => this.refresh());
 
     // Pane select button - opens file browser
-    paneElements.selectBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.openFileSelector();
-    });
+    bindClickScoped(scope, paneElements.selectBtn, () => this.openFileSelector());
 
-    // Close on Escape key
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.pane.isVisible()) {
-        this.close();
-      }
-    });
+    // Note: Escape key handling is now centralized in KeyRouter
   }
 
   /**

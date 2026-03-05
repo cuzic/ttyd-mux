@@ -5,8 +5,13 @@
  * Uses the file transfer API endpoints for secure file operations.
  */
 
+import { type Mountable, type Scope, on } from './lifecycle.js';
 import type { TerminalUiConfig } from './types.js';
-import { getSessionNameFromURL, isPreviewable as isPreviewableUtil } from './utils.js';
+import {
+  bindClickScoped,
+  getSessionNameFromURL,
+  isPreviewable as isPreviewableUtil
+} from './utils.js';
 
 export interface FileInfo {
   name: string;
@@ -43,7 +48,7 @@ export interface PreviewSelection {
   isDirectory: boolean;
 }
 
-export class FileTransferManager {
+export class FileTransferManager implements Mountable {
   private config: TerminalUiConfig;
   private elements: FileTransferElements | null = null;
   private currentPath = '.';
@@ -57,7 +62,7 @@ export class FileTransferManager {
   }
 
   /**
-   * Bind modal elements and setup event listeners
+   * Bind modal elements (stores reference only)
    */
   bindElements(
     downloadBtn: HTMLButtonElement,
@@ -81,66 +86,50 @@ export class FileTransferManager {
       uploadInput,
       uploadBtn2
     };
-
-    this.setupEventListeners();
   }
 
   /**
-   * Setup event listeners
+   * Mount event listeners to scope for automatic cleanup
    */
-  private setupEventListeners(): void {
-    if (!this.elements) {
+  mount(scope: Scope): void {
+    const { elements } = this;
+    if (!elements) {
       return;
     }
 
     // Download button - opens file browser modal
-    this.elements.downloadBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.showDownloadMode();
-    });
+    bindClickScoped(scope, elements.downloadBtn, () => this.showDownloadMode());
 
     // Upload button - triggers file selection
-    this.elements.uploadBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.elements?.uploadInput.click();
-    });
+    bindClickScoped(scope, elements.uploadBtn, () => elements.uploadInput.click());
 
     // Close modal
-    this.elements.modalClose.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.hide();
-    });
+    bindClickScoped(scope, elements.modalClose, () => this.hide());
 
     // Close on backdrop click
-    this.elements.modal.addEventListener('click', (e) => {
-      if (e.target === this.elements?.modal) {
-        this.hide();
-      }
-    });
+    scope.add(
+      on(elements.modal, 'click', (e: Event) => {
+        if (e.target === elements.modal) {
+          this.hide();
+        }
+      })
+    );
 
     // Upload input change
-    this.elements.uploadInput.addEventListener('change', async () => {
-      const files = this.elements?.uploadInput.files;
-      if (files && files.length > 0) {
-        await this.uploadFiles(files);
-        if (this.elements) {
-          this.elements.uploadInput.value = '';
+    scope.add(
+      on(elements.uploadInput, 'change', async () => {
+        const files = elements.uploadInput.files;
+        if (files && files.length > 0) {
+          await this.uploadFiles(files);
+          elements.uploadInput.value = '';
         }
-      }
-    });
+      })
+    );
 
     // Modal upload button
-    this.elements.uploadBtn2.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.elements?.uploadInput.click();
-    });
+    bindClickScoped(scope, elements.uploadBtn2, () => elements.uploadInput.click());
 
-    // Close on Escape key
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.isVisible()) {
-        this.hide();
-      }
-    });
+    // Note: Escape key handling is now centralized in KeyRouter
   }
 
   /**

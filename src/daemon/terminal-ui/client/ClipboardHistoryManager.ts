@@ -7,9 +7,11 @@
 
 import { z } from 'zod';
 import type { InputHandler } from './InputHandler.js';
+import { type Mountable, type Scope, on } from './lifecycle.js';
 import { type StorageManager, createStorageManager } from './StorageManager.js';
 import type { ClipboardHistoryItem } from './types.js';
 import { STORAGE_KEYS } from './types.js';
+import { bindClickScoped } from './utils.js';
 
 const MAX_HISTORY_ITEMS = 10;
 const LONG_PRESS_DURATION = 500; // ms
@@ -28,7 +30,7 @@ const clipboardHistoryStorageSchema = z.object({
 
 type ClipboardHistoryStorageType = z.infer<typeof clipboardHistoryStorageSchema>;
 
-export class ClipboardHistoryManager {
+export class ClipboardHistoryManager implements Mountable {
   private inputHandler: InputHandler;
   private history: ClipboardHistoryItem[] = [];
   private pasteBtn: HTMLButtonElement | null = null;
@@ -48,12 +50,11 @@ export class ClipboardHistoryManager {
   }
 
   /**
-   * Bind paste button and setup event listeners
+   * Bind paste button (stores reference only)
    */
   bindPasteButton(pasteBtn: HTMLButtonElement): void {
     this.pasteBtn = pasteBtn;
     this.createPopup();
-    this.setupEventListeners();
   }
 
   /**
@@ -71,63 +72,76 @@ export class ClipboardHistoryManager {
       <div id="tui-clipboard-history-list"></div>
     `;
     document.body.appendChild(this.popup);
-
-    // Close button
-    const closeBtn = this.popup.querySelector('#tui-clipboard-history-close');
-    closeBtn?.addEventListener('click', () => this.hidePopup());
-
-    // Close on outside click
-    document.addEventListener('click', (e) => {
-      if (
-        this.isPopupVisible() &&
-        !this.popup?.contains(e.target as Node) &&
-        e.target !== this.pasteBtn
-      ) {
-        this.hidePopup();
-      }
-    });
   }
 
   /**
-   * Setup event listeners for long press
+   * Mount event listeners to scope for automatic cleanup
    */
-  private setupEventListeners(): void {
-    if (!this.pasteBtn) {
+  mount(scope: Scope): void {
+    const { pasteBtn, popup } = this;
+    if (!pasteBtn || !popup) {
       return;
     }
 
+    // Close button
+    const closeBtn = popup.querySelector('#tui-clipboard-history-close') as HTMLButtonElement;
+    bindClickScoped(scope, closeBtn, () => this.hidePopup());
+
+    // Close on outside click
+    scope.add(
+      on(document, 'click', (e: Event) => {
+        if (
+          this.isPopupVisible() &&
+          !popup.contains(e.target as Node) &&
+          e.target !== pasteBtn
+        ) {
+          this.hidePopup();
+        }
+      })
+    );
+
     // Long press detection
-    this.pasteBtn.addEventListener('pointerdown', () => {
-      this.isLongPress = false;
-      this.longPressTimer = setTimeout(() => {
-        this.isLongPress = true;
-        this.showPopup();
-      }, LONG_PRESS_DURATION);
-    });
-
-    this.pasteBtn.addEventListener('pointerup', () => {
-      this.clearLongPressTimer();
-      // Reset isLongPress after a short delay to allow click handler to check it
-      setTimeout(() => {
+    scope.add(
+      on(pasteBtn, 'pointerdown', () => {
         this.isLongPress = false;
-      }, 50);
-    });
+        this.longPressTimer = setTimeout(() => {
+          this.isLongPress = true;
+          this.showPopup();
+        }, LONG_PRESS_DURATION);
+      })
+    );
 
-    this.pasteBtn.addEventListener('pointercancel', () => {
-      this.clearLongPressTimer();
-      this.isLongPress = false;
-    });
+    scope.add(
+      on(pasteBtn, 'pointerup', () => {
+        this.clearLongPressTimer();
+        // Reset isLongPress after a short delay to allow click handler to check it
+        setTimeout(() => {
+          this.isLongPress = false;
+        }, 50);
+      })
+    );
 
-    this.pasteBtn.addEventListener('pointerleave', () => {
-      this.clearLongPressTimer();
-    });
+    scope.add(
+      on(pasteBtn, 'pointercancel', () => {
+        this.clearLongPressTimer();
+        this.isLongPress = false;
+      })
+    );
+
+    scope.add(
+      on(pasteBtn, 'pointerleave', () => {
+        this.clearLongPressTimer();
+      })
+    );
 
     // Prevent context menu on long press
-    this.pasteBtn.addEventListener('contextmenu', (e) => {
-      if (this.isLongPress) {
-        e.preventDefault();
-      }
-    });
+    scope.add(
+      on(pasteBtn, 'contextmenu', (e: Event) => {
+        if (this.isLongPress) {
+          e.preventDefault();
+        }
+      })
+    );
   }
 
   /**
