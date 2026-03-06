@@ -39,15 +39,20 @@ Several approaches were tried:
 
 Implement a server-side workaround in `terminal-session.ts`:
 
-1. Detect CJK characters in the input using regex: `/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/`
+1. Detect CJK characters in the input using regex: `/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]/` (includes Hiragana, Katakana, CJK Unified Ideographs, and Hangul Syllables)
 2. If CJK is detected and the input is not newline-only:
    - First send a space character to "wake up" the PTY
    - After a 50ms delay, send the actual text
 3. Skip the workaround for newline-only input to preserve normal Enter key behavior
 
 ```typescript
-const hasCJK = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/.test(text);
-const isNewlineOnly = /^[\r\n]+$/.test(text);
+// Constants defined at module level for performance
+const CJK_PATTERN = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]/;
+const NEWLINE_ONLY_PATTERN = /^[\r\n]+$/;
+
+// In writeBytes method:
+const hasCJK = CJK_PATTERN.test(text);
+const isNewlineOnly = NEWLINE_ONLY_PATTERN.test(text);
 
 if (hasCJK && !isNewlineOnly) {
   this.terminal.write(' ');

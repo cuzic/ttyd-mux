@@ -51,6 +51,13 @@ const CSI_DA_RESPONSE_PATTERN = /\x1b\[[>?=]\d*;\d+[;\d]*c/g;
 // Focus Out: ESC [ O
 const FOCUS_EVENT_PATTERN = /\x1b\[[IO]/g;
 
+// CJK character detection for first-character loss workaround
+// Includes: Hiragana, Katakana, CJK Unified Ideographs, Hangul Syllables
+const CJK_PATTERN = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]/;
+
+// Newline-only input detection (skip CJK workaround for Enter key)
+const NEWLINE_ONLY_PATTERN = /^[\r\n]+$/;
+
 const DEFAULT_COLS = 80;
 const DEFAULT_ROWS = 24;
 const DEFAULT_OUTPUT_BUFFER_SIZE = 1000;
@@ -330,8 +337,8 @@ export class TerminalSession {
     // Send a space first to "wake up" the PTY, then send the actual text after a short delay
     // This prevents the first character from being lost in certain terminal environments
     // See ADR 054 for details
-    const hasCJK = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/.test(text);
-    const isNewlineOnly = /^[\r\n]+$/.test(text);
+    const hasCJK = CJK_PATTERN.test(text);
+    const isNewlineOnly = NEWLINE_ONLY_PATTERN.test(text);
 
     if (hasCJK && !isNewlineOnly) {
       // Send space to "wake up" the PTY
