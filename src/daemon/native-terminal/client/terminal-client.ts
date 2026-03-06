@@ -12,6 +12,8 @@ import { type Block, BlockManager } from './BlockManager.js';
 import { BlockRenderer } from './BlockRenderer.js';
 import { ClaudeBlockManager } from './ClaudeBlockManager.js';
 import { DecorationManager, type BlockInfo } from './DecorationManager.js';
+import { FileOpsSidebar } from './FileOpsSidebar.js';
+import { PathLinkManager } from './PathLinkManager.js';
 
 declare global {
   interface Window {
@@ -24,13 +26,15 @@ declare global {
     BlockRenderer: typeof BlockRenderer;
     ClaudeBlockManager: typeof ClaudeBlockManager;
     DecorationManager: typeof DecorationManager;
+    FileOpsSidebar: typeof FileOpsSidebar;
+    PathLinkManager: typeof PathLinkManager;
     term: import('@xterm/xterm').Terminal | null;
     fitAddon: import('@xterm/addon-fit').FitAddon | null;
   }
 }
 
 interface TerminalClientOptions {
-  /** WebSocket URL (e.g., ws://localhost:7680/ttyd-mux/session/ws) */
+  /** WebSocket URL (e.g., ws://localhost:7680/bunterm/session/ws) */
   wsUrl: string;
   /** Container element for the terminal */
   container: HTMLElement;
@@ -48,6 +52,8 @@ interface TerminalClientOptions {
   maxReconnectAttempts?: number;
   /** Enable block UI */
   enableBlockUI?: boolean;
+  /** Enable path link detection (clicking on file paths shows actions) */
+  enablePathLinks?: boolean;
   /**
    * Filter mouse reporting to PTY.
    * When true, mouse escape sequences are filtered out before sending to PTY.
@@ -55,6 +61,12 @@ interface TerminalClientOptions {
    * Default: true (filter enabled)
    */
   filterMouseReporting?: boolean;
+  /** Session name (for path link API calls) */
+  sessionName?: string;
+  /** Base path for API URLs (e.g., '/bunterm') */
+  basePath?: string;
+  /** Current working directory of the session */
+  cwd?: string;
   /** Block UI event handlers */
   onBlockCopyCommand?: (command: string) => void;
   onBlockCopyOutput?: (output: string) => void;
@@ -131,6 +143,12 @@ export class TerminalClient {
   private claudeBlockManager: ClaudeBlockManager | null = null;
   private decorationManager: DecorationManager | null = null;
 
+  // Path link detection
+  private pathLinkManager: PathLinkManager | null = null;
+
+  // File operations sidebar
+  private fileOpsSidebar: FileOpsSidebar | null = null;
+
   private readonly options: Required<TerminalClientOptions>;
 
   constructor(options: TerminalClientOptions) {
@@ -142,7 +160,11 @@ export class TerminalClient {
       reconnectDelay: 2000,
       maxReconnectAttempts: 5,
       enableBlockUI: true,
+      enablePathLinks: true,
       filterMouseReporting: false, // Disabled by default - enable if shell shows garbage on mouse move
+      sessionName: '',
+      basePath: '/bunterm',
+      cwd: '',
       onBlockCopyCommand: undefined as unknown as (command: string) => void,
       onBlockCopyOutput: undefined as unknown as (output: string) => void,
       onBlockSendToAI: undefined as unknown as (block: Block) => void,
@@ -232,31 +254,41 @@ export class TerminalClient {
       this.send({ type: 'resize', cols, rows });
     });
 
-    // Handle window resize with debouncing
-    let resizeTimeout: number | null = null;
-    const debouncedFit = () => {
-      if (resizeTimeout) {
-        window.clearTimeout(resizeTimeout);
-      }
-      resizeTimeout = window.setTimeout(() => {
-        this.fit();
-        // Update decoration positions after resize
-        this.decorationManager?.handleResize();
-        resizeTimeout = null;
-      }, 50);
+    // Handle window resize with 2-rAF scheduling for stable measurements
+    // Using 2 requestAnimationFrame ensures layout is fully settled
+    // (single rAF can still catch mid-layout values on some mobile browsers)
+    let fitPending = 0;
+    const scheduleFit = () => {
+      fitPending++;
+      const token = fitPending;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (token !== fitPending) return; // Superseded by newer request
+          this.fit();
+          this.decorationManager?.handleResize();
+        });
+      });
     };
 
-    window.addEventListener('resize', debouncedFit);
+    window.addEventListener('resize', scheduleFit, { passive: true });
 
     // Handle orientation change on mobile
-    window.addEventListener('orientationchange', () => {
-      setTimeout(debouncedFit, 100);
-    });
+    window.addEventListener('orientationchange', scheduleFit, { passive: true });
 
-    // Handle Visual Viewport changes (mobile keyboard)
+    // Handle Visual Viewport changes (mobile keyboard, address bar)
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', debouncedFit);
-      window.visualViewport.addEventListener('scroll', debouncedFit);
+      window.visualViewport.addEventListener('resize', scheduleFit, { passive: true });
+      window.visualViewport.addEventListener('scroll', scheduleFit, { passive: true });
+    }
+
+    // Wait for fonts to load before fitting (font metrics can change)
+    if ((document as any).fonts?.ready) {
+      (document as any).fonts.ready.then(() => scheduleFit());
+    }
+
+    // Initialize Path Link detection if enabled (must be before initBlockUI for FileOpsSidebar)
+    if (this.options.enablePathLinks && this.options.sessionName && this.options.cwd) {
+      this.initPathLinks();
     }
 
     // Initialize Block UI if enabled
@@ -266,6 +298,24 @@ export class TerminalClient {
 
     // Connect to WebSocket
     await this.connectWebSocket();
+  }
+
+  /**
+   * Initialize Path Link detection
+   */
+  private initPathLinks(): void {
+    if (!this.terminal) {
+      return;
+    }
+
+    this.pathLinkManager = new PathLinkManager({
+      terminal: this.terminal,
+      sessionName: this.options.sessionName,
+      basePath: this.options.basePath,
+      cwd: this.options.cwd
+    });
+
+    this.pathLinkManager.register();
   }
 
   /**
@@ -405,8 +455,39 @@ export class TerminalClient {
       },
       onSessionEnd: (sessionId) => {
         console.log('[ClaudeBlockManager] Session ended:', sessionId);
+        // Clear file operations sidebar when session ends
+        this.fileOpsSidebar?.clear();
+      },
+      onFileOperation: (filePath, toolName, turnId) => {
+        // Add to file operations sidebar
+        this.fileOpsSidebar?.addOperation({ filePath, toolName, turnId, status: 'pending' });
+      },
+      onFileOperationResult: (filePath, toolName, isError) => {
+        // Update operation status in sidebar
+        this.fileOpsSidebar?.updateOperationByPath(
+          filePath,
+          toolName,
+          isError ? 'error' : 'complete'
+        );
       }
     });
+
+    // Initialize FileOpsSidebar (after PathLinkManager is set up)
+    if (this.pathLinkManager) {
+      this.fileOpsSidebar = new FileOpsSidebar({
+        pathLinkManager: this.pathLinkManager,
+        callbacks: {
+          onVisibilityChange: () => {
+            // Refit terminal when sidebar visibility changes
+            requestAnimationFrame(() => this.fit());
+          },
+          onWidthChange: () => {
+            // Refit terminal when sidebar width changes
+            requestAnimationFrame(() => this.fit());
+          }
+        }
+      });
+    }
   }
 
   /**
@@ -478,7 +559,7 @@ export class TerminalClient {
     content: string;
     metadata: Record<string, unknown>;
   }): void {
-    const event = new CustomEvent('ttyd-mux:add-context', {
+    const event = new CustomEvent('bunterm:add-context', {
       detail,
       bubbles: true
     });
@@ -581,7 +662,8 @@ export class TerminalClient {
             // Decode Base64 data
             const bytes = Uint8Array.from(atob(message.data), (c) => c.charCodeAt(0));
             const decoder = new TextDecoder('utf-8', { fatal: false });
-            this.terminal.write(decoder.decode(bytes));
+            const text = decoder.decode(bytes);
+            this.terminal.write(text);
           }
           break;
 
@@ -656,7 +738,9 @@ export class TerminalClient {
         case 'claudeToolResult':
         case 'claudeSessionStart':
         case 'claudeSessionEnd':
-          this.claudeBlockManager?.handleMessage(message as Parameters<ClaudeBlockManager['handleMessage']>[0]);
+          this.claudeBlockManager?.handleMessage(
+            message as Parameters<ClaudeBlockManager['handleMessage']>[0]
+          );
           break;
       }
     } catch (error) {
@@ -722,10 +806,86 @@ export class TerminalClient {
   }
 
   /**
-   * Fit terminal to container
+   * Get container width in pixels, preferring integer values for stability.
+   * Mobile browsers often return fractional values from getBoundingClientRect
+   * which can cause subpixel rendering issues.
+   */
+  private getContainerWidthPx(): number {
+    const container = this.options.container;
+
+    // 1) clientWidth is always integer and most stable
+    if (container.clientWidth > 0) {
+      return container.clientWidth;
+    }
+
+    // 2) visualViewport can help, but make it integer
+    const vv = window.visualViewport;
+    if (vv?.width && vv.width > 0) {
+      return Math.floor(vv.width);
+    }
+
+    // 3) fallback to getBoundingClientRect (may be fractional)
+    const rect = container.getBoundingClientRect();
+    return Math.floor(rect.width);
+  }
+
+  /**
+   * Fit terminal to container with robust handling for mobile browsers.
+   *
+   * This implementation:
+   * - Uses integer clientWidth to avoid subpixel issues
+   * - Subtracts a small safety margin before calculating columns
+   * - Detects overflow and auto-corrects by reducing columns
    */
   fit(): void {
-    this.fitAddon?.fit();
+    if (!this.fitAddon || !this.terminal) {
+      return;
+    }
+
+    const isMobile = 'ontouchstart' in window || window.innerWidth <= 768;
+
+    if (!isMobile) {
+      // Desktop: FitAddon works reliably
+      this.fitAddon.fit();
+      return;
+    }
+
+    // Mobile: Use stable calculation with safety margin
+    const SAFE_PX = 2; // Safety margin to prevent edge overflow
+
+    // Get cell dimensions from xterm internal render service
+    const core = (this.terminal as any)._core;
+    const cellWidth = core?._renderService?.dimensions?.css?.cell?.width;
+    const cellHeight = core?._renderService?.dimensions?.css?.cell?.height;
+
+    if (!cellWidth || !cellHeight) {
+      // Fallback if we can't get cell dimensions
+      this.fitAddon.fit();
+      return;
+    }
+
+    const containerWidth = this.getContainerWidthPx();
+    const containerHeight = this.options.container.clientHeight;
+
+    // Calculate columns with safety margin subtracted BEFORE division
+    const cols = Math.max(2, Math.floor((containerWidth - SAFE_PX) / cellWidth));
+    const rows = Math.max(1, Math.floor(containerHeight / cellHeight));
+
+    // Only resize if dimensions actually changed
+    if (this.terminal.cols !== cols || this.terminal.rows !== rows) {
+      this.terminal.resize(cols, rows);
+    }
+
+    // Overflow detection: if still overflowing, reduce by 1 more column
+    requestAnimationFrame(() => {
+      const termEl = this.terminal?.element;
+      if (termEl) {
+        const overflow = termEl.scrollWidth - termEl.clientWidth;
+        if (overflow > 0 && this.terminal && this.terminal.cols > 2) {
+          this.terminal.resize(this.terminal.cols - 1, this.terminal.rows);
+        }
+      }
+    });
   }
 
   /**
@@ -797,7 +957,8 @@ export class TerminalClient {
    * This sends the input through the WebSocket to the PTY
    */
   sendInput(data: string): void {
-    this.send({ type: 'input', data: this.encodeTextInput(data) });
+    const encoded = this.encodeTextInput(data);
+    this.send({ type: 'input', data: encoded });
   }
 
   /**
@@ -812,6 +973,180 @@ export class TerminalClient {
    */
   focus(): void {
     this.terminal?.focus();
+  }
+
+  /**
+   * Reinitialize the terminal by disposing and recreating xterm.js instance.
+   * This is useful for mobile browsers where the canvas/WebGL state gets corrupted
+   * during toolbar toggle operations.
+   *
+   * The WebSocket connection is preserved - only the terminal UI is recreated.
+   */
+  async reinitialize(): Promise<void> {
+    console.log('[TerminalClient] Reinitializing terminal...');
+
+    // Store current state
+    const currentCols = this.terminal?.cols ?? 80;
+    const currentRows = this.terminal?.rows ?? 24;
+    const wasConnected = this.isConnected;
+
+    // Cleanup block UI
+    this.blockRenderer?.dispose();
+    this.blockRenderer = null;
+    // Don't clear blockManager - preserve block history
+
+    // Cleanup decoration manager
+    this.decorationManager?.dispose();
+    this.decorationManager = null;
+
+    // Cleanup path link manager
+    this.pathLinkManager?.dispose();
+    this.pathLinkManager = null;
+
+    // Cleanup file operations sidebar (will be recreated with new pathLinkManager)
+    this.fileOpsSidebar?.dispose();
+    this.fileOpsSidebar = null;
+
+    // Dispose terminal (but keep WebSocket open)
+    if (this.terminal) {
+      this.terminal.dispose();
+      this.terminal = null;
+      window.term = null;
+      window.fitAddon = null;
+    }
+
+    // Check if XtermBundle is available
+    if (!window.XtermBundle) {
+      throw new Error('XtermBundle not loaded');
+    }
+
+    // Create new terminal with addons
+    const { terminal, fitAddon, serializeAddon, searchAddon } = window.XtermBundle.createTerminal({
+      fontSize: this.options.fontSize,
+      fontFamily: this.options.fontFamily,
+      scrollback: this.options.scrollback
+    });
+
+    this.terminal = terminal;
+    this.fitAddon = fitAddon;
+    this.serializeAddon = serializeAddon;
+
+    // Expose to window for debugging and terminal-ui.js access
+    window.term = terminal;
+    window.fitAddon = fitAddon;
+
+    // Clear container and re-open terminal
+    this.options.container.innerHTML = '';
+    terminal.open(this.options.container);
+    fitAddon.fit();
+
+    // Setup auto-copy selection to clipboard on mouseup
+    if (window.XtermBundle.setupSelectionAutoCopy) {
+      window.XtermBundle.setupSelectionAutoCopy(terminal);
+    }
+
+    // Setup right-click to paste from clipboard
+    if (window.XtermBundle.setupRightClickPaste) {
+      window.XtermBundle.setupRightClickPaste(terminal, (text) => {
+        this.send({ type: 'input', data: this.encodeTextInput(text) });
+      });
+    }
+
+    // Setup selection highlight
+    if (window.XtermBundle.setupSelectionHighlight && searchAddon) {
+      window.XtermBundle.setupSelectionHighlight(terminal, searchAddon);
+    }
+
+    // Handle terminal input
+    terminal.onData((data) => {
+      let inputData = data;
+      if (this.options.filterMouseReporting && window.XtermBundle.filterMouseSequences) {
+        inputData = window.XtermBundle.filterMouseSequences(data);
+        if (!inputData) return;
+      }
+      this.send({ type: 'input', data: this.encodeTextInput(inputData) });
+    });
+
+    // Handle binary input
+    terminal.onBinary((data) => {
+      let inputData = data;
+      if (this.options.filterMouseReporting && window.XtermBundle.filterMouseSequences) {
+        inputData = window.XtermBundle.filterMouseSequences(data);
+        if (!inputData) return;
+      }
+      this.send({ type: 'input', data: this.encodeBinaryInput(inputData) });
+    });
+
+    // Handle terminal resize
+    terminal.onResize(({ cols, rows }) => {
+      this.send({ type: 'resize', cols, rows });
+    });
+
+    // Reinitialize Block UI if it was enabled
+    if (this.options.enableBlockUI && this.blockManager) {
+      const terminalElement = this.options.container.querySelector('.xterm') as HTMLElement;
+      if (terminalElement) {
+        this.blockRenderer = new BlockRenderer({
+          blockManager: this.blockManager,
+          container: this.options.container,
+          terminalElement,
+          onCopyCommand: this.options.onBlockCopyCommand,
+          onCopyOutput: this.options.onBlockCopyOutput,
+          onSendToAI: this.options.onBlockSendToAI,
+          onFilterBlock: (blockId) => console.log('[BlockUI] Filter in block:', blockId),
+          onRerunCommand: (command) => this.sendInput(command + '\n'),
+          onEditAndRerun: (command) => {
+            this.sendInput(command);
+            this.focus();
+          }
+        });
+      }
+
+      // Reinitialize DecorationManager
+      this.decorationManager = new DecorationManager({
+        terminal: this.terminal,
+        onBlockClick: (blockId, event) => {
+          if (!event.metaKey && !event.ctrlKey) {
+            this.decorationManager?.selectBlock(blockId);
+            this.decorationManager?.scrollToBlock(blockId);
+          }
+        },
+        onActionClick: (blockId, action, _event) => {
+          this.handleDecorationAction(blockId, action);
+        },
+        onBlockSelect: (_blockId, _selected) => {}
+      });
+    }
+
+    // Reinitialize Path Link Manager if enabled
+    if (this.options.enablePathLinks && this.options.sessionName && this.options.cwd) {
+      this.initPathLinks();
+
+      // Reinitialize File Operations Sidebar with new pathLinkManager
+      if (this.pathLinkManager) {
+        this.fileOpsSidebar = new FileOpsSidebar({
+          pathLinkManager: this.pathLinkManager,
+          callbacks: {
+            onVisibilityChange: () => requestAnimationFrame(() => this.fit()),
+            onWidthChange: () => requestAnimationFrame(() => this.fit())
+          }
+        });
+      }
+    }
+
+    // Reset mouse tracking state
+    this.resetMouseTracking();
+
+    // Send resize to match previous dimensions if connected
+    if (wasConnected && this.ws?.readyState === WebSocket.OPEN) {
+      this.send({
+        type: 'resize',
+        cols: currentCols,
+        rows: currentRows
+      });
+    }
+
+    console.log('[TerminalClient] Terminal reinitialized successfully');
   }
 
   /**
@@ -838,6 +1173,14 @@ export class TerminalClient {
     this.decorationManager = null;
     this.claudeBlockManager?.clear();
     this.claudeBlockManager = null;
+
+    // Cleanup path link manager
+    this.pathLinkManager?.dispose();
+    this.pathLinkManager = null;
+
+    // Cleanup file operations sidebar
+    this.fileOpsSidebar?.dispose();
+    this.fileOpsSidebar = null;
 
     if (this.ws) {
       this.ws.close(1000, 'Client disconnect');
@@ -901,6 +1244,14 @@ export class TerminalClient {
   getBlockOutput(blockId: string): string {
     return this.blockManager?.getDecodedOutput(blockId) ?? '';
   }
+
+  /**
+   * Update the current working directory (for path link resolution)
+   */
+  updateCwd(cwd: string): void {
+    this.options.cwd = cwd;
+    this.pathLinkManager?.updateCwd(cwd);
+  }
 }
 
 // Export for use by terminal-ui.js
@@ -909,3 +1260,5 @@ window.BlockManager = BlockManager;
 window.BlockRenderer = BlockRenderer;
 window.ClaudeBlockManager = ClaudeBlockManager;
 window.DecorationManager = DecorationManager;
+window.FileOpsSidebar = FileOpsSidebar;
+window.PathLinkManager = PathLinkManager;
