@@ -6,8 +6,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "bunterm": "./dist/index.js",
-    "ttyd-mux": "./dist/index.js"
+    "bunterm": "./dist/index.js"
   },
   "scripts": {
     "dev": "bun run src/index.ts",
@@ -45,7 +44,7 @@
     "build:tabs": "node scripts/build-tabs.mjs",
     "build:xterm": "node scripts/build-xterm-bundle.mjs",
     "build:terminal-client": "node scripts/build-terminal-client.mjs",
-    "build:binary": "bun build src/index.ts --compile --outfile ttyd-mux",
+    "build:binary": "bun build src/index.ts --compile --outfile bunterm",
     "build:all": "bun run prebuild && bun run build",
     "clean": "rm -rf dist coverage .playwright",
     "clean:all": "rm -rf dist coverage .playwright node_modules",
