@@ -7,7 +7,7 @@ import type { Config } from '@/config/types.js';
 import { generateNativeTerminalHtml } from './html-template.js';
 
 const createTestConfig = (): Config => ({
-  base_path: '/ttyd-mux',
+  base_path: '/bunterm',
   base_port: 7600,
   daemon_port: 7680,
   listen_addresses: ['127.0.0.1'],
@@ -68,8 +68,8 @@ describe('generateNativeTerminalHtml', () => {
   test('generates valid HTML document', () => {
     const html = generateNativeTerminalHtml({
       sessionName: 'test-session',
-      basePath: '/ttyd-mux',
-      sessionPath: '/ttyd-mux/test-session',
+      basePath: '/bunterm',
+      sessionPath: '/bunterm/test-session',
       config: createTestConfig()
     });
 
@@ -81,19 +81,19 @@ describe('generateNativeTerminalHtml', () => {
   test('includes session name in title', () => {
     const html = generateNativeTerminalHtml({
       sessionName: 'my-session',
-      basePath: '/ttyd-mux',
-      sessionPath: '/ttyd-mux/my-session',
+      basePath: '/bunterm',
+      sessionPath: '/bunterm/my-session',
       config: createTestConfig()
     });
 
-    expect(html).toContain('<title>my-session - ttyd-mux</title>');
+    expect(html).toContain('<title>my-session - bunterm</title>');
   });
 
   test('allows custom title override', () => {
     const html = generateNativeTerminalHtml({
       sessionName: 'test-session',
-      basePath: '/ttyd-mux',
-      sessionPath: '/ttyd-mux/test-session',
+      basePath: '/bunterm',
+      sessionPath: '/bunterm/test-session',
       config: createTestConfig(),
       title: 'Custom Terminal Title'
     });
@@ -104,43 +104,43 @@ describe('generateNativeTerminalHtml', () => {
   test('includes required script files', () => {
     const html = generateNativeTerminalHtml({
       sessionName: 'test-session',
-      basePath: '/ttyd-mux',
-      sessionPath: '/ttyd-mux/test-session',
+      basePath: '/bunterm',
+      sessionPath: '/bunterm/test-session',
       config: createTestConfig()
     });
 
-    expect(html).toContain('<script src="/ttyd-mux/xterm-bundle.js"></script>');
-    expect(html).toContain('<script src="/ttyd-mux/terminal-client.js"></script>');
-    expect(html).toContain('<script src="/ttyd-mux/terminal-ui.js"></script>');
+    expect(html).toContain('<script src="/bunterm/xterm-bundle.js"></script>');
+    expect(html).toContain('<script src="/bunterm/terminal-client.js"></script>');
+    expect(html).toContain('<script src="/bunterm/terminal-ui.js"></script>');
   });
 
   test('includes xterm CSS stylesheet', () => {
     const html = generateNativeTerminalHtml({
       sessionName: 'test-session',
-      basePath: '/ttyd-mux',
-      sessionPath: '/ttyd-mux/test-session',
+      basePath: '/bunterm',
+      sessionPath: '/bunterm/test-session',
       config: createTestConfig()
     });
 
-    expect(html).toContain('<link rel="stylesheet" href="/ttyd-mux/xterm.css">');
+    expect(html).toContain('<link rel="stylesheet" href="/bunterm/xterm.css">');
   });
 
   test('includes WebSocket path in config', () => {
     const html = generateNativeTerminalHtml({
       sessionName: 'test-session',
-      basePath: '/ttyd-mux',
-      sessionPath: '/ttyd-mux/test-session',
+      basePath: '/bunterm',
+      sessionPath: '/bunterm/test-session',
       config: createTestConfig()
     });
 
-    expect(html).toContain('/ttyd-mux/test-session/ws');
+    expect(html).toContain('/bunterm/test-session/ws');
   });
 
   test('includes terminal container', () => {
     const html = generateNativeTerminalHtml({
       sessionName: 'test-session',
-      basePath: '/ttyd-mux',
-      sessionPath: '/ttyd-mux/test-session',
+      basePath: '/bunterm',
+      sessionPath: '/bunterm/test-session',
       config: createTestConfig()
     });
 
@@ -150,8 +150,8 @@ describe('generateNativeTerminalHtml', () => {
   test('includes loading indicator', () => {
     const html = generateNativeTerminalHtml({
       sessionName: 'test-session',
-      basePath: '/ttyd-mux',
-      sessionPath: '/ttyd-mux/test-session',
+      basePath: '/bunterm',
+      sessionPath: '/bunterm/test-session',
       config: createTestConfig()
     });
 
@@ -161,20 +161,20 @@ describe('generateNativeTerminalHtml', () => {
   test('includes PWA meta tags', () => {
     const html = generateNativeTerminalHtml({
       sessionName: 'test-session',
-      basePath: '/ttyd-mux',
-      sessionPath: '/ttyd-mux/test-session',
+      basePath: '/bunterm',
+      sessionPath: '/bunterm/test-session',
       config: createTestConfig()
     });
 
-    expect(html).toContain('<meta name="apple-mobile-web-app-capable" content="yes">');
-    expect(html).toContain('<link rel="manifest" href="/ttyd-mux/manifest.json">');
+    expect(html).toContain('<meta name="mobile-web-app-capable" content="yes">');
+    expect(html).toContain('<link rel="manifest" href="/bunterm/manifest.json">');
   });
 
   test('includes viewport meta for mobile', () => {
     const html = generateNativeTerminalHtml({
       sessionName: 'test-session',
-      basePath: '/ttyd-mux',
-      sessionPath: '/ttyd-mux/test-session',
+      basePath: '/bunterm',
+      sessionPath: '/bunterm/test-session',
       config: createTestConfig()
     });
 
@@ -185,8 +185,8 @@ describe('generateNativeTerminalHtml', () => {
   test('sets isNativeTerminal flag in config', () => {
     const html = generateNativeTerminalHtml({
       sessionName: 'test-session',
-      basePath: '/ttyd-mux',
-      sessionPath: '/ttyd-mux/test-session',
+      basePath: '/bunterm',
+      sessionPath: '/bunterm/test-session',
       config: createTestConfig()
     });
 
@@ -196,8 +196,8 @@ describe('generateNativeTerminalHtml', () => {
   test('handles shared mode', () => {
     const html = generateNativeTerminalHtml({
       sessionName: 'test-session',
-      basePath: '/ttyd-mux',
-      sessionPath: '/ttyd-mux/test-session',
+      basePath: '/bunterm',
+      sessionPath: '/bunterm/test-session',
       config: createTestConfig(),
       isShared: true
     });
@@ -208,8 +208,8 @@ describe('generateNativeTerminalHtml', () => {
   test('escapes HTML special characters in title', () => {
     const html = generateNativeTerminalHtml({
       sessionName: '<script>alert("xss")</script>',
-      basePath: '/ttyd-mux',
-      sessionPath: '/ttyd-mux/test-session',
+      basePath: '/bunterm',
+      sessionPath: '/bunterm/test-session',
       config: createTestConfig()
     });
 
@@ -223,8 +223,8 @@ describe('generateNativeTerminalHtml', () => {
 
     const html = generateNativeTerminalHtml({
       sessionName: 'test-session',
-      basePath: '/ttyd-mux',
-      sessionPath: '/ttyd-mux/test-session',
+      basePath: '/bunterm',
+      sessionPath: '/bunterm/test-session',
       config
     });
 
@@ -234,8 +234,8 @@ describe('generateNativeTerminalHtml', () => {
   test('includes terminal UI HTML', () => {
     const html = generateNativeTerminalHtml({
       sessionName: 'test-session',
-      basePath: '/ttyd-mux',
-      sessionPath: '/ttyd-mux/test-session',
+      basePath: '/bunterm',
+      sessionPath: '/bunterm/test-session',
       config: createTestConfig()
     });
 
@@ -246,20 +246,20 @@ describe('generateNativeTerminalHtml', () => {
   test('stores config globally for terminal-ui.js', () => {
     const html = generateNativeTerminalHtml({
       sessionName: 'test-session',
-      basePath: '/ttyd-mux',
-      sessionPath: '/ttyd-mux/test-session',
+      basePath: '/bunterm',
+      sessionPath: '/bunterm/test-session',
       config: createTestConfig()
     });
 
-    expect(html).toContain('window.__TTYD_MUX_CONFIG__');
+    expect(html).toContain('window.__BUNTERM_CONFIG__');
     expect(html).toContain('window.__TERMINAL_CLIENT__');
   });
 
   test('includes visibility change handler for reconnection', () => {
     const html = generateNativeTerminalHtml({
       sessionName: 'test-session',
-      basePath: '/ttyd-mux',
-      sessionPath: '/ttyd-mux/test-session',
+      basePath: '/bunterm',
+      sessionPath: '/bunterm/test-session',
       config: createTestConfig()
     });
 
@@ -273,13 +273,13 @@ describe('generateNativeTerminalHtml', () => {
     // "Cannot read properties of undefined (reading 'replace')" error
     const html = generateNativeTerminalHtml({
       sessionName: 'test-session',
-      basePath: '/ttyd-mux',
-      sessionPath: '/ttyd-mux/test-session',
+      basePath: '/bunterm',
+      sessionPath: '/bunterm/test-session',
       config: createTestConfig()
     });
 
     // Must have "base_path": not "basePath":
-    expect(html).toContain('"base_path":"/ttyd-mux"');
+    expect(html).toContain('"base_path":"/bunterm"');
     // basePath should NOT appear as a JSON key (it can appear in JS variable names)
     expect(html).not.toMatch(/"basePath"\s*:/);
   });
