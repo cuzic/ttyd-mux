@@ -3,22 +3,29 @@
  *
  * This class wraps Bun's built-in Terminal API to provide:
  * - PTY lifecycle management
- * - Multi-client broadcasting
+ * - Multi-client broadcasting (via ClientBroadcaster)
  * - Output buffering for AI features
+ * - OSC 633 parsing for block UI (via Osc633Parser)
  * - WebSocket protocol handling
  */
 
 import { BlockModel } from './block-model.js';
+import { ClientBroadcaster } from './client-broadcaster.js';
 import { ClaudeSessionWatcher } from './claude-watcher/index.js';
+import {
+  type OSC633Sequence,
+  Osc633Parser,
+  parseExitCode,
+  parseProperty,
+  unescapeOsc633Command
+} from './osc633-parser.js';
 import {
   type Block,
   type NativeTerminalWebSocket,
-  type ServerMessage,
   type TerminalSessionInfo,
   type TerminalSessionOptions,
   createBellMessage,
   createBlockEndMessage,
-  createBlockListMessage,
   createBlockOutputMessage,
   createBlockStartMessage,
   createExitMessage,
@@ -31,12 +38,6 @@ import {
 // Bell character (ASCII 7)
 const BELL_CHAR = 0x07;
 
-// OSC 633 control sequence markers
-// Format: ESC ] 633 ; <type> [; <data>] BEL
-// ESC = 0x1b, ] = 0x5d, BEL = 0x07
-const OSC_START = '\x1b]633;';
-const OSC_END = '\x07';
-
 // CSI (Control Sequence Introducer) for terminal responses
 // These are responses FROM the terminal TO applications, not display content
 // DA1 response: CSI ? Ps ; Ps ; ... c (e.g., ESC[?64;1;2;...c)
@@ -45,13 +46,10 @@ const OSC_END = '\x07';
 // Note: DA queries (CSI > c or CSI > 0 c) have no semicolons, so we require at least one
 const CSI_DA_RESPONSE_PATTERN = /\x1b\[[>?=]\d*;\d+[;\d]*c/g;
 
-// OSC 633 sequence types
-type OSC633Type = 'A' | 'B' | 'C' | 'D' | 'E' | 'P';
-
-interface OSC633Sequence {
-  type: OSC633Type;
-  data?: string;
-}
+// Focus events from xterm.js - these can interfere with input timing
+// Focus In: ESC [ I
+// Focus Out: ESC [ O
+const FOCUS_EVENT_PATTERN = /\x1b\[[IO]/g;
 
 const DEFAULT_COLS = 80;
 const DEFAULT_ROWS = 24;
@@ -68,25 +66,22 @@ interface BunTerminal {
 export class TerminalSession {
   private proc: ReturnType<typeof Bun.spawn> | null = null;
   private terminal: BunTerminal | null = null;
-  private clients: Set<NativeTerminalWebSocket> = new Set();
-  private outputBuffer: string[] = [];
-  private readonly maxOutputBuffer: number;
   private readonly startedAt: string;
   private currentCols: number;
   private currentRows: number;
   private exitCode: number | null = null;
 
-  // Block UI state
+  // Extracted components
+  private readonly broadcaster: ClientBroadcaster;
+  private readonly oscParser: Osc633Parser;
   private readonly blockModel: BlockModel;
+  private readonly claudeWatcher: ClaudeSessionWatcher;
+
+  // Block UI state
   private currentLine = 0;
   private pendingCommand: string | null = null;
   private blockUIEnabled = true;
 
-  // Claude Session Watcher
-  private readonly claudeWatcher: ClaudeSessionWatcher;
-
-  // OSC sequence buffer (for partial sequences across chunks)
-  private oscBuffer = '';
 
   readonly name: string;
   readonly cwd: string;
@@ -98,14 +93,19 @@ export class TerminalSession {
     this.command = options.command;
     this.currentCols = options.cols ?? DEFAULT_COLS;
     this.currentRows = options.rows ?? DEFAULT_ROWS;
-    this.maxOutputBuffer = options.outputBufferSize ?? DEFAULT_OUTPUT_BUFFER_SIZE;
     this.startedAt = new Date().toISOString();
+
+    // Initialize extracted components
+    this.broadcaster = new ClientBroadcaster({
+      maxOutputBuffer: options.outputBufferSize ?? DEFAULT_OUTPUT_BUFFER_SIZE
+    });
+    this.oscParser = new Osc633Parser();
     this.blockModel = new BlockModel(options.cwd);
 
     // Initialize Claude Session Watcher
     this.claudeWatcher = new ClaudeSessionWatcher({ cwd: options.cwd });
     this.claudeWatcher.on('message', (msg) => {
-      this.broadcast(msg);
+      this.broadcaster.broadcast(msg);
     });
     this.claudeWatcher.on('error', (err) => {
       console.error(`[TerminalSession:${this.name}] ClaudeWatcher error:`, err);
@@ -128,7 +128,7 @@ export class TerminalSession {
         ...this.options.env,
         TERM: 'xterm-256color',
         // Enable shell integration for block UI
-        TTYD_MUX_NATIVE: '1'
+        BUNTERM_NATIVE: '1'
       },
       terminal: {
         cols: this.currentCols,
@@ -152,7 +152,7 @@ export class TerminalSession {
     this.proc.exited.then((code) => {
       console.log(`[TerminalSession:${this.name}] Process exited: code=${code}`);
       this.exitCode = code;
-      this.broadcast(createExitMessage(code));
+      this.broadcaster.broadcast(createExitMessage(code));
       this.cleanup();
     });
 
@@ -168,14 +168,14 @@ export class TerminalSession {
   private handleOutput(data: Uint8Array): void {
     // Check for bell character and send bell message
     if (data.includes(BELL_CHAR)) {
-      this.broadcast(createBellMessage());
+      this.broadcaster.broadcast(createBellMessage());
     }
 
     // Convert to string for OSC parsing
     const text = new TextDecoder('utf-8', { fatal: false }).decode(data);
 
-    // Parse OSC 633 sequences and get filtered output
-    const { filteredOutput, sequences } = this.parseOSC633(text);
+    // Parse OSC 633 sequences using extracted parser
+    const { filteredOutput, sequences } = this.oscParser.parse(text);
 
     // Process OSC 633 sequences for block management
     for (const seq of sequences) {
@@ -194,87 +194,18 @@ export class TerminalSession {
     const message = createOutputMessage(filteredData);
     const serialized = serializeServerMessage(message);
 
-    // Buffer for AI features
-    this.outputBuffer.push(message.data);
-    if (this.outputBuffer.length > this.maxOutputBuffer) {
-      this.outputBuffer.shift();
-    }
+    // Buffer for AI features using extracted broadcaster
+    this.broadcaster.bufferOutput(message.data);
 
     // Append to active block if exists
     const activeBlockId = this.blockModel.getActiveBlockId();
     if (activeBlockId && this.blockUIEnabled) {
       this.blockModel.appendOutput(activeBlockId, message.data);
-      this.broadcast(createBlockOutputMessage(activeBlockId, message.data));
+      this.broadcaster.broadcast(createBlockOutputMessage(activeBlockId, message.data));
     }
 
     // Broadcast to all clients
-    for (const ws of this.clients) {
-      try {
-        ws.send(serialized);
-      } catch (error) {
-        console.error(`[TerminalSession:${this.name}] Send error:`, error);
-      }
-    }
-  }
-
-  /**
-   * Parse OSC 633 sequences from output text
-   * Returns filtered output (without OSC sequences) and parsed sequences
-   */
-  private parseOSC633(text: string): { filteredOutput: string; sequences: OSC633Sequence[] } {
-    const sequences: OSC633Sequence[] = [];
-    let filteredOutput = '';
-    let i = 0;
-
-    // Add any pending OSC buffer from previous chunk
-    const fullText = this.oscBuffer + text;
-    this.oscBuffer = '';
-
-    while (i < fullText.length) {
-      // Look for OSC 633 start sequence
-      if (fullText.slice(i).startsWith(OSC_START)) {
-        const startIndex = i + OSC_START.length;
-        const endIndex = fullText.indexOf(OSC_END, startIndex);
-
-        if (endIndex === -1) {
-          // Incomplete sequence, buffer it for next chunk
-          this.oscBuffer = fullText.slice(i);
-          break;
-        }
-
-        // Parse the sequence content
-        const content = fullText.slice(startIndex, endIndex);
-        const seq = this.parseOSC633Content(content);
-        if (seq) {
-          sequences.push(seq);
-        }
-
-        i = endIndex + OSC_END.length;
-      } else {
-        filteredOutput += fullText[i];
-        i++;
-      }
-    }
-
-    return { filteredOutput, sequences };
-  }
-
-  /**
-   * Parse OSC 633 sequence content (after "633;")
-   */
-  private parseOSC633Content(content: string): OSC633Sequence | null {
-    if (content.length === 0) return null;
-
-    const type = content[0] as OSC633Type;
-    const validTypes: OSC633Type[] = ['A', 'B', 'C', 'D', 'E', 'P'];
-
-    if (!validTypes.includes(type)) return null;
-
-    // Check for data after the type (separated by ";")
-    const dataStart = content.indexOf(';');
-    const data = dataStart !== -1 ? content.slice(dataStart + 1) : undefined;
-
-    return { type, data };
+    this.broadcaster.broadcastRaw(serialized);
   }
 
   /**
@@ -297,7 +228,7 @@ export class TerminalSession {
         // Pre-execution - start a new block
         if (this.pendingCommand) {
           const block = this.blockModel.startBlock(this.pendingCommand, this.currentLine);
-          this.broadcast(createBlockStartMessage(block));
+          this.broadcaster.broadcast(createBlockStartMessage(block));
           this.pendingCommand = null;
         }
         break;
@@ -305,12 +236,12 @@ export class TerminalSession {
       case 'D':
         // Command finished - end the current block
         {
-          const exitCode = seq.data ? Number.parseInt(seq.data, 10) : 0;
+          const exitCode = parseExitCode(seq.data);
           const activeBlockId = this.blockModel.getActiveBlockId();
           if (activeBlockId) {
             const endedAt = new Date().toISOString();
             this.blockModel.endBlock(activeBlockId, exitCode, this.currentLine);
-            this.broadcast(
+            this.broadcaster.broadcast(
               createBlockEndMessage(activeBlockId, exitCode, endedAt, this.currentLine)
             );
           }
@@ -320,35 +251,19 @@ export class TerminalSession {
       case 'E':
         // Explicit command line - store for 'C' sequence
         if (seq.data) {
-          // Unescape the command
-          this.pendingCommand = seq.data
-            .replace(/\\n/g, '\n')
-            .replace(/\\;/g, ';')
-            .replace(/\\\\/g, '\\');
+          this.pendingCommand = unescapeOsc633Command(seq.data);
         }
         break;
 
       case 'P':
         // Property - handle Cwd
-        if (seq.data?.startsWith('Cwd=')) {
-          const cwd = seq.data.slice(4);
-          this.blockModel.setCwd(cwd);
+        {
+          const prop = parseProperty(seq.data);
+          if (prop?.key === 'Cwd') {
+            this.blockModel.setCwd(prop.value);
+          }
         }
         break;
-    }
-  }
-
-  /**
-   * Broadcast a message to all connected clients
-   */
-  private broadcast(message: ServerMessage): void {
-    const serialized = serializeServerMessage(message);
-    for (const ws of this.clients) {
-      try {
-        ws.send(serialized);
-      } catch {
-        // Client disconnected
-      }
     }
   }
 
@@ -357,7 +272,10 @@ export class TerminalSession {
    */
   writeString(data: string): void {
     // Filter out DA responses from xterm.js before writing to PTY
+    // Reset lastIndex before test() to avoid global regex state issues
+    CSI_DA_RESPONSE_PATTERN.lastIndex = 0;
     if (CSI_DA_RESPONSE_PATTERN.test(data)) {
+      CSI_DA_RESPONSE_PATTERN.lastIndex = 0;
       const filtered = data.replace(CSI_DA_RESPONSE_PATTERN, '');
       if (!filtered) {
         return;
@@ -376,26 +294,59 @@ export class TerminalSession {
    * Write binary data to the PTY (for mouse events and other binary sequences)
    */
   writeBytes(data: Uint8Array | Buffer): void {
-    const text = new TextDecoder('utf-8', { fatal: false }).decode(data);
-
-    // Filter out DA responses from xterm.js before writing to PTY
-    // These responses get echoed by PTY and appear on screen as garbage
-    // The application doesn't actually need them - xterm.js handles DA queries internally
-    if (CSI_DA_RESPONSE_PATTERN.test(text)) {
-      const filtered = text.replace(CSI_DA_RESPONSE_PATTERN, '');
-      if (!filtered) {
-        return; // All data was DA responses, nothing to write
-      }
-      // Write filtered data
-      if (this.terminal && !this.terminal.closed) {
-        this.terminal.write(filtered);
-      }
+    if (!this.terminal || this.terminal.closed) {
       return;
     }
 
-    if (this.terminal && !this.terminal.closed) {
-      this.terminal.write(data);
+    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+    if (bytes.length === 0) {
+      return;
     }
+
+    // Convert to string for filtering and writing
+    let text = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+
+    // Filter out focus events from xterm.js
+    FOCUS_EVENT_PATTERN.lastIndex = 0;
+    if (FOCUS_EVENT_PATTERN.test(text)) {
+      FOCUS_EVENT_PATTERN.lastIndex = 0;
+      text = text.replace(FOCUS_EVENT_PATTERN, '');
+      if (!text) {
+        return;
+      }
+    }
+
+    // Filter out DA responses from xterm.js
+    CSI_DA_RESPONSE_PATTERN.lastIndex = 0;
+    if (CSI_DA_RESPONSE_PATTERN.test(text)) {
+      CSI_DA_RESPONSE_PATTERN.lastIndex = 0;
+      text = text.replace(CSI_DA_RESPONSE_PATTERN, '');
+      if (!text) {
+        return;
+      }
+    }
+
+    // Workaround for first-character loss on mobile with CJK text
+    // Send a space first to "wake up" the PTY, then send the actual text after a short delay
+    // This prevents the first character from being lost in certain terminal environments
+    // See ADR 054 for details
+    const hasCJK = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/.test(text);
+    const isNewlineOnly = /^[\r\n]+$/.test(text);
+
+    if (hasCJK && !isNewlineOnly) {
+      // Send space to "wake up" the PTY
+      this.terminal.write(' ');
+
+      // Send actual text after short delay
+      setTimeout(() => {
+        if (this.terminal && !this.terminal.closed) {
+          this.terminal.write(text);
+        }
+      }, 50);
+      return;
+    }
+
+    this.terminal.write(text);
   }
 
   /**
@@ -450,32 +401,15 @@ export class TerminalSession {
    * Add a client WebSocket connection
    */
   addClient(ws: NativeTerminalWebSocket): void {
-    this.clients.add(ws);
+    this.broadcaster.addClient(ws);
 
-    // Send buffered output to new client (for session reconnection)
-    if (this.outputBuffer.length > 0) {
-      // Send last N lines of buffer
-      const replayCount = Math.min(this.outputBuffer.length, 100);
-      const replay = this.outputBuffer.slice(-replayCount);
-      for (const data of replay) {
-        try {
-          ws.send(serializeServerMessage({ type: 'output', data }));
-        } catch {
-          break;
-        }
-      }
-    }
+    // Replay buffered output to reconnecting client
+    this.broadcaster.replayTo(ws);
 
     // Send block list for reconnection
     if (this.blockUIEnabled) {
       const blocks = this.blockModel.getRecentBlocks(20);
-      if (blocks.length > 0) {
-        try {
-          ws.send(serializeServerMessage(createBlockListMessage(blocks)));
-        } catch {
-          // Client may have disconnected
-        }
-      }
+      this.broadcaster.sendBlockList(ws, blocks);
     }
   }
 
@@ -483,14 +417,14 @@ export class TerminalSession {
    * Remove a client WebSocket connection
    */
   removeClient(ws: NativeTerminalWebSocket): void {
-    this.clients.delete(ws);
+    this.broadcaster.removeClient(ws);
   }
 
   /**
    * Get the number of connected clients
    */
   get clientCount(): number {
-    return this.clients.size;
+    return this.broadcaster.clientCount;
   }
 
   /**
@@ -517,7 +451,7 @@ export class TerminalSession {
       cwd: this.cwd,
       cols: this.currentCols,
       rows: this.currentRows,
-      clientCount: this.clients.size,
+      clientCount: this.broadcaster.clientCount,
       startedAt: this.startedAt
     };
   }
@@ -526,14 +460,14 @@ export class TerminalSession {
    * Get buffered output for AI features
    */
   getOutputBuffer(): string[] {
-    return [...this.outputBuffer];
+    return this.broadcaster.getOutputBuffer();
   }
 
   /**
    * Clear the output buffer
    */
   clearOutputBuffer(): void {
-    this.outputBuffer = [];
+    this.broadcaster.clearOutputBuffer();
   }
 
   /**
@@ -602,13 +536,9 @@ export class TerminalSession {
     this.claudeWatcher.stop();
 
     // Close all client connections
-    for (const ws of this.clients) {
-      try {
-        ws.close(1000, 'Session ended');
-      } catch {
-        // Already closed
-      }
-    }
-    this.clients.clear();
+    this.broadcaster.closeAll(1000, 'Session ended');
+
+    // Reset OSC parser state
+    this.oscParser.reset();
   }
 }
