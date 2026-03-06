@@ -9,7 +9,6 @@ import type { IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
 import { createLogger } from '@/utils/logger.js';
 import { WebSocketServer } from 'ws';
-import { sessionManager as defaultSessionManager } from '../session-manager.js';
 import type { SessionManagerDeps } from './deps.js';
 import type { FileChangeEvent, PreviewClientMessage, PreviewServerMessage } from './types.js';
 import { FileWatcherService } from './watcher.js';
@@ -46,8 +45,12 @@ export interface PreviewWsHandlerDeps {
 }
 
 /** Default dependencies */
+// Note: sessionManager must be provided when creating PreviewWsHandler
+// The default empty implementation is for API compatibility only
 const defaultDeps: PreviewWsHandlerDeps = {
-  sessionManager: defaultSessionManager,
+  sessionManager: {
+    listSessions: () => []
+  },
   fileWatcher: new FileWatcherService()
 };
 
