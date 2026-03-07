@@ -8,8 +8,7 @@ export type TmuxMode = z.infer<typeof TmuxModeSchema>;
 export const SessionDefinitionSchema = z.object({
   name: z.string().min(1),
   dir: z.string().min(1),
-  path: z.string().startsWith('/'),
-  port_offset: z.number().int().min(0)
+  path: z.string().startsWith('/')
 });
 
 export type SessionDefinition = z.infer<typeof SessionDefinitionSchema>;
@@ -239,9 +238,6 @@ export const DEFAULT_SENTRY_CONFIG: SentryConfig = {
   debug: false
 };
 
-export const SessionBackendSchema = z.enum(['ttyd', 'native']);
-export type SessionBackend = z.infer<typeof SessionBackendSchema>;
-
 export const DaemonManagerSchema = z.enum(['direct', 'pm2']);
 export type DaemonManager = z.infer<typeof DaemonManagerSchema>;
 
@@ -303,18 +299,15 @@ export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
 };
 
 export const ConfigSchema = z.object({
-  base_path: z.string().startsWith('/').default('/ttyd-mux'),
-  base_port: z.number().int().min(1024).max(65535).default(7600),
+  base_path: z.string().startsWith('/').default('/bunterm'),
   daemon_port: z.number().int().min(1024).max(65535).default(7680),
   listen_addresses: z.array(z.string()).default(['127.0.0.1', '::1']),
   listen_sockets: z.array(z.string()).default([]),
   auto_attach: z.boolean().default(true),
   sessions: z.array(SessionDefinitionSchema).default([]),
-  proxy_mode: z.enum(['proxy', 'static']).default('proxy'),
   hostname: z.string().optional(),
   caddy_admin_api: z.string().default('http://localhost:2019'),
   tmux_mode: TmuxModeSchema.default('auto'),
-  session_backend: SessionBackendSchema.default('native'),
   daemon_manager: DaemonManagerSchema.default('direct'),
   terminal_ui: TerminalUiConfigSchema.default(DEFAULT_TERMINAL_UI_CONFIG),
   notifications: NotificationConfigSchema.default(DEFAULT_NOTIFICATION_CONFIG),
@@ -341,7 +334,6 @@ export interface DaemonState {
 export interface SessionState {
   name: string;
   pid: number;
-  port: number;
   path: string;
   dir: string;
   started_at: string;
