@@ -2,7 +2,13 @@
  * Simple logger with timestamps and log levels
  */
 
+import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
+
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+// Optional log file path (set via environment variable or setLogFile)
+let logFilePath: string | null = process.env['BUNTERM_LOG_FILE'] || null;
 
 const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
   debug: 0,
@@ -36,29 +42,61 @@ export function getLogLevel(): LogLevel {
   return currentLevel;
 }
 
+export function setLogFile(path: string | null): void {
+  logFilePath = path;
+  if (path) {
+    const dir = dirname(path);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+  }
+}
+
+export function getLogFile(): string | null {
+  return logFilePath;
+}
+
+function writeToFile(message: string): void {
+  if (logFilePath) {
+    try {
+      appendFileSync(logFilePath, message + '\n');
+    } catch {
+      // Ignore file write errors
+    }
+  }
+}
+
 export function createLogger(component: string) {
   return {
     debug(message: string, ...args: unknown[]): void {
       if (shouldLog('debug')) {
-        console.log(formatMessage('debug', component, message), ...args);
+        const formatted = formatMessage('debug', component, message);
+        console.log(formatted, ...args);
+        writeToFile(formatted + (args.length ? ' ' + args.map(String).join(' ') : ''));
       }
     },
 
     info(message: string, ...args: unknown[]): void {
       if (shouldLog('info')) {
-        console.log(formatMessage('info', component, message), ...args);
+        const formatted = formatMessage('info', component, message);
+        console.log(formatted, ...args);
+        writeToFile(formatted + (args.length ? ' ' + args.map(String).join(' ') : ''));
       }
     },
 
     warn(message: string, ...args: unknown[]): void {
       if (shouldLog('warn')) {
-        console.warn(formatMessage('warn', component, message), ...args);
+        const formatted = formatMessage('warn', component, message);
+        console.warn(formatted, ...args);
+        writeToFile(formatted + (args.length ? ' ' + args.map(String).join(' ') : ''));
       }
     },
 
     error(message: string, ...args: unknown[]): void {
       if (shouldLog('error')) {
-        console.error(formatMessage('error', component, message), ...args);
+        const formatted = formatMessage('error', component, message);
+        console.error(formatted, ...args);
+        writeToFile(formatted + (args.length ? ' ' + args.map(String).join(' ') : ''));
       }
     }
   };

@@ -135,13 +135,25 @@ export class ClaudeSessionWatcher extends EventEmitter<ClaudeSessionWatcherEvent
     try {
       this.historyWatcher = watch(historyPath, async (event) => {
         if (event === 'change') {
-          await this.readNewHistoryLines();
+          try {
+            await this.readNewHistoryLines();
+          } catch (err) {
+            console.error('[ClaudeWatcher] Error in history watch callback:', err);
+          }
         }
       });
 
       this.historyWatcher.on('error', (err) => {
+        // Log but don't propagate - file watch errors shouldn't crash the daemon
         console.error('[ClaudeWatcher] History watcher error:', err);
-        this.emit('error', err);
+        // Try to recover by restarting the watcher after a delay
+        this.historyWatcher?.close();
+        this.historyWatcher = null;
+        setTimeout(() => {
+          if (this.isRunning) {
+            this.watchHistory().catch(() => {});
+          }
+        }, 5000);
       });
     } catch (err) {
       // File might not exist yet - retry later
@@ -269,13 +281,19 @@ export class ClaudeSessionWatcher extends EventEmitter<ClaudeSessionWatcherEvent
             clearTimeout(this.debounceTimer);
           }
           this.debounceTimer = setTimeout(() => {
-            this.readNewSessionLines(sessionId);
+            this.readNewSessionLines(sessionId).catch((err) => {
+              console.error('[ClaudeWatcher] Error in session watch callback:', err);
+            });
           }, 50);
         }
       });
 
       this.sessionWatcher.on('error', (err) => {
+        // Log but don't propagate - file watch errors shouldn't crash the daemon
         console.error('[ClaudeWatcher] Session watcher error:', err);
+        // Close the broken watcher - it will be recreated on next session switch
+        this.sessionWatcher?.close();
+        this.sessionWatcher = null;
       });
     } catch (err) {
       console.error('[ClaudeWatcher] Cannot watch session file:', err);

@@ -1,8 +1,9 @@
 import { existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import { createServer as createUnixServer } from 'node:net';
+import { join } from 'node:path';
 import { clearDaemonState, getSocketPath, getStateDir, setDaemonState } from '@/config/state.js';
 import type { Config } from '@/config/types.js';
-import { createLogger } from '@/utils/logger.js';
+import { createLogger, setLogFile } from '@/utils/logger.js';
 import { captureException, initSentry } from '@/utils/sentry.js';
 import { VERSION } from '@/version.js';
 import { getCurrentConfig, initConfigManager, reloadConfig } from './config-manager.js';
@@ -50,6 +51,13 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
   process.on('unhandledRejection', (reason, promise) => {
     log.error(`Unhandled rejection at: ${promise}, reason: ${reason}`);
     captureException(reason, { type: 'unhandledRejection' });
+    // Note: We don't exit here - unhandled rejections should be logged but not crash the daemon
+  });
+
+  // Handle SIGUSR1 for debug info
+  process.on('SIGUSR1', () => {
+    log.info('Received SIGUSR1 - daemon is alive');
+    console.log(`[Debug] PID: ${process.pid}, Memory: ${JSON.stringify(process.memoryUsage())}`);
   });
 
   const stateDir = getStateDir();
@@ -59,6 +67,13 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
   if (!existsSync(stateDir)) {
     mkdirSync(stateDir, { recursive: true });
     log.info(`Created state directory: ${stateDir}`);
+  }
+
+  // Enable file logging for crash debugging (unless already set via env)
+  if (!process.env['BUNTERM_LOG_FILE']) {
+    const logPath = join(stateDir, 'daemon.log');
+    setLogFile(logPath);
+    log.info(`Log file enabled: ${logPath}`);
   }
 
   // Clean up old sockets
