@@ -48,6 +48,11 @@
     "build:all": "bun run prebuild && bun run build",
     "clean": "rm -rf dist coverage .playwright",
     "clean:all": "rm -rf dist coverage .playwright node_modules",
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:stop": "pm2 stop bunterm",
+    "pm2:restart": "pm2 restart bunterm",
+    "pm2:logs": "pm2 logs bunterm",
+    "pm2:status": "pm2 show bunterm",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
