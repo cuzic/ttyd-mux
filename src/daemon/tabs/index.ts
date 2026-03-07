@@ -1,7 +1,7 @@
 /**
  * Session Tabs Module
  *
- * Provides a tabbed interface for switching between multiple ttyd sessions.
+ * Provides a tabbed interface for switching between multiple terminal sessions.
  * Each session is loaded in an iframe for instant switching with state preservation.
  */
 

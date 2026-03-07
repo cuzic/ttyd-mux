@@ -26,13 +26,13 @@ let projectsDir: string;
 let workDir: string;
 
 beforeEach(() => {
-  testDir = join(tmpdir(), `ttyd-mux-dirbrowser-test-${Date.now()}`);
+  testDir = join(tmpdir(), `bunterm-dirbrowser-test-${Date.now()}`);
   projectsDir = join(testDir, 'projects');
   workDir = join(testDir, 'work');
 
   // Create test directory structure
   mkdirSync(join(projectsDir, 'my-app', 'src'), { recursive: true });
-  mkdirSync(join(projectsDir, 'ttyd-mux', 'tests'), { recursive: true });
+  mkdirSync(join(projectsDir, 'bunterm', 'tests'), { recursive: true });
   mkdirSync(join(projectsDir, '.hidden'), { recursive: true });
   mkdirSync(workDir, { recursive: true });
 
@@ -257,9 +257,9 @@ describe('listSubdirectories', () => {
       return;
     }
     expect(result.current).toBe(projectsDir);
-    expect(result.directories.length).toBe(2); // my-app, ttyd-mux (hidden dirs excluded)
+    expect(result.directories.length).toBe(2); // my-app, bunterm (hidden dirs excluded)
     expect(result.directories.map((d) => d.name)).toContain('my-app');
-    expect(result.directories.map((d) => d.name)).toContain('ttyd-mux');
+    expect(result.directories.map((d) => d.name)).toContain('bunterm');
   });
 
   test('excludes hidden directories', () => {
@@ -347,7 +347,7 @@ describe('listSubdirectories', () => {
 describe('symlink security', () => {
   test('excludes symlinks pointing outside allowed directories', () => {
     // Create a symlink pointing to /tmp (outside allowed directories)
-    const outsideDir = join(tmpdir(), `ttyd-mux-outside-${Date.now()}`);
+    const outsideDir = join(tmpdir(), `bunterm-outside-${Date.now()}`);
     mkdirSync(outsideDir, { recursive: true });
 
     try {

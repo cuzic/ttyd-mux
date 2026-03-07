@@ -22,7 +22,7 @@ import { DEFAULT_FILE_TRANSFER_CONFIG, createFileTransferManager } from './file-
 let testDir: string;
 
 beforeEach(() => {
-  testDir = join(tmpdir(), `ttyd-mux-api-test-${Date.now()}`);
+  testDir = join(tmpdir(), `bunterm-api-test-${Date.now()}`);
   mkdirSync(testDir, { recursive: true });
 });
 

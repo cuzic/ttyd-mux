@@ -23,7 +23,7 @@ let testDir: string;
 let testSessionDir: string;
 
 beforeEach(() => {
-  testDir = join(tmpdir(), `ttyd-mux-file-test-${Date.now()}`);
+  testDir = join(tmpdir(), `bunterm-file-test-${Date.now()}`);
   testSessionDir = join(testDir, 'session');
   mkdirSync(testSessionDir, { recursive: true });
 });

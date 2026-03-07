@@ -27,7 +27,7 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
-#ttyd-tabs-container {
+#bunterm-tabs-container {
   display: flex;
   height: 100vh;
   width: 100vw;
@@ -35,7 +35,7 @@ html, body {
 }
 
 /* Vertical sidebar styles */
-#ttyd-tabs-sidebar {
+#bunterm-tabs-sidebar {
   ${isVertical ? `width: ${tab_width}px;` : 'width: 100%;'}
   ${isVertical ? 'height: 100%;' : `height: ${tab_height}px;`}
   background: #1e1e1e;
@@ -47,13 +47,13 @@ html, body {
 }
 
 /* Horizontal bar styles */
-#ttyd-tabs-bar {
+#bunterm-tabs-bar {
   display: flex;
   ${isVertical ? 'flex-direction: column;' : 'flex-direction: row;'}
   ${isVertical ? '' : 'height: 100%;'}
 }
 
-.ttyd-tab {
+.bunterm-tab {
   ${isVertical ? 'padding: 12px 16px;' : 'padding: 8px 16px;'}
   ${isVertical ? 'border-bottom: 1px solid #333;' : 'border-right: 1px solid #333;'}
   cursor: pointer;
@@ -62,24 +62,24 @@ html, body {
   ${isVertical ? '' : 'display: flex; align-items: center; white-space: nowrap;'}
 }
 
-.ttyd-tab:hover {
+.bunterm-tab:hover {
   background: #2a2a2a;
   color: #fff;
 }
 
-.ttyd-tab.active {
+.bunterm-tab.active {
   background: #007acc;
   color: #fff;
   ${isVertical ? `border-${isRight ? 'left' : 'right'}: 3px solid #00d9ff;` : `border-${isBottom ? 'top' : 'bottom'}: 3px solid #00d9ff;`}
 }
 
-.ttyd-tab-name {
+.bunterm-tab-name {
   font-weight: 600;
   font-size: 14px;
   ${isVertical ? 'display: block;' : ''}
 }
 
-.ttyd-tab-info {
+.bunterm-tab-info {
   font-size: 11px;
   color: #888;
   ${isVertical ? 'display: block; margin-top: 4px;' : 'display: none;'}
@@ -88,18 +88,18 @@ html, body {
   white-space: nowrap;
 }
 
-.ttyd-tab.active .ttyd-tab-info {
+.bunterm-tab.active .bunterm-tab-info {
   color: #ccc;
 }
 
-#ttyd-tabs-iframe-container {
+#bunterm-tabs-iframe-container {
   flex: 1;
   position: relative;
   overflow: hidden;
   background: #000;
 }
 
-.ttyd-session-iframe {
+.bunterm-session-iframe {
   position: absolute;
   top: 0;
   left: 0;
@@ -108,12 +108,12 @@ html, body {
   border: none;
 }
 
-.ttyd-session-iframe.hidden {
+.bunterm-session-iframe.hidden {
   display: none;
 }
 
 /* Loading indicator */
-.ttyd-tab-loading {
+.bunterm-tab-loading {
   display: inline-block;
   width: 12px;
   height: 12px;
@@ -121,15 +121,15 @@ html, body {
   border: 2px solid #555;
   border-top-color: #007acc;
   border-radius: 50%;
-  animation: ttyd-spin 1s linear infinite;
+  animation: bunterm-spin 1s linear infinite;
 }
 
-@keyframes ttyd-spin {
+@keyframes bunterm-spin {
   to { transform: rotate(360deg); }
 }
 
 /* Empty state */
-.ttyd-tabs-empty {
+.bunterm-tabs-empty {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -141,46 +141,46 @@ html, body {
 }
 
 /* Scrollbar styling */
-#ttyd-tabs-sidebar::-webkit-scrollbar {
+#bunterm-tabs-sidebar::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
-#ttyd-tabs-sidebar::-webkit-scrollbar-track {
+#bunterm-tabs-sidebar::-webkit-scrollbar-track {
   background: #1e1e1e;
 }
 
-#ttyd-tabs-sidebar::-webkit-scrollbar-thumb {
+#bunterm-tabs-sidebar::-webkit-scrollbar-thumb {
   background: #444;
   border-radius: 3px;
 }
 
-#ttyd-tabs-sidebar::-webkit-scrollbar-thumb:hover {
+#bunterm-tabs-sidebar::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
 
 /* Mobile optimizations */
 @media (max-width: 768px) {
-  #ttyd-tabs-sidebar {
+  #bunterm-tabs-sidebar {
     ${isVertical ? 'width: 150px;' : ''}
   }
 
-  .ttyd-tab {
+  .bunterm-tab {
     padding: 10px 12px;
   }
 
-  .ttyd-tab-name {
+  .bunterm-tab-name {
     font-size: 13px;
   }
 }
 
 /* Very small screens - force horizontal tabs at bottom */
 @media (max-width: 480px) {
-  #ttyd-tabs-container {
+  #bunterm-tabs-container {
     flex-direction: column-reverse !important;
   }
 
-  #ttyd-tabs-sidebar {
+  #bunterm-tabs-sidebar {
     width: 100% !important;
     height: auto !important;
     max-height: 100px;
@@ -193,24 +193,24 @@ html, body {
     border-bottom: none !important;
   }
 
-  #ttyd-tabs-bar {
+  #bunterm-tabs-bar {
     flex-direction: row !important;
     height: 100%;
   }
 
-  .ttyd-tab {
+  .bunterm-tab {
     border-bottom: none !important;
     border-right: 1px solid #333 !important;
     padding: 8px 12px;
     white-space: nowrap;
   }
 
-  .ttyd-tab.active {
+  .bunterm-tab.active {
     border-top: 3px solid #00d9ff !important;
     border-right: 1px solid #333 !important;
   }
 
-  .ttyd-tab-info {
+  .bunterm-tab-info {
     display: none !important;
   }
 }

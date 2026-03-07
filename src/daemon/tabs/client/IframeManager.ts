@@ -118,7 +118,7 @@ export class IframeManager {
   private createIframe(session: SessionInfo): HTMLIFrameElement {
     const iframe = document.createElement('iframe');
     iframe.src = `${session.path}/`;
-    iframe.className = 'ttyd-session-iframe';
+    iframe.className = 'bunterm-session-iframe';
     // Allow clipboard operations and fullscreen
     iframe.allow = 'clipboard-write; clipboard-read; fullscreen';
     // Set sandbox with necessary permissions

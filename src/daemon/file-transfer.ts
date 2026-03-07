@@ -1,7 +1,7 @@
 /**
  * File Transfer Manager
  *
- * Handles secure file upload/download operations for ttyd-mux sessions.
+ * Handles secure file upload/download operations for bunterm sessions.
  * Provides path validation, size limits, and extension filtering.
  */
 
@@ -419,7 +419,7 @@ export function createFileTransferManager(
     }
 
     // Convert baseDir to Claude project path format
-    // /home/cuzic/ttyd-mux -> -home-cuzic-ttyd-mux
+    // /home/cuzic/bunterm -> -home-cuzic-bunterm
     const projectSlug = baseDir.replace(/\//g, '-').replace(/^-/, '');
     const projectDir = join(homeDir, '.claude', 'projects', projectSlug);
 
@@ -685,7 +685,7 @@ function generateClipboardFilename(mimeType: string, index: number): string {
  * Get the clipboard images directory in /tmp
  */
 function getClipboardTmpDir(): string {
-  const dir = join(tmpdir(), 'ttyd-mux-clipboard');
+  const dir = join(tmpdir(), 'bunterm-clipboard');
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
@@ -693,7 +693,7 @@ function getClipboardTmpDir(): string {
 }
 
 /**
- * Save clipboard images to /tmp/ttyd-mux-clipboard directory
+ * Save clipboard images to /tmp/bunterm-clipboard directory
  * Returns absolute paths to the saved files
  */
 export async function saveClipboardImages(

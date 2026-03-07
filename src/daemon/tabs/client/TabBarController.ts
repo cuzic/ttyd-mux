@@ -47,7 +47,7 @@ export class TabBarController {
    * Update tabs (add new, remove stale, update active)
    */
   update(sessions: SessionInfo[], activeSession: string | null): void {
-    const currentTabs = this.container.querySelectorAll('.ttyd-tab');
+    const currentTabs = this.container.querySelectorAll('.bunterm-tab');
     const sessionMap = new Map(sessions.map((s) => [s.name, s]));
     const existingNames = new Set<string>();
 
@@ -79,7 +79,7 @@ export class TabBarController {
    * Set the active tab
    */
   setActive(name: string): void {
-    const tabs = this.container.querySelectorAll('.ttyd-tab');
+    const tabs = this.container.querySelectorAll('.bunterm-tab');
     for (const tab of tabs) {
       const tabName = (tab as HTMLElement).dataset.session;
       tab.classList.toggle('active', tabName === name);
@@ -99,18 +99,18 @@ export class TabBarController {
    */
   private createTabElement(session: SessionInfo, isActive: boolean): HTMLElement {
     const tab = document.createElement('div');
-    tab.className = `ttyd-tab${isActive ? ' active' : ''}`;
+    tab.className = `bunterm-tab${isActive ? ' active' : ''}`;
     tab.dataset.session = session.name;
     tab.dataset.path = session.path;
 
     const nameSpan = document.createElement('span');
-    nameSpan.className = 'ttyd-tab-name';
+    nameSpan.className = 'bunterm-tab-name';
     nameSpan.textContent = session.name;
     tab.appendChild(nameSpan);
 
     if (this.config.tabs.show_session_info) {
       const infoSpan = document.createElement('span');
-      infoSpan.className = 'ttyd-tab-info';
+      infoSpan.className = 'bunterm-tab-info';
       infoSpan.textContent = session.dir;
       tab.appendChild(infoSpan);
     }
@@ -123,7 +123,7 @@ export class TabBarController {
    */
   private handleClick(e: MouseEvent): void {
     const target = e.target as HTMLElement;
-    const tab = target.closest('.ttyd-tab') as HTMLElement | null;
+    const tab = target.closest('.bunterm-tab') as HTMLElement | null;
 
     if (tab && this.onClickCallback) {
       const sessionName = tab.dataset.session;

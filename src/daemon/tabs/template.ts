@@ -29,11 +29,11 @@ export function generateTabsHtml(
       const isActive = session.name === initialSession;
       const fullPath = getFullPath(config, session.path);
       return `
-      <div class="ttyd-tab${isActive ? ' active' : ''}"
+      <div class="bunterm-tab${isActive ? ' active' : ''}"
            data-session="${escapeHtml(session.name)}"
            data-path="${escapeHtml(fullPath)}">
-        <span class="ttyd-tab-name">${escapeHtml(session.name)}</span>
-        ${tabsConfig.show_session_info ? `<span class="ttyd-tab-info">${escapeHtml(session.dir)}</span>` : ''}
+        <span class="bunterm-tab-name">${escapeHtml(session.name)}</span>
+        ${tabsConfig.show_session_info ? `<span class="bunterm-tab-info">${escapeHtml(session.dir)}</span>` : ''}
       </div>`;
     })
     .join('\n');
@@ -55,18 +55,18 @@ export function generateTabsHtml(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>ttyd-mux tabs</title>${generatePwaHead(basePath)}
+  <title>bunterm tabs</title>${generatePwaHead(basePath)}
   <style>${generateTabsStyles(tabsConfig)}</style>
 </head>
 <body>
-  <div id="ttyd-tabs-container">
-    <div id="ttyd-tabs-sidebar">
-      <div id="ttyd-tabs-bar">
+  <div id="bunterm-tabs-container">
+    <div id="bunterm-tabs-sidebar">
+      <div id="bunterm-tabs-bar">
 ${tabItems}
       </div>
     </div>
-    <div id="ttyd-tabs-iframe-container">
-      ${sessions.length === 0 ? '<div class="ttyd-tabs-empty">No active sessions.<br>Use <code>ttyd-mux up</code> to start one.</div>' : ''}
+    <div id="bunterm-tabs-iframe-container">
+      ${sessions.length === 0 ? '<div class="bunterm-tabs-empty">No active sessions.<br>Use <code>bunterm up</code> to start one.</div>' : ''}
     </div>
   </div>
   <script>window.__TABS_CONFIG__ = ${JSON.stringify(clientConfig)};</script>

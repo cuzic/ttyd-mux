@@ -12,16 +12,16 @@ import {
 describe('pwa', () => {
   describe('generateManifest', () => {
     test('generates valid manifest object', () => {
-      const manifest = generateManifest('/ttyd-mux');
+      const manifest = generateManifest('/bunterm');
 
-      expect(manifest).toHaveProperty('name', 'ttyd-mux');
-      expect(manifest).toHaveProperty('short_name', 'ttyd-mux');
+      expect(manifest).toHaveProperty('name', 'bunterm');
+      expect(manifest).toHaveProperty('short_name', 'bunterm');
       expect(manifest).toHaveProperty('display', 'fullscreen');
-      expect(manifest).toHaveProperty('start_url', '/ttyd-mux/');
+      expect(manifest).toHaveProperty('start_url', '/bunterm/');
     });
 
     test('includes icons with correct paths', () => {
-      const manifest = generateManifest('/ttyd-mux') as {
+      const manifest = generateManifest('/bunterm') as {
         icons: Array<{ src: string; sizes: string; type: string }>;
       };
 
@@ -30,19 +30,19 @@ describe('pwa', () => {
 
       const svgIcon = manifest.icons.find((i) => i.type === 'image/svg+xml');
       expect(svgIcon).toBeDefined();
-      expect(svgIcon?.src).toBe('/ttyd-mux/icon.svg');
+      expect(svgIcon?.src).toBe('/bunterm/icon.svg');
 
       const png192 = manifest.icons.find((i) => i.sizes === '192x192');
       expect(png192).toBeDefined();
-      expect(png192?.src).toBe('/ttyd-mux/icon-192.png');
+      expect(png192?.src).toBe('/bunterm/icon-192.png');
 
       const png512 = manifest.icons.find((i) => i.sizes === '512x512');
       expect(png512).toBeDefined();
-      expect(png512?.src).toBe('/ttyd-mux/icon-512.png');
+      expect(png512?.src).toBe('/bunterm/icon-512.png');
     });
 
     test('uses correct theme colors', () => {
-      const manifest = generateManifest('/ttyd-mux') as {
+      const manifest = generateManifest('/bunterm') as {
         background_color: string;
         theme_color: string;
       };
@@ -62,16 +62,16 @@ describe('pwa', () => {
 
   describe('getManifestJson', () => {
     test('returns valid JSON string', () => {
-      const json = getManifestJson('/ttyd-mux');
+      const json = getManifestJson('/bunterm');
 
       expect(() => JSON.parse(json)).not.toThrow();
     });
 
     test('JSON contains required fields', () => {
-      const json = getManifestJson('/ttyd-mux');
+      const json = getManifestJson('/bunterm');
       const manifest = JSON.parse(json);
 
-      expect(manifest.name).toBe('ttyd-mux');
+      expect(manifest.name).toBe('bunterm');
       expect(manifest.display).toBe('fullscreen');
     });
   });

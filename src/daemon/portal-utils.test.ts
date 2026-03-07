@@ -41,13 +41,13 @@ describe('portal-utils', () => {
 
   describe('generatePwaHead', () => {
     test('generates PWA meta tags with base path', () => {
-      const head = generatePwaHead('/ttyd-mux');
+      const head = generatePwaHead('/bunterm');
 
       expect(head).toContain('name="theme-color"');
       expect(head).toContain('content="#00d9ff"');
-      expect(head).toContain('href="/ttyd-mux/manifest.json"');
-      expect(head).toContain('href="/ttyd-mux/icon-192.png"');
-      expect(head).toContain('href="/ttyd-mux/icon.svg"');
+      expect(head).toContain('href="/bunterm/manifest.json"');
+      expect(head).toContain('href="/bunterm/icon-192.png"');
+      expect(head).toContain('href="/bunterm/icon.svg"');
     });
 
     test('handles different base paths', () => {
@@ -59,11 +59,11 @@ describe('portal-utils', () => {
 
   describe('generateSwRegistration', () => {
     test('generates service worker registration script', () => {
-      const script = generateSwRegistration('/ttyd-mux');
+      const script = generateSwRegistration('/bunterm');
 
       expect(script).toContain('<script>');
       expect(script).toContain('serviceWorker');
-      expect(script).toContain("register('/ttyd-mux/sw.js')");
+      expect(script).toContain("register('/bunterm/sw.js')");
     });
   });
 

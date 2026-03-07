@@ -10,7 +10,7 @@ import { TabBarController } from './TabBarController.js';
 import type { SessionInfo, TabsClientConfig } from './types.js';
 
 /** Storage key for last selected session */
-const LAST_SESSION_KEY = 'ttyd-tabs-last-session';
+const LAST_SESSION_KEY = 'bunterm-tabs-last-session';
 
 export class SessionTabManager {
   private config: TabsClientConfig;
@@ -23,8 +23,8 @@ export class SessionTabManager {
     this.config = config;
 
     // Get container elements
-    const tabBarElement = document.getElementById('ttyd-tabs-bar');
-    const iframeContainer = document.getElementById('ttyd-tabs-iframe-container');
+    const tabBarElement = document.getElementById('bunterm-tabs-bar');
+    const iframeContainer = document.getElementById('bunterm-tabs-iframe-container');
 
     if (!tabBarElement || !iframeContainer) {
       throw new Error('[Tabs] Required elements not found');

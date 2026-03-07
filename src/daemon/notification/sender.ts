@@ -62,7 +62,7 @@ export function createNotificationSender(
         sessionName: match.sessionName,
         matchedText: match.matchedText,
         timestamp: match.timestamp,
-        tag: `ttyd-mux-${match.sessionName}`
+        tag: `bunterm-${match.sessionName}`
       };
 
       // Get subscriptions for this session (or all if no session filter)

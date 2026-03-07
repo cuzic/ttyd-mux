@@ -19,12 +19,12 @@ describe('generateTabsStyles', () => {
 
   test('includes container styles', () => {
     const css = generateTabsStyles(baseConfig);
-    expect(css).toContain('#ttyd-tabs-container');
+    expect(css).toContain('#bunterm-tabs-container');
   });
 
   test('includes sidebar styles', () => {
     const css = generateTabsStyles(baseConfig);
-    expect(css).toContain('#ttyd-tabs-sidebar');
+    expect(css).toContain('#bunterm-tabs-sidebar');
   });
 
   test('applies vertical orientation', () => {

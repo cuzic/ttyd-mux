@@ -1,5 +1,5 @@
 /**
- * PWA (Progressive Web App) support for ttyd-mux
+ * PWA (Progressive Web App) support for bunterm
  *
  * Provides:
  * - Web App Manifest for "Add to Home Screen" functionality
@@ -14,8 +14,8 @@ import { deflateSync as zlibDeflateSync } from 'node:zlib';
  */
 export function generateManifest(basePath: string): object {
   return {
-    name: 'ttyd-mux',
-    short_name: 'ttyd-mux',
+    name: 'bunterm',
+    short_name: 'bunterm',
     description: 'Terminal session manager',
     start_url: `${basePath}/`,
     display: 'fullscreen',
@@ -50,7 +50,7 @@ export function generateManifest(basePath: string): object {
  * Uses network-first strategy since terminal requires online connectivity.
  * Also handles push notifications.
  */
-export const serviceWorkerScript = `// ttyd-mux Service Worker
+export const serviceWorkerScript = `// bunterm Service Worker
 self.addEventListener('install', (event) => {
   // Skip waiting to activate immediately
   self.skipWaiting();
@@ -74,19 +74,19 @@ self.addEventListener('push', (event) => {
     const data = event.data.json();
     const options = {
       body: data.body || 'Terminal notification',
-      icon: '/ttyd-mux/icon-192.png',
-      badge: '/ttyd-mux/icon-192.png',
-      tag: data.tag || 'ttyd-mux-notification',
+      icon: '/bunterm/icon-192.png',
+      badge: '/bunterm/icon-192.png',
+      tag: data.tag || 'bunterm-notification',
       requireInteraction: true,
       data: {
         sessionName: data.sessionName,
         timestamp: data.timestamp,
-        url: data.sessionName ? '/ttyd-mux/' + data.sessionName : '/ttyd-mux/'
+        url: data.sessionName ? '/bunterm/' + data.sessionName : '/bunterm/'
       }
     };
 
     event.waitUntil(
-      self.registration.showNotification(data.title || 'ttyd-mux', options)
+      self.registration.showNotification(data.title || 'bunterm', options)
     );
   } catch (e) {
     console.error('[SW] Push notification error:', e);
@@ -97,14 +97,14 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const url = event.notification.data?.url || '/ttyd-mux/';
+  const url = event.notification.data?.url || '/bunterm/';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then((clientList) => {
         // Try to focus existing window
         for (const client of clientList) {
-          if (client.url.includes('/ttyd-mux/') && 'focus' in client) {
+          if (client.url.includes('/bunterm/') && 'focus' in client) {
             return client.focus();
           }
         }
@@ -118,7 +118,7 @@ self.addEventListener('notificationclick', (event) => {
 `;
 
 /**
- * SVG icon for ttyd-mux
+ * SVG icon for bunterm
  *
  * Simple terminal prompt icon (>_) with the app's color scheme.
  */

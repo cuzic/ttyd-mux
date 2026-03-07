@@ -30,7 +30,6 @@ function cleanupSocketFile(socketPath: string, label = 'socket'): void {
   }
 }
 
-
 export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
   log.info('Starting daemon...');
 

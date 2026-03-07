@@ -105,7 +105,7 @@ describe('PreviewWsHandler', () => {
         name: 'test-session',
         pid: 1234,
         port: 7601,
-        path: '/ttyd-mux/test-session',
+        path: '/bunterm/test-session',
         dir: '/home/user/project',
         started_at: new Date().toISOString()
       }
