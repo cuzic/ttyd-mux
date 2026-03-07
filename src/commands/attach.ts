@@ -61,13 +61,13 @@ async function interactiveAttach(_options: AttachOptions): Promise<void> {
   }
 
   if (allSessions.size === 0) {
-    if (!isTmuxInstalled()) {
+    if (isTmuxInstalled()) {
+      console.log('No tmux sessions available.');
+      console.log('Start one with: bunterm up');
+    } else {
       console.log('tmux is not installed.');
       console.log('The attach command requires tmux.');
       console.log('Install tmux or use bunterm without tmux (default mode).');
-    } else {
-      console.log('No tmux sessions available.');
-      console.log('Start one with: bunterm up');
     }
     return;
   }

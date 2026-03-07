@@ -41,7 +41,7 @@ export async function shareCommand(sessionName: string, options: ShareOptions): 
   const session = getSession(sessionName);
   if (!session) {
     console.error(`Error: Session "${sessionName}" not found`);
-    console.error('Use "ttyd-mux status" to list running sessions');
+    console.error('Use "bunterm status" to list running sessions');
     process.exit(1);
   }
 

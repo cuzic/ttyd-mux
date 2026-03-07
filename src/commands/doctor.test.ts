@@ -19,21 +19,6 @@ describe('doctor command', () => {
 
 // Integration-style tests (these actually run commands)
 describe('doctor checks', () => {
-  test('ttyd command check works', async () => {
-    // This test verifies the check logic works, not that ttyd is installed
-    const { execSync } = await import('node:child_process');
-    try {
-      const output = execSync('ttyd --version', {
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
-      expect(output).toContain('ttyd');
-    } catch {
-      // ttyd not installed, which is fine for the test
-      expect(true).toBe(true);
-    }
-  });
-
   test('tmux command check works', async () => {
     const { execSync } = await import('node:child_process');
     try {

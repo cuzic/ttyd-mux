@@ -17,7 +17,7 @@ export interface ReloadResult {
 
 function printDaemonNotRunning(): never {
   console.error('Error: Daemon is not running');
-  console.log('  Start with: ttyd-mux start');
+  console.log('  Start with: bunterm start');
   process.exit(1);
 }
 
@@ -40,7 +40,7 @@ function printRestartRequired(requiresRestart: string[]): void {
     console.log(`  ⚠ ${setting}`);
   }
   console.log('\nTo apply these changes, restart the daemon:');
-  console.log('  ttyd-mux restart');
+  console.log('  bunterm restart');
 }
 
 export async function reloadCommand(_options: ReloadOptions): Promise<void> {

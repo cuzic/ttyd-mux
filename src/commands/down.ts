@@ -27,7 +27,7 @@ export async function downCommand(options: DownOptions): Promise<void> {
       }
     } else {
       console.error('\nNo sessions are currently running.');
-      console.error('Start one with: ttyd-mux up');
+      console.error('Start one with: bunterm up');
     }
     process.exit(1);
   }

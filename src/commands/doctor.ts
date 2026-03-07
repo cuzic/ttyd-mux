@@ -46,7 +46,7 @@ function checkCommand(name: string, versionFlag = '--version'): CheckResult {
     name,
     ok: false,
     message: `${name} not found`,
-    hint: `Install ${name} to use ttyd-mux`
+    hint: `Install ${name} to use bunterm`
   };
 }
 
@@ -130,7 +130,7 @@ async function checkDaemon(): Promise<CheckResult> {
     name: 'daemon',
     ok: true, // Not an error, just informational
     message: 'daemon not running',
-    hint: 'Start with: ttyd-mux start'
+    hint: 'Start with: bunterm start'
   };
 }
 
@@ -153,7 +153,7 @@ function checkPort(port: number): CheckResult {
     name: 'port',
     ok: true, // May be used by our daemon
     message: `port ${port} in use`,
-    hint: 'This may be the ttyd-mux daemon or another process'
+    hint: 'This may be the bunterm daemon or another process'
   };
 }
 
@@ -161,14 +161,14 @@ function checkPort(port: number): CheckResult {
  * Run all checks and display results
  */
 export async function doctorCommand(options: DoctorOptions): Promise<void> {
-  console.log('Checking ttyd-mux dependencies...\n');
+  console.log('Checking bunterm dependencies...\n');
 
   const results: CheckResult[] = [];
 
   // Check required commands
-  results.push(checkCommand('ttyd'));
-  results.push(checkCommand('tmux', '-V'));
   results.push(checkBun());
+  // tmux is optional (only needed for attach command)
+  results.push(checkCommand('tmux', '-V'));
 
   // Check config
   results.push(checkConfig(options.config));
