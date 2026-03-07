@@ -34,16 +34,6 @@ const createTestConfig = (): Config => ({
     max_file_size: 100 * 1024 * 1024,
     allowed_extensions: []
   },
-  tabs: {
-    enabled: false,
-    orientation: 'vertical',
-    position: 'left',
-    tab_width: 200,
-    tab_height: 40,
-    auto_refresh_interval: 5000,
-    preload_iframes: false,
-    show_session_info: true
-  },
   preview: {
     enabled: false,
     default_width: 400,
