@@ -11,11 +11,7 @@ function getConfigPaths(): string[] {
   return [
     join(process.cwd(), 'bunterm.yaml'),
     join(process.cwd(), '.bunterm.yaml'),
-    join(homedir(), '.config', 'bunterm', 'config.yaml'),
-    // Legacy paths for backward compatibility
-    join(process.cwd(), 'ttyd-mux.yaml'),
-    join(process.cwd(), '.ttyd-mux.yaml'),
-    join(homedir(), '.config', 'ttyd-mux', 'config.yaml')
+    join(homedir(), '.config', 'bunterm', 'config.yaml')
   ];
 }
 
@@ -45,16 +41,12 @@ export function loadConfig(configPath?: string): Config {
       const hint = error.message.includes('YAMLParseError')
         ? '\n  Check YAML syntax: indentation and colons.'
         : error.name === 'ZodError'
-          ? '\n  Run "ttyd-mux doctor" to validate config.'
+          ? '\n  Run "bunterm doctor" to validate config.'
           : '';
       throw new Error(`Failed to load config from ${path}:\n  ${error.message}${hint}`);
     }
     throw error;
   }
-}
-
-export function getSessionPort(config: Config, portOffset: number): number {
-  return config.base_port + portOffset;
 }
 
 export function normalizeBasePath(basePath: string): string {
