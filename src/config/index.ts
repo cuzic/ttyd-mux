@@ -20,7 +20,6 @@ export {
 export {
   findConfigPath,
   loadConfig,
-  getSessionPort,
   normalizeBasePath,
   getFullPath,
   findSessionDefinition
@@ -41,6 +40,5 @@ export {
   getSession,
   getSessionByDir,
   getAllSessions,
-  getNextPort,
   getNextPath
 } from './state.js';

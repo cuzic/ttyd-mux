@@ -36,7 +36,6 @@ export interface StateStore {
   getAllSessions(): SessionState[];
 
   // Utilities
-  getNextPort(basePort: number): number;
   getNextPath(basePath: string, name: string): string;
 
   // Share state
@@ -65,7 +64,7 @@ export function createInMemoryStateStore(initialState?: Partial<State>): StateSt
 
   return {
     getStateDir: () => '/tmp/test-state',
-    getSocketPath: () => '/tmp/test-state/ttyd-mux.sock',
+    getSocketPath: () => '/tmp/test-state/bunterm.sock',
 
     loadState: () => ({ ...state, sessions: [...state.sessions] }),
     saveState: (newState: State) => {
@@ -90,18 +89,6 @@ export function createInMemoryStateStore(initialState?: Partial<State>): StateSt
     getSession: (name: string) => state.sessions.find((s) => s.name === name),
     getSessionByDir: (dir: string) => state.sessions.find((s) => s.dir === dir),
     getAllSessions: () => [...state.sessions],
-
-    getNextPort: (basePort: number) => {
-      if (state.sessions.length === 0) {
-        return basePort + 1;
-      }
-      const usedPorts = state.sessions.map((s) => s.port);
-      let port = basePort + 1;
-      while (usedPorts.includes(port)) {
-        port++;
-      }
-      return port;
-    },
 
     getNextPath: (basePath: string, name: string) => {
       return `${basePath}/${name}`.replace(/\/+/g, '/');

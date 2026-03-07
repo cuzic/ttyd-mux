@@ -21,10 +21,10 @@ function getConfigDirPath(): string {
 
 /**
  * Get state directory path.
- * Can be overridden via TTYD_MUX_STATE_DIR environment variable for testing.
+ * Can be overridden via BUNTERM_STATE_DIR environment variable for testing.
  */
 function getStateDirPath(): string {
-  return process.env['TTYD_MUX_STATE_DIR'] ?? join(homedir(), '.local', 'state', 'ttyd-mux');
+  return process.env['BUNTERM_STATE_DIR'] ?? join(homedir(), '.local', 'state', 'bunterm');
 }
 
 function getStateFilePath(): string {
@@ -32,7 +32,7 @@ function getStateFilePath(): string {
 }
 
 function getSocketFilePath(): string {
-  return join(getStateDirPath(), 'ttyd-mux.sock');
+  return join(getStateDirPath(), 'bunterm.sock');
 }
 
 export function getConfigDir(): string {
@@ -167,20 +167,6 @@ export function getAllSessions(): SessionState[] {
   return loadState().sessions;
 }
 
-export function getNextPort(basePort: number): number {
-  const sessions = getAllSessions();
-  if (sessions.length === 0) {
-    return basePort + 1;
-  }
-
-  const usedPorts = sessions.map((s) => s.port);
-  let port = basePort + 1;
-  while (usedPorts.includes(port)) {
-    port++;
-  }
-  return port;
-}
-
 export function getNextPath(basePath: string, name: string): string {
   return `${basePath}/${name}`.replace(/\/+/g, '/');
 }
@@ -260,7 +246,6 @@ export const defaultStateStore: StateStore = {
   getSession,
   getSessionByDir,
   getAllSessions,
-  getNextPort,
   getNextPath,
   addShare,
   removeShare,
