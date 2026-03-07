@@ -9,7 +9,7 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { watch, type FSWatcher } from 'node:fs';
+import { type FSWatcher, watch } from 'node:fs';
 import { stat } from 'node:fs/promises';
 
 import { parseHistoryEntry, parseSessionLines } from './message-parser.js';

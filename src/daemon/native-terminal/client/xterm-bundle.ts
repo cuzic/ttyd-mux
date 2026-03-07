@@ -15,7 +15,15 @@ import { Terminal } from '@xterm/xterm';
 
 import type { IDisposable } from '@xterm/xterm';
 
-export { Terminal, FitAddon, WebLinksAddon, Unicode11Addon, SerializeAddon, SearchAddon, ClipboardAddon };
+export {
+  Terminal,
+  FitAddon,
+  WebLinksAddon,
+  Unicode11Addon,
+  SerializeAddon,
+  SearchAddon,
+  ClipboardAddon
+};
 
 /**
  * Check if data contains mouse escape sequences.
@@ -150,7 +158,9 @@ export function createTerminal(options?: {
  */
 export function setupSelectionAutoCopy(terminal: Terminal): void {
   if (!terminal.element) {
-    console.warn('[xterm-bundle] Cannot setup auto-copy: terminal.element is null (call after terminal.open())');
+    console.warn(
+      '[xterm-bundle] Cannot setup auto-copy: terminal.element is null (call after terminal.open())'
+    );
     return;
   }
 

@@ -9,7 +9,7 @@ import { CLAUDE_WATCHER_DEFAULTS } from './types.js';
 
 /**
  * Convert working directory to Claude project path
- * @example "/home/cuzic/ttyd-mux" → "-home-cuzic-ttyd-mux"
+ * @example "/home/cuzic/bunterm" → "-home-cuzic-bunterm"
  */
 export function cwdToProjectPath(cwd: string): string {
   // Replace all forward slashes with dashes
@@ -19,7 +19,7 @@ export function cwdToProjectPath(cwd: string): string {
 
 /**
  * Convert Claude project path back to working directory
- * @example "-home-cuzic-ttyd-mux" → "/home/cuzic/ttyd-mux"
+ * @example "-home-cuzic-bunterm" → "/home/cuzic/bunterm"
  */
 export function projectPathToCwd(projectPath: string): string {
   // Replace all dashes with forward slashes
@@ -37,7 +37,7 @@ export function getProjectsDir(claudeDir: string = CLAUDE_WATCHER_DEFAULTS.claud
 
 /**
  * Get the full path to a Claude project directory
- * @example "-home-cuzic-ttyd-mux" → "/home/cuzic/.claude/projects/-home-cuzic-ttyd-mux"
+ * @example "-home-cuzic-bunterm" → "/home/cuzic/.claude/projects/-home-cuzic-bunterm"
  */
 export function getProjectDir(
   projectPath: string,
@@ -48,8 +48,8 @@ export function getProjectDir(
 
 /**
  * Get the full path to a Claude session file
- * @example getSessionFilePath("-home-cuzic-ttyd-mux", "abc-123")
- *          → "/home/cuzic/.claude/projects/-home-cuzic-ttyd-mux/abc-123.jsonl"
+ * @example getSessionFilePath("-home-cuzic-bunterm", "abc-123")
+ *          → "/home/cuzic/.claude/projects/-home-cuzic-bunterm/abc-123.jsonl"
  */
 export function getSessionFilePath(
   projectPath: string,
@@ -63,9 +63,7 @@ export function getSessionFilePath(
  * Get the path to Claude's history.jsonl file
  * @example "/home/cuzic/.claude/history.jsonl"
  */
-export function getHistoryFilePath(
-  claudeDir: string = CLAUDE_WATCHER_DEFAULTS.claudeDir
-): string {
+export function getHistoryFilePath(claudeDir: string = CLAUDE_WATCHER_DEFAULTS.claudeDir): string {
   return `${claudeDir}/history.jsonl`;
 }
 

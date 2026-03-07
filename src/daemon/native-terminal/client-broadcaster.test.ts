@@ -1,4 +1,4 @@
-import { describe, expect, it, mock, spyOn } from 'bun:test';
+import { describe, expect, it, mock } from 'bun:test';
 import { ClientBroadcaster } from './client-broadcaster.js';
 import type { NativeTerminalWebSocket, ServerMessage } from './types.js';
 

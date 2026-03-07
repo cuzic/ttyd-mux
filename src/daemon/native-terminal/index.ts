@@ -1,7 +1,7 @@
 /**
  * Native Terminal Module
  *
- * Provides Bun.Terminal-based PTY management as an alternative to ttyd.
+ * Provides Bun.Terminal-based PTY management as an native terminal.
  * This enables direct PTY control for AI features and reduces external dependencies.
  */
 

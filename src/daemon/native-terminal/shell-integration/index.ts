@@ -45,8 +45,8 @@ export function getShellIntegration(shell: 'bash' | 'zsh'): string {
  */
 export function getAutoDetectSnippet(basePath: string): string {
   return `
-# ttyd-mux shell integration auto-detection
-if [ -n "$TTYD_MUX_NATIVE" ]; then
+# bunterm shell integration auto-detection
+if [ -n "$BUNTERM_NATIVE" ]; then
   case "$0" in
     *zsh*)
       source <(curl -s "${basePath}/shell-integration/zsh.sh")

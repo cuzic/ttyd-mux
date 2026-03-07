@@ -39,8 +39,10 @@ export interface AppProps {
 
 // Detect mobile device
 const isMobileDevice = (): boolean => {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-    window.innerWidth < 768;
+  return (
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    window.innerWidth < 768
+  );
 };
 
 export const App: FC<AppProps> = ({
@@ -51,7 +53,7 @@ export const App: FC<AppProps> = ({
   // Get config from window
   const config = window.__TERMINAL_UI_CONFIG__ ?? {};
   const sessionName = propSessionName ?? config.sessionName ?? 'terminal';
-  const sessionPath = config.sessionPath ?? `/ttyd-mux/${sessionName}`;
+  const sessionPath = config.sessionPath ?? `/bunterm/${sessionName}`;
 
   // Determine WebSocket URL
   const wsUrl =

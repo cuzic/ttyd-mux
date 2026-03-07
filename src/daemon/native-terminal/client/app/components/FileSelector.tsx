@@ -7,9 +7,12 @@
  * - Project: Working directory .md files
  */
 
-import { type FC, useCallback, useEffect, useRef, useState } from 'react';
 import type { FileSource } from '@/daemon/native-terminal/ai/types.js';
-import { type ContextFileRef, useChatStore } from '@/daemon/native-terminal/client/app/stores/chatStore.js';
+import {
+  type ContextFileRef,
+  useChatStore
+} from '@/daemon/native-terminal/client/app/stores/chatStore.js';
+import { type FC, useCallback, useEffect, useRef, useState } from 'react';
 
 export interface FileSelectorProps {
   sessionId: string;
@@ -28,7 +31,7 @@ interface FileEntry {
 const getApiBasePath = (): string => {
   const config = (window as unknown as { __TERMINAL_UI_CONFIG__?: { base_path?: string } })
     .__TERMINAL_UI_CONFIG__;
-  return config?.base_path ?? '/ttyd-mux';
+  return config?.base_path ?? '/bunterm';
 };
 
 // Format relative time

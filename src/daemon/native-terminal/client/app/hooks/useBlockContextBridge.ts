@@ -5,8 +5,8 @@
  * This bridges the vanilla JS terminal client with the React AI Chat app.
  */
 
-import { useEffect } from 'react';
 import { useChatStore } from '@/daemon/native-terminal/client/app/stores/chatStore.js';
+import { useEffect } from 'react';
 
 /** Event detail from terminal-client */
 interface BlockContextEventDetail {
@@ -47,10 +47,10 @@ export function useBlockContextBridge(): void {
       });
     };
 
-    document.addEventListener('ttyd-mux:add-context', handleAddContext);
+    document.addEventListener('bunterm:add-context', handleAddContext);
 
     return () => {
-      document.removeEventListener('ttyd-mux:add-context', handleAddContext);
+      document.removeEventListener('bunterm:add-context', handleAddContext);
     };
   }, [addContextBlock]);
 }

@@ -2,7 +2,7 @@
  * NativeSessionManager - Manages multiple native terminal sessions
  *
  * This class provides session lifecycle management for Bun.Terminal-based
- * terminal sessions, similar to SessionManager for ttyd sessions.
+ * terminal sessions, similar to SessionManager for terminal sessions.
  */
 
 import type { Config, NativeTerminalConfig } from '@/config/types.js';
@@ -14,7 +14,7 @@ export interface NativeSessionOptions {
   name: string;
   /** Working directory */
   dir: string;
-  /** URL path (e.g., /ttyd-mux/my-session) */
+  /** URL path (e.g., /bunterm/my-session) */
   path: string;
   /** Initial terminal columns */
   cols?: number;

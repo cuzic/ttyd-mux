@@ -2,7 +2,7 @@
  * Native Terminal HTML Template
  *
  * Generates complete HTML pages for native terminal sessions.
- * Unlike ttyd-based sessions, this serves xterm.js directly.
+ * Unlike legacy sessions, this serves xterm.js directly.
  */
 
 import type { Config } from '@/config/types.js';

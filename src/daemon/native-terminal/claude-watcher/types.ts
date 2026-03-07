@@ -12,7 +12,7 @@ export interface ClaudeHistoryEntry {
   display: string;
   pastedContents: Record<string, string>;
   timestamp: number;
-  project: string; // e.g., "/home/cuzic/ttyd-mux"
+  project: string; // e.g., "/home/cuzic/bunterm"
   sessionId?: string; // e.g., "4385c594-2e1f-4350-aef7-96ba9d44ba54"
 }
 

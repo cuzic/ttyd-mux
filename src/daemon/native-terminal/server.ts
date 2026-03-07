@@ -21,7 +21,7 @@ const log = createLogger('native-server');
 
 /**
  * Extract session name from WebSocket path
- * e.g., /ttyd-mux/my-session/ws -> my-session
+ * e.g., /bunterm/my-session/ws -> my-session
  */
 function extractSessionNameFromWsPath(pathname: string, basePath: string): string | null {
   const prefix = basePath + '/';

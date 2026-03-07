@@ -4,8 +4,12 @@
  * State management for block selection and UI state.
  */
 
+import type {
+  Block,
+  BlockCounts,
+  BlockFilter
+} from '@/daemon/native-terminal/client/BlockManager.js';
 import { create } from 'zustand';
-import type { Block, BlockCounts, BlockFilter } from '@/daemon/native-terminal/client/BlockManager.js';
 
 export interface BlockStoreState {
   // Block data

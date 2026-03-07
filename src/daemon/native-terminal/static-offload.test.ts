@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test';
+import type { StaticOffloadConfig } from '@/config/types.js';
 import {
   createOffloadResponse,
   generateCaddyOffloadSnippet,
@@ -6,7 +7,6 @@ import {
   getMimeType,
   isOffloadEnabled
 } from './static-offload.js';
-import type { StaticOffloadConfig } from '@/config/types.js';
 
 describe('static-offload', () => {
   describe('getMimeType', () => {

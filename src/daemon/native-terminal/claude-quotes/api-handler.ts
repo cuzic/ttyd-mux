@@ -14,11 +14,12 @@
  */
 
 import { spawn } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
-import { validateSecurePath } from '../utils/path-security.js';
+import type { NativeSessionManager } from '../session-manager.js';
 import { readJsonlFile } from '../utils/jsonl.js';
+import { validateSecurePath } from '../utils/path-security.js';
 import { parseTurnByUuidFromSessionFile, parseTurnsFromSessionFile } from './parsing.js';
 import type {
   ClaudeSessionInfo,
@@ -28,7 +29,6 @@ import type {
   GitDiffResponse,
   MarkdownFile
 } from './types.js';
-import type { NativeSessionManager } from '../session-manager.js';
 
 /** JSON response helper */
 const jsonResponse = (data: unknown, headers: Record<string, string>, status = 200) =>
@@ -95,10 +95,13 @@ export async function handleClaudeQuotesApi(
       }
     }
 
-    // Fallback: legacy approach using ttyd-mux session name
+    // Fallback: legacy approach using bunterm session name
     const sessionName = params.get('session');
     if (!sessionName) {
-      return errorResponse('Either (claudeSessionId + projectPath) or session parameter is required', headers);
+      return errorResponse(
+        'Either (claudeSessionId + projectPath) or session parameter is required',
+        headers
+      );
     }
 
     const session = sessionManager.getSession(sessionName);
@@ -134,7 +137,10 @@ export async function handleClaudeQuotesApi(
     // Fallback: legacy approach
     const sessionName = params.get('session');
     if (!sessionName) {
-      return errorResponse('Either (claudeSessionId + projectPath) or session parameter is required', headers);
+      return errorResponse(
+        'Either (claudeSessionId + projectPath) or session parameter is required',
+        headers
+      );
     }
 
     const session = sessionManager.getSession(sessionName);
@@ -244,15 +250,22 @@ export async function handleClaudeQuotesApi(
     const maxLines = 200;
     const truncated = lines.length > maxLines;
 
-    return jsonResponse({
-      content: truncated ? lines.slice(0, maxLines).join('\n') : fullContent,
-      truncated,
-      totalLines: lines.length
-    }, headers);
+    return jsonResponse(
+      {
+        content: truncated ? lines.slice(0, maxLines).join('\n') : fullContent,
+        truncated,
+        totalLines: lines.length
+      },
+      headers
+    );
   }
 
   // GET /api/claude-quotes/git-diff
-  if (apiPath.startsWith('/claude-quotes/git-diff') && method === 'GET' && !apiPath.includes('/git-diff-file')) {
+  if (
+    apiPath.startsWith('/claude-quotes/git-diff') &&
+    method === 'GET' &&
+    !apiPath.includes('/git-diff-file')
+  ) {
     const sessionName = params.get('session');
     if (!sessionName) {
       return errorResponse('session parameter required', headers);
@@ -301,7 +314,7 @@ export async function handleClaudeQuotesApi(
 /**
  * Get recent Claude sessions from ~/.claude/history.jsonl
  */
-function getRecentClaudeSessions(limit: number = 10): ClaudeSessionInfo[] {
+function getRecentClaudeSessions(limit = 10): ClaudeSessionInfo[] {
   const historyPath = join(homedir(), '.claude', 'history.jsonl');
   if (!existsSync(historyPath)) {
     return [];
@@ -406,7 +419,10 @@ function findRecentSessionFile(projectDir: string): string | null {
 /**
  * Get recent Claude turns (legacy approach)
  */
-async function getRecentClaudeTurns(projectDir: string, count: number): Promise<ClaudeTurnSummary[]> {
+async function getRecentClaudeTurns(
+  projectDir: string,
+  count: number
+): Promise<ClaudeTurnSummary[]> {
   const sessionFile = findRecentSessionFile(projectDir);
   if (!sessionFile) {
     return [];
@@ -432,7 +448,10 @@ async function getRecentClaudeTurnsFromSession(
 /**
  * Get full turn by UUID (legacy approach)
  */
-async function getClaudeTurnByUuid(projectDir: string, uuid: string): Promise<ClaudeTurnFull | null> {
+async function getClaudeTurnByUuid(
+  projectDir: string,
+  uuid: string
+): Promise<ClaudeTurnFull | null> {
   const sessionFile = findRecentSessionFile(projectDir);
   if (!sessionFile) {
     return null;
@@ -528,7 +547,10 @@ function getGitDiff(cwd: string): Promise<GitDiffResponse> {
 
       // Parse numstat output
       const files: GitDiffFile[] = [];
-      const lines = stdout.trim().split('\n').filter((l) => l.trim());
+      const lines = stdout
+        .trim()
+        .split('\n')
+        .filter((l) => l.trim());
 
       for (const line of lines) {
         const [additions, deletions, path] = line.split('\t');

@@ -486,7 +486,9 @@ function renderInlineBlock(block: InlineBlock, index: number): string {
     if (block.type === 'claude') {
       const meta = block.metadata as { userMessage?: string; toolCallCount?: number };
       if (meta.userMessage) {
-        lines.push(`User: ${meta.userMessage.slice(0, 100)}${meta.userMessage.length > 100 ? '...' : ''}`);
+        lines.push(
+          `User: ${meta.userMessage.slice(0, 100)}${meta.userMessage.length > 100 ? '...' : ''}`
+        );
       }
       if (meta.toolCallCount !== undefined) {
         lines.push(`Tool calls: ${meta.toolCallCount}`);

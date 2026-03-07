@@ -5,11 +5,7 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import {
-  parseHistoryEntry,
-  parseSessionEntry,
-  sessionEntryToMessages
-} from './message-parser.js';
+import { parseHistoryEntry, parseSessionEntry, sessionEntryToMessages } from './message-parser.js';
 
 describe('parseHistoryEntry', () => {
   test('should parse valid history entry', () => {
@@ -17,7 +13,7 @@ describe('parseHistoryEntry', () => {
       display: 'test command',
       pastedContents: {},
       timestamp: 1709200000000,
-      project: '/home/cuzic/ttyd-mux',
+      project: '/home/cuzic/bunterm',
       sessionId: '4385c594-2e1f-4350-aef7-96ba9d44ba54'
     });
 
@@ -25,7 +21,7 @@ describe('parseHistoryEntry', () => {
 
     expect(result).not.toBeNull();
     expect(result?.display).toBe('test command');
-    expect(result?.project).toBe('/home/cuzic/ttyd-mux');
+    expect(result?.project).toBe('/home/cuzic/bunterm');
     expect(result?.sessionId).toBe('4385c594-2e1f-4350-aef7-96ba9d44ba54');
   });
 
@@ -44,7 +40,7 @@ describe('parseHistoryEntry', () => {
       display: 'test',
       pastedContents: {},
       timestamp: 1709200000000,
-      project: '/home/cuzic/ttyd-mux'
+      project: '/home/cuzic/bunterm'
     });
 
     const result = parseHistoryEntry(line);

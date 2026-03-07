@@ -2,7 +2,7 @@
  * Native Terminal WebSocket Protocol Types
  *
  * JSON-based protocol for communication between browser and server.
- * Unlike ttyd's binary protocol, this uses human-readable JSON for
+ * Unlike legacy binary protocol, this uses human-readable JSON for
  * easier debugging and extensibility.
  */
 

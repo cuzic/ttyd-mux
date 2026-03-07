@@ -80,10 +80,7 @@ function parseAssistantContent(blocks: ContentBlock[]): ParsedAssistantContent {
  * @param count Maximum number of responses to return
  * @returns Array of assistant response summaries (newest first)
  */
-export function parseTurnsFromSessionFile(
-  sessionFile: string,
-  count: number
-): ClaudeTurnSummary[] {
+export function parseTurnsFromSessionFile(sessionFile: string, count: number): ClaudeTurnSummary[] {
   const entries = readJsonlFile<SessionEntry>(sessionFile);
   const turns: ClaudeTurnSummary[] = [];
 
@@ -122,7 +119,11 @@ export function parseTurnByUuidFromSessionFile(
   const entries = readJsonlFile<SessionEntry>(sessionFile);
 
   for (const entry of entries) {
-    if (entry.uuid !== uuid || entry.type !== 'assistant' || !Array.isArray(entry.message?.content)) {
+    if (
+      entry.uuid !== uuid ||
+      entry.type !== 'assistant' ||
+      !Array.isArray(entry.message?.content)
+    ) {
       continue;
     }
 

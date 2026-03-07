@@ -5,7 +5,12 @@
  */
 
 import { CLIRunner } from '@/daemon/native-terminal/ai/runner.js';
-import type { RunRequest, RunResult, RunnerCapabilities, RunnerName } from '@/daemon/native-terminal/ai/types.js';
+import type {
+  RunRequest,
+  RunResult,
+  RunnerCapabilities,
+  RunnerName
+} from '@/daemon/native-terminal/ai/types.js';
 
 export class GeminiRunner extends CLIRunner {
   readonly name: RunnerName = 'gemini';

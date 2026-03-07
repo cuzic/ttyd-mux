@@ -197,11 +197,13 @@ export function useTerminal(options: UseTerminalOptions): UseTerminalReturn {
 
     // Create terminal if not exists
     if (!terminalRef.current && containerRef.current) {
-      const { terminal, fitAddon, serializeAddon, searchAddon } = window.XtermBundle.createTerminal({
-        fontSize,
-        fontFamily,
-        scrollback
-      });
+      const { terminal, fitAddon, serializeAddon, searchAddon } = window.XtermBundle.createTerminal(
+        {
+          fontSize,
+          fontFamily,
+          scrollback
+        }
+      );
 
       terminalRef.current = terminal;
       fitAddonRef.current = fitAddon;

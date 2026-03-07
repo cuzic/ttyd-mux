@@ -4,10 +4,10 @@
  * Shows selected blocks and files for AI context.
  */
 
-import { type FC, useMemo } from 'react';
 import type { FileSource } from '@/daemon/native-terminal/ai/types.js';
 import { useBlockStore } from '@/daemon/native-terminal/client/app/stores/blockStore.js';
 import { useChatStore } from '@/daemon/native-terminal/client/app/stores/chatStore.js';
+import { type FC, useMemo } from 'react';
 
 export interface ContextTrayProps {
   onClose?: () => void;
@@ -93,7 +93,9 @@ export const ContextTray: FC<ContextTrayProps> = ({ onClose }) => {
         <div style={styles.blockList}>
           {contextBlocks.map((block) => (
             <div key={block.id} style={styles.blockItem}>
-              <span style={{ ...styles.statusDot, backgroundColor: getStatusColor(block.status) }} />
+              <span
+                style={{ ...styles.statusDot, backgroundColor: getStatusColor(block.status) }}
+              />
               <span style={styles.command}>{truncateCommand(block.command, 40)}</span>
               <button
                 type="button"

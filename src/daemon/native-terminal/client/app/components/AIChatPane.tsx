@@ -4,8 +4,8 @@
  * Right pane containing AI chat interface.
  */
 
-import { type FC, useCallback } from 'react';
 import { useChatStore } from '@/daemon/native-terminal/client/app/stores/chatStore.js';
+import { type FC, useCallback } from 'react';
 import { ChatInput } from './ChatInput.js';
 import { ChatThread } from './ChatThread.js';
 import { ContextTray } from './ContextTray.js';

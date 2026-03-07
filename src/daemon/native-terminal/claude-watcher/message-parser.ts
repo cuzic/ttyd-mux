@@ -100,9 +100,7 @@ function extractToolResultContent(block: ClaudeToolResultBlock, maxSize: number)
   }
 
   const combined = textParts.join('\n');
-  return combined.length > maxSize
-    ? `${combined.slice(0, maxSize)}... [truncated]`
-    : combined;
+  return combined.length > maxSize ? `${combined.slice(0, maxSize)}... [truncated]` : combined;
 }
 
 /**

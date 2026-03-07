@@ -14,7 +14,7 @@ import {
 
 describe('cwdToProjectPath', () => {
   test('should convert absolute path to project path', () => {
-    expect(cwdToProjectPath('/home/cuzic/ttyd-mux')).toBe('-home-cuzic-ttyd-mux');
+    expect(cwdToProjectPath('/home/cuzic/bunterm')).toBe('-home-cuzic-bunterm');
   });
 
   test('should handle root path', () => {
@@ -32,20 +32,20 @@ describe('cwdToProjectPath', () => {
 
 describe('getProjectDir', () => {
   test('should return correct project directory', () => {
-    const result = getProjectDir('-home-cuzic-ttyd-mux', '/home/user/.claude');
-    expect(result).toBe('/home/user/.claude/projects/-home-cuzic-ttyd-mux');
+    const result = getProjectDir('-home-cuzic-bunterm', '/home/user/.claude');
+    expect(result).toBe('/home/user/.claude/projects/-home-cuzic-bunterm');
   });
 });
 
 describe('getSessionFilePath', () => {
   test('should return correct session file path', () => {
     const result = getSessionFilePath(
-      '-home-cuzic-ttyd-mux',
+      '-home-cuzic-bunterm',
       '4385c594-2e1f-4350-aef7-96ba9d44ba54',
       '/home/user/.claude'
     );
     expect(result).toBe(
-      '/home/user/.claude/projects/-home-cuzic-ttyd-mux/4385c594-2e1f-4350-aef7-96ba9d44ba54.jsonl'
+      '/home/user/.claude/projects/-home-cuzic-bunterm/4385c594-2e1f-4350-aef7-96ba9d44ba54.jsonl'
     );
   });
 });

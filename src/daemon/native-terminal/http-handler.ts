@@ -9,13 +9,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import {
-  existsSync,
-  readFileSync,
-  readdirSync,
-  statSync,
-  writeFileSync
-} from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,7 +20,9 @@ import { generatePortalHtml } from '@/daemon/portal.js';
 import { getIconPng, getIconSvg, getManifestJson, getServiceWorker } from '@/daemon/pwa.js';
 import { createShareManager } from '@/daemon/share-manager.js';
 import { createLogger } from '@/utils/logger.js';
+import type { BlockContext, FileContext } from './ai/types.js';
 import { createBlockSSEStream } from './block-event-emitter.js';
+import { handleClaudeQuotesApi } from './claude-quotes/api-handler.js';
 import {
   type CommandExecutorManager,
   createCommandExecutorManager
@@ -34,10 +30,8 @@ import {
 import { generateNativeTerminalHtml } from './html-template.js';
 import type { NativeSessionManager } from './session-manager.js';
 import type { CommandRequest } from './types.js';
-import { isNativeTerminalHtmlPath } from './ws-handler.js';
-import { handleClaudeQuotesApi } from './claude-quotes/api-handler.js';
 import { validateSecurePath } from './utils/path-security.js';
-import type { BlockContext, FileContext } from './ai/types.js';
+import { isNativeTerminalHtmlPath } from './ws-handler.js';
 
 const log = createLogger('native-http');
 
@@ -1167,10 +1161,13 @@ async function handleApiRequest(
 
     // For project files, session is required
     if (source === 'project' && !sessionName) {
-      return new Response(JSON.stringify({ error: 'session parameter is required for project files' }), {
-        status: 400,
-        headers
-      });
+      return new Response(
+        JSON.stringify({ error: 'session parameter is required for project files' }),
+        {
+          status: 400,
+          headers
+        }
+      );
     }
 
     try {
@@ -1527,7 +1524,13 @@ async function handleApiRequest(
   }
 
   // === Claude Quotes API ===
-  const claudeQuotesResponse = await handleClaudeQuotesApi(req, apiPath, method, headers, sessionManager);
+  const claudeQuotesResponse = await handleClaudeQuotesApi(
+    req,
+    apiPath,
+    method,
+    headers,
+    sessionManager
+  );
   if (claudeQuotesResponse) {
     return claudeQuotesResponse;
   }

@@ -6,26 +6,26 @@ import { describe, expect, test } from 'bun:test';
 import { isNativeTerminalHtmlPath, isNativeTerminalWebSocketPath } from './ws-handler.js';
 
 describe('isNativeTerminalWebSocketPath', () => {
-  const basePath = '/ttyd-mux';
+  const basePath = '/bunterm';
 
   test('returns true for valid WebSocket path', () => {
-    expect(isNativeTerminalWebSocketPath('/ttyd-mux/my-session/ws', basePath)).toBe(true);
+    expect(isNativeTerminalWebSocketPath('/bunterm/my-session/ws', basePath)).toBe(true);
   });
 
   test('returns true for session with dashes', () => {
-    expect(isNativeTerminalWebSocketPath('/ttyd-mux/my-long-session-name/ws', basePath)).toBe(true);
+    expect(isNativeTerminalWebSocketPath('/bunterm/my-long-session-name/ws', basePath)).toBe(true);
   });
 
   test('returns false for session path without /ws', () => {
-    expect(isNativeTerminalWebSocketPath('/ttyd-mux/my-session', basePath)).toBe(false);
+    expect(isNativeTerminalWebSocketPath('/bunterm/my-session', basePath)).toBe(false);
   });
 
   test('returns false for base path', () => {
-    expect(isNativeTerminalWebSocketPath('/ttyd-mux', basePath)).toBe(false);
+    expect(isNativeTerminalWebSocketPath('/bunterm', basePath)).toBe(false);
   });
 
   test('returns false for base path with trailing slash', () => {
-    expect(isNativeTerminalWebSocketPath('/ttyd-mux/', basePath)).toBe(false);
+    expect(isNativeTerminalWebSocketPath('/bunterm/', basePath)).toBe(false);
   });
 
   test('returns false for different base path', () => {
@@ -33,46 +33,46 @@ describe('isNativeTerminalWebSocketPath', () => {
   });
 
   test('returns false for API path', () => {
-    expect(isNativeTerminalWebSocketPath('/ttyd-mux/api/sessions', basePath)).toBe(false);
+    expect(isNativeTerminalWebSocketPath('/bunterm/api/sessions', basePath)).toBe(false);
   });
 
   test('returns true for nested session name (edge case)', () => {
     // This might be a valid edge case - session name containing slash equivalent
-    expect(isNativeTerminalWebSocketPath('/ttyd-mux/session/ws', basePath)).toBe(true);
+    expect(isNativeTerminalWebSocketPath('/bunterm/session/ws', basePath)).toBe(true);
   });
 });
 
 describe('isNativeTerminalHtmlPath', () => {
-  const basePath = '/ttyd-mux';
+  const basePath = '/bunterm';
 
   test('returns true for session path', () => {
-    expect(isNativeTerminalHtmlPath('/ttyd-mux/my-session', basePath)).toBe(true);
+    expect(isNativeTerminalHtmlPath('/bunterm/my-session', basePath)).toBe(true);
   });
 
   test('returns true for session path with trailing slash', () => {
-    expect(isNativeTerminalHtmlPath('/ttyd-mux/my-session/', basePath)).toBe(true);
+    expect(isNativeTerminalHtmlPath('/bunterm/my-session/', basePath)).toBe(true);
   });
 
   test('returns false for WebSocket path', () => {
-    expect(isNativeTerminalHtmlPath('/ttyd-mux/my-session/ws', basePath)).toBe(false);
+    expect(isNativeTerminalHtmlPath('/bunterm/my-session/ws', basePath)).toBe(false);
   });
 
   test('returns false for static file path', () => {
-    expect(isNativeTerminalHtmlPath('/ttyd-mux/terminal-ui.js', basePath)).toBe(false);
-    expect(isNativeTerminalHtmlPath('/ttyd-mux/xterm.css', basePath)).toBe(false);
-    expect(isNativeTerminalHtmlPath('/ttyd-mux/manifest.json', basePath)).toBe(false);
+    expect(isNativeTerminalHtmlPath('/bunterm/terminal-ui.js', basePath)).toBe(false);
+    expect(isNativeTerminalHtmlPath('/bunterm/xterm.css', basePath)).toBe(false);
+    expect(isNativeTerminalHtmlPath('/bunterm/manifest.json', basePath)).toBe(false);
   });
 
   test('returns false for base path', () => {
-    expect(isNativeTerminalHtmlPath('/ttyd-mux', basePath)).toBe(false);
+    expect(isNativeTerminalHtmlPath('/bunterm', basePath)).toBe(false);
   });
 
   test('returns false for base path with trailing slash', () => {
-    expect(isNativeTerminalHtmlPath('/ttyd-mux/', basePath)).toBe(false);
+    expect(isNativeTerminalHtmlPath('/bunterm/', basePath)).toBe(false);
   });
 
   test('returns false for API path', () => {
-    expect(isNativeTerminalHtmlPath('/ttyd-mux/api/sessions', basePath)).toBe(false);
+    expect(isNativeTerminalHtmlPath('/bunterm/api/sessions', basePath)).toBe(false);
   });
 
   test('returns false for different base path', () => {
@@ -80,10 +80,10 @@ describe('isNativeTerminalHtmlPath', () => {
   });
 
   test('returns true for session with dashes', () => {
-    expect(isNativeTerminalHtmlPath('/ttyd-mux/my-long-session-name', basePath)).toBe(true);
+    expect(isNativeTerminalHtmlPath('/bunterm/my-long-session-name', basePath)).toBe(true);
   });
 
   test('returns true for session with underscores', () => {
-    expect(isNativeTerminalHtmlPath('/ttyd-mux/my_session_name', basePath)).toBe(true);
+    expect(isNativeTerminalHtmlPath('/bunterm/my_session_name', basePath)).toBe(true);
   });
 });

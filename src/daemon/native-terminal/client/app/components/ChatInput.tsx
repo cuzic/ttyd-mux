@@ -4,8 +4,8 @@
  * Text input for sending messages to AI.
  */
 
-import { type FC, type FormEvent, useCallback, useRef, useState } from 'react';
 import { useChatStore } from '@/daemon/native-terminal/client/app/stores/chatStore.js';
+import { type FC, type FormEvent, useCallback, useRef, useState } from 'react';
 import { FileSelector } from './FileSelector.js';
 import { RunnerSelector } from './RunnerSelector.js';
 
@@ -87,7 +87,12 @@ export const ChatInput: FC<ChatInputProps> = ({ sessionId, disabled = false }) =
           onKeyDown={handleKeyDown}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          placeholder={getPlaceholderText(hasBlocks, hasFiles, contextBlockIds.length, contextFiles.length)}
+          placeholder={getPlaceholderText(
+            hasBlocks,
+            hasFiles,
+            contextBlockIds.length,
+            contextFiles.length
+          )}
           disabled={isDisabled}
           rows={1}
           style={styles.textarea}
@@ -117,7 +122,9 @@ export const ChatInput: FC<ChatInputProps> = ({ sessionId, disabled = false }) =
 
         <div style={styles.hint}>
           {hasContext ? (
-            <span style={styles.contextHint}>{getContextHintText(hasBlocks, hasFiles, contextBlockIds.length, contextFiles.length)}</span>
+            <span style={styles.contextHint}>
+              {getContextHintText(hasBlocks, hasFiles, contextBlockIds.length, contextFiles.length)}
+            </span>
           ) : (
             <span style={styles.noContextHint}>Select blocks or attach files</span>
           )}
@@ -130,7 +137,12 @@ export const ChatInput: FC<ChatInputProps> = ({ sessionId, disabled = false }) =
 };
 
 // Helper functions
-function getPlaceholderText(hasBlocks: boolean, hasFiles: boolean, blockCount: number, fileCount: number): string {
+function getPlaceholderText(
+  hasBlocks: boolean,
+  hasFiles: boolean,
+  blockCount: number,
+  fileCount: number
+): string {
   if (!hasBlocks && !hasFiles) {
     return 'Select blocks or attach files to ask questions...';
   }
@@ -144,7 +156,12 @@ function getPlaceholderText(hasBlocks: boolean, hasFiles: boolean, blockCount: n
   return `Ask about ${parts.join(' and ')}...`;
 }
 
-function getContextHintText(hasBlocks: boolean, hasFiles: boolean, blockCount: number, fileCount: number): string {
+function getContextHintText(
+  hasBlocks: boolean,
+  hasFiles: boolean,
+  blockCount: number,
+  fileCount: number
+): string {
   const parts: string[] = [];
   if (hasBlocks) {
     parts.push(`${blockCount} block${blockCount > 1 ? 's' : ''}`);

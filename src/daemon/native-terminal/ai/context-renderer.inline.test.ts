@@ -5,10 +5,7 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import {
-  renderCombinedContext,
-  renderInlineBlocks
-} from './context-renderer.js';
+import { renderCombinedContext, renderInlineBlocks } from './context-renderer.js';
 import type { BlockContext, FileContext, InlineBlock } from './types.js';
 
 describe('renderInlineBlocks', () => {

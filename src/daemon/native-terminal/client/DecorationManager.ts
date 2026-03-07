@@ -294,8 +294,7 @@ export class DecorationManager {
 
     element.className = classes.join(' ');
     element.innerHTML = block.type === 'claude' ? '\uD83D\uDCAC' : STATUS_ICONS[block.status]; // 💬 for Claude
-    element.style.backgroundColor =
-      block.type === 'claude' ? '' : STATUS_COLORS[block.status];
+    element.style.backgroundColor = block.type === 'claude' ? '' : STATUS_COLORS[block.status];
     element.title = this.getStatusTitle(block);
 
     // Store block id for event handling
@@ -384,8 +383,7 @@ export class DecorationManager {
     const element = decoration.statusDecoration.element;
 
     // Update icon
-    element.innerHTML =
-      decoration.type === 'claude' ? '\uD83D\uDCAC' : STATUS_ICONS[status];
+    element.innerHTML = decoration.type === 'claude' ? '\uD83D\uDCAC' : STATUS_ICONS[status];
 
     // Update background color for command blocks
     if (decoration.type !== 'claude') {

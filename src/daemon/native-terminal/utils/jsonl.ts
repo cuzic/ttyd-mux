@@ -30,7 +30,10 @@ export function readJsonlFile<T = unknown>(filePath: string): T[] {
  * @returns Array of parsed JSON objects
  */
 export function parseJsonlContent<T = unknown>(content: string): T[] {
-  const lines = content.trim().split('\n').filter((l) => l.trim());
+  const lines = content
+    .trim()
+    .split('\n')
+    .filter((l) => l.trim());
   const results: T[] = [];
 
   for (const line of lines) {

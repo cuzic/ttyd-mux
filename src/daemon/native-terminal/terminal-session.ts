@@ -10,8 +10,8 @@
  */
 
 import { BlockModel } from './block-model.js';
-import { ClientBroadcaster } from './client-broadcaster.js';
 import { ClaudeSessionWatcher } from './claude-watcher/index.js';
+import { ClientBroadcaster } from './client-broadcaster.js';
 import {
   type OSC633Sequence,
   Osc633Parser,
@@ -88,7 +88,6 @@ export class TerminalSession {
   private currentLine = 0;
   private pendingCommand: string | null = null;
   private blockUIEnabled = true;
-
 
   readonly name: string;
   readonly cwd: string;

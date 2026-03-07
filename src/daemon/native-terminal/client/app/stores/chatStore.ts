@@ -8,7 +8,6 @@
  * - Sequence gap detection and recovery
  */
 
-import { create } from 'zustand';
 import type {
   AIChatResponse,
   Citation,
@@ -17,7 +16,11 @@ import type {
   RunnerName,
   RunnerStatus
 } from '@/daemon/native-terminal/ai/types.js';
-import { getAllBlockContents, removeBlockContent } from '@/daemon/native-terminal/client/app/hooks/useBlockContextBridge.js';
+import {
+  getAllBlockContents,
+  removeBlockContent
+} from '@/daemon/native-terminal/client/app/hooks/useBlockContextBridge.js';
+import { create } from 'zustand';
 
 /** File reference for context */
 export interface ContextFileRef {
@@ -155,7 +158,7 @@ interface AIErrorData {
 const getApiBasePath = (): string => {
   const config = (window as unknown as { __TERMINAL_UI_CONFIG__?: { base_path?: string } })
     .__TERMINAL_UI_CONFIG__;
-  return config?.base_path ?? '/ttyd-mux';
+  return config?.base_path ?? '/bunterm';
 };
 
 // Build WebSocket URL
@@ -241,9 +244,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
 
   removeContextFile: (source, path) =>
     set((state) => ({
-      contextFiles: state.contextFiles.filter(
-        (f) => !(f.source === source && f.path === path)
-      )
+      contextFiles: state.contextFiles.filter((f) => !(f.source === source && f.path === path))
     })),
 
   clearContextFiles: () => set({ contextFiles: [] }),
@@ -507,20 +508,22 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
 
     try {
       // Prepare file references if any
-      const files = state.contextFiles.length > 0
-        ? state.contextFiles.map((f) => ({ source: f.source, path: f.path }))
-        : undefined;
+      const files =
+        state.contextFiles.length > 0
+          ? state.contextFiles.map((f) => ({ source: f.source, path: f.path }))
+          : undefined;
 
       // Get block contents from registry (includes Claude turns)
       const blockContents = getAllBlockContents(state.contextBlockIds);
-      const inlineBlocks = blockContents.length > 0
-        ? blockContents.map((entry, index) => ({
-            id: state.contextBlockIds[index],
-            type: entry.type,
-            content: entry.content,
-            metadata: entry.metadata
-          }))
-        : undefined;
+      const inlineBlocks =
+        blockContents.length > 0
+          ? blockContents.map((entry, index) => ({
+              id: state.contextBlockIds[index],
+              type: entry.type,
+              content: entry.content,
+              metadata: entry.metadata
+            }))
+          : undefined;
 
       const response = await fetch(`${basePath}/api/ai/runs`, {
         method: 'POST',
@@ -603,9 +606,10 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
     const ws = get().wsConnection;
     if (ws && ws.readyState === WebSocket.OPEN) {
       // Prepare file references if any
-      const files = state.contextFiles.length > 0
-        ? state.contextFiles.map((f) => ({ source: f.source, path: f.path }))
-        : undefined;
+      const files =
+        state.contextFiles.length > 0
+          ? state.contextFiles.map((f) => ({ source: f.source, path: f.path }))
+          : undefined;
 
       ws.send(
         JSON.stringify({

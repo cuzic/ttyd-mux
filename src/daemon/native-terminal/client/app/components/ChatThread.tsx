@@ -4,9 +4,12 @@
  * Displays chat messages with AI responses.
  */
 
-import { type FC, useEffect, useRef } from 'react';
 import type { Citation, NextCommand } from '@/daemon/native-terminal/ai/types.js';
-import { type ChatMessage, useChatStore } from '@/daemon/native-terminal/client/app/stores/chatStore.js';
+import {
+  type ChatMessage,
+  useChatStore
+} from '@/daemon/native-terminal/client/app/stores/chatStore.js';
+import { type FC, useEffect, useRef } from 'react';
 
 export interface ChatThreadProps {
   onCitationClick?: (blockId: string) => void;

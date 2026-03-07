@@ -51,7 +51,7 @@ export const SplitPane: FC<SplitPaneProps> = ({
 
   return (
     <div style={styles.container}>
-      <PanelGroup direction="horizontal" onLayout={handleResize} autoSaveId="ttyd-mux-split">
+      <PanelGroup direction="horizontal" onLayout={handleResize} autoSaveId="bunterm-split">
         {/* Left pane (Terminal) */}
         <Panel defaultSize={initialLeftSize} minSize={minLeftSize} maxSize={maxLeftSize} order={1}>
           <div style={styles.pane}>{left}</div>

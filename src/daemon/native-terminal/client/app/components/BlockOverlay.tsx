@@ -4,11 +4,11 @@
  * Renders block boundaries and selection UI over the terminal.
  */
 
-import { type FC, useCallback, useMemo, useState } from 'react';
 import type { Block } from '@/daemon/native-terminal/client/BlockManager.js';
 import { useBlockSelection } from '@/daemon/native-terminal/client/app/hooks/useBlockSelection.js';
 import { useBlockStore } from '@/daemon/native-terminal/client/app/stores/blockStore.js';
 import { useChatStore } from '@/daemon/native-terminal/client/app/stores/chatStore.js';
+import { type FC, useCallback, useMemo, useState } from 'react';
 
 export interface BlockOverlayProps {
   terminalElement: HTMLElement | null;

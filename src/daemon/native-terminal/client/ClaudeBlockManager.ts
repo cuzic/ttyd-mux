@@ -281,7 +281,7 @@ export class ClaudeBlockManager {
    * Get current (active) turn
    */
   getCurrentTurn(): ClaudeTurn | null {
-    return this.currentTurnId ? this.turns.get(this.currentTurnId) ?? null : null;
+    return this.currentTurnId ? (this.turns.get(this.currentTurnId) ?? null) : null;
   }
 
   /**

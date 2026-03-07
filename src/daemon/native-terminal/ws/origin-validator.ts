@@ -3,7 +3,7 @@
  *
  * Validates WebSocket connection origins for CSWSH (Cross-Site WebSocket Hijacking) protection.
  * Part of the security model where external proxies handle authentication,
- * and ttyd-mux handles origin verification + session tokens.
+ * and bunterm handles origin verification + session tokens.
  */
 
 export interface SecurityConfig {

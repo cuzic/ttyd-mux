@@ -11,7 +11,7 @@
 import { type Block, BlockManager } from './BlockManager.js';
 import { BlockRenderer } from './BlockRenderer.js';
 import { ClaudeBlockManager } from './ClaudeBlockManager.js';
-import { DecorationManager, type BlockInfo } from './DecorationManager.js';
+import { type BlockInfo, DecorationManager } from './DecorationManager.js';
 import { FileOpsSidebar } from './FileOpsSidebar.js';
 import { PathLinkManager } from './PathLinkManager.js';
 

@@ -25,7 +25,7 @@ import {
 export interface NativeTerminalWebSocketHandlerOptions {
   /** Session manager instance */
   sessionManager: NativeSessionManager;
-  /** Base path for WebSocket endpoints (e.g., /ttyd-mux) */
+  /** Base path for WebSocket endpoints (e.g., /bunterm) */
   basePath: string;
   /** Security configuration for Origin validation */
   securityConfig?: SecurityConfig;
@@ -66,7 +66,7 @@ export function createNativeTerminalWebSocketHandlers(
 
   /**
    * Extract session name from WebSocket path
-   * e.g., /ttyd-mux/my-session/ws -> my-session
+   * e.g., /bunterm/my-session/ws -> my-session
    */
   function extractSessionName(pathname: string): string | null {
     const prefix = basePath + '/';
@@ -244,8 +244,8 @@ export function isNativeTerminalHtmlPath(pathname: string, basePath: string): bo
   }
 
   const rest = pathname.slice(prefix.length);
-  // Match /ttyd-mux/session-name/ or /ttyd-mux/session-name
-  // But not /ttyd-mux/session-name/ws or /ttyd-mux/static-file.js
+  // Match /bunterm/session-name/ or /bunterm/session-name
+  // But not /bunterm/session-name/ws or /bunterm/static-file.js
   if (rest.endsWith('/ws')) {
     return false;
   }

@@ -4,8 +4,8 @@
  * Wraps xterm.js terminal with React integration.
  */
 
-import { type FC, useEffect } from 'react';
 import { useTerminal } from '@/daemon/native-terminal/client/app/hooks/useTerminal.js';
+import { type FC, useEffect } from 'react';
 import { BlockOverlay } from './BlockOverlay.js';
 
 export interface TerminalPaneProps {

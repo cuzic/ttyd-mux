@@ -304,7 +304,7 @@ let nonceStoreInstance: InMemoryNonceStore | null = null;
  */
 export function getTokenGenerator(secret?: string): TokenGenerator {
   if (!tokenGeneratorInstance) {
-    const envSecret = process.env['TTYD_MUX_WS_SECRET'];
+    const envSecret = process.env['BUNTERM_WS_SECRET'];
     const secretKey = secret ?? envSecret ?? randomBytes(32).toString('hex');
 
     nonceStoreInstance = new InMemoryNonceStore();
