@@ -12,14 +12,11 @@ function mount() {
   const container = document.getElementById('ai-chat-app');
 
   if (!container) {
-    console.error('[AIChat] Container element not found');
     return;
   }
 
   const root = createRoot(container);
   root.render(<App />);
-
-  console.log('[AIChat] App mounted');
 }
 
 // Auto-mount when DOM is ready

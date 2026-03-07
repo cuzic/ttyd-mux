@@ -8,6 +8,12 @@
 interface TerminalClient {
   isConnected: boolean;
   sendInput(data: string): void;
+  // File watcher methods
+  watchFile(path: string): void;
+  unwatchFile(path: string): void;
+  watchDir(path: string): void;
+  unwatchDir(path: string): void;
+  onFileChange(listener: (path: string, timestamp: number) => void): () => void;
 }
 
 // Extend window type for native terminal

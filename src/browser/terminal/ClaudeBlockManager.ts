@@ -208,7 +208,9 @@ export class ClaudeBlockManager {
    */
   private handleAssistantText(message: ClaudeAssistantTextWS): void {
     const turn = this.currentTurnId ? this.turns.get(this.currentTurnId) : null;
-    if (!turn) return;
+    if (!turn) {
+      return;
+    }
 
     // Append text (streaming)
     turn.assistantText += message.text;
@@ -220,7 +222,9 @@ export class ClaudeBlockManager {
    */
   private handleThinking(message: ClaudeThinkingWS): void {
     const turn = this.currentTurnId ? this.turns.get(this.currentTurnId) : null;
-    if (!turn) return;
+    if (!turn) {
+      return;
+    }
 
     // Store thinking (usually replace, not append)
     turn.thinking = message.thinking;
@@ -232,7 +236,9 @@ export class ClaudeBlockManager {
    */
   private handleToolUse(message: ClaudeToolUseWS): void {
     const turn = this.currentTurnId ? this.turns.get(this.currentTurnId) : null;
-    if (!turn) return;
+    if (!turn) {
+      return;
+    }
 
     const toolCall: ClaudeToolCall = {
       id: message.toolId,
@@ -251,7 +257,9 @@ export class ClaudeBlockManager {
    */
   private handleToolResult(message: ClaudeToolResultWS): void {
     const turn = this.currentTurnId ? this.turns.get(this.currentTurnId) : null;
-    if (!turn) return;
+    if (!turn) {
+      return;
+    }
 
     // Find matching tool call
     const toolCall = turn.toolCalls.find((tc) => tc.id === message.toolId);
@@ -311,7 +319,9 @@ export class ClaudeBlockManager {
    * Mark current turn as complete
    */
   completeCurrentTurn(): void {
-    if (!this.currentTurnId) return;
+    if (!this.currentTurnId) {
+      return;
+    }
 
     const turn = this.turns.get(this.currentTurnId);
     if (turn) {
@@ -325,7 +335,9 @@ export class ClaudeBlockManager {
    */
   formatTurnForCopy(turnId: string): string {
     const turn = this.turns.get(turnId);
-    if (!turn) return '';
+    if (!turn) {
+      return '';
+    }
 
     const lines: string[] = [];
     lines.push(`User: ${turn.userMessage}`);
@@ -352,15 +364,17 @@ export class ClaudeBlockManager {
    */
   formatTurnAsMarkdown(turnId: string): string {
     const turn = this.turns.get(turnId);
-    if (!turn) return '';
+    if (!turn) {
+      return '';
+    }
 
     const lines: string[] = [];
-    lines.push(`## User`);
+    lines.push('## User');
     lines.push(turn.userMessage);
     lines.push('');
 
     if (turn.assistantText) {
-      lines.push(`## Assistant`);
+      lines.push('## Assistant');
       lines.push(turn.assistantText);
     }
 

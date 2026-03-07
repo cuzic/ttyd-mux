@@ -8,11 +8,11 @@
  * - Copy operations
  */
 
+import { toolbarEvents } from '@/browser/shared/events.js';
+import type { Terminal, TerminalUiConfig } from '@/browser/shared/types.js';
+import { isMobileDevice } from '@/browser/shared/utils.js';
 import type { ClipboardHistoryManager } from './ClipboardHistoryManager.js';
 import type { InputHandler } from './InputHandler.js';
-import { toolbarEvents } from './events.js';
-import type { Terminal, TerminalUiConfig } from './types.js';
-import { isMobileDevice } from './utils.js';
 
 export class TerminalController {
   private config: TerminalUiConfig;

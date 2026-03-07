@@ -4,11 +4,8 @@
  * Displays chat messages with AI responses.
  */
 
-import type { Citation, NextCommand } from '@/daemon/native-terminal/ai/types.js';
-import {
-  type ChatMessage,
-  useChatStore
-} from '@/daemon/native-terminal/client/app/stores/chatStore.js';
+import { type ChatMessage, useChatStore } from '@/browser/terminal/app/stores/chatStore.js';
+import type { Citation, NextCommand } from '@/features/ai/server/types.js';
 import { type FC, useEffect, useRef } from 'react';
 
 export interface ChatThreadProps {

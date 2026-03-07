@@ -58,9 +58,9 @@ const mockResizeObserver = mock(() => ({
 (globalThis as unknown as Record<string, unknown>).cancelAnimationFrame = mock(() => {});
 (globalThis as unknown as Record<string, unknown>).ResizeObserver = mockResizeObserver;
 
+import { Scope } from '../shared/lifecycle.js';
 // Import after mocks are set up
 import { LayoutManager } from './LayoutManager.js';
-import { Scope } from './lifecycle.js';
 
 /** Helper to get last CSS variable value */
 function getLastCssValue(varName: string): string | undefined {
@@ -478,12 +478,17 @@ describe('LayoutManager', () => {
       expect(mockVisualViewport.addEventListener).toHaveBeenCalled();
     });
 
-    test('scope.close removes event listeners', () => {
+    test('scope.close cleans up resources', () => {
       layoutManager.mount(scope);
       scope.close();
 
-      // Should have called visualViewport.removeEventListener
-      expect(mockVisualViewport.removeEventListener).toHaveBeenCalled();
+      // After scope.close, LayoutManager should be disposed
+      // Note: We use on() helper with AbortController, so removeEventListener
+      // is not called directly - the signal aborts the listeners instead.
+      // We verify disposal by checking that updates no longer happen.
+      (document.documentElement.style.setProperty as ReturnType<typeof mock>).mockClear();
+      layoutManager.forceUpdate();
+      expect(document.documentElement.style.setProperty).not.toHaveBeenCalled();
     });
 
     test('does not update after disposed', () => {
@@ -548,7 +553,7 @@ describe('LayoutManager', () => {
     });
 
     test('multiple scheduleUpdate calls are debounced', () => {
-      const rafMock = globalThis.requestAnimationFrame as ReturnType<typeof mock>;
+      const _rafMock = globalThis.requestAnimationFrame as ReturnType<typeof mock>;
       const cancelRafMock = globalThis.cancelAnimationFrame as ReturnType<typeof mock>;
       cancelRafMock.mockClear();
 

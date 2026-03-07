@@ -9,9 +9,9 @@
  * - --tui-h: Toolbar height in px
  */
 
-import type { Scope } from './lifecycle.js';
+import { type Mountable, type Scope, on } from '../shared/lifecycle.js';
 
-export class LayoutManager {
+export class LayoutManager implements Mountable {
   private toolbarEl: HTMLElement;
   private fitFn: () => void;
   private rafId = 0;
@@ -60,11 +60,15 @@ export class LayoutManager {
    * Schedule layout update (debounced via RAF)
    */
   scheduleUpdate(): void {
-    if (this.disposed) return;
+    if (this.disposed) {
+      return;
+    }
 
     cancelAnimationFrame(this.rafId);
     this.rafId = requestAnimationFrame(() => {
-      if (this.disposed) return;
+      if (this.disposed) {
+        return;
+      }
       this.updateLayout();
     });
   }
@@ -94,7 +98,9 @@ export class LayoutManager {
    * Force immediate layout update (bypass RAF)
    */
   forceUpdate(): void {
-    if (this.disposed) return;
+    if (this.disposed) {
+      return;
+    }
     cancelAnimationFrame(this.rafId);
     this.updateLayout();
   }
@@ -106,18 +112,13 @@ export class LayoutManager {
     const onChange = () => this.scheduleUpdate();
 
     // Window resize (fallback)
-    window.addEventListener('resize', onChange, { passive: true });
-    scope.add(() => window.removeEventListener('resize', onChange));
+    scope.add(on(window, 'resize', onChange, { passive: true }));
 
     // Visual Viewport events (primary for mobile)
     const vv = window.visualViewport;
     if (vv) {
-      vv.addEventListener('resize', onChange, { passive: true });
-      vv.addEventListener('scroll', onChange, { passive: true });
-      scope.add(() => {
-        vv.removeEventListener('resize', onChange);
-        vv.removeEventListener('scroll', onChange);
-      });
+      scope.add(on(vv, 'resize', onChange, { passive: true }));
+      scope.add(on(vv, 'scroll', onChange, { passive: true }));
     }
 
     // ResizeObserver for toolbar (handles button wrap, minimize, etc.)

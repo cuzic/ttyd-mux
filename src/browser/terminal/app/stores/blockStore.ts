@@ -4,11 +4,7 @@
  * State management for block selection and UI state.
  */
 
-import type {
-  Block,
-  BlockCounts,
-  BlockFilter
-} from '@/daemon/native-terminal/client/BlockManager.js';
+import type { Block, BlockCounts, BlockFilter } from '@/browser/terminal/BlockManager.js';
 import { create } from 'zustand';
 
 export interface BlockStoreState {
@@ -60,7 +56,7 @@ export interface BlockStoreState {
   setSearchResults: (results: string[]) => void;
 }
 
-export const useBlockStore = create<BlockStoreState>((set, get) => ({
+export const useBlockStore = create<BlockStoreState>((set, _get) => ({
   // Initial state
   blocks: [],
   activeBlockId: null,
@@ -163,7 +159,9 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
   focusPreviousBlock: () =>
     set((state) => {
       const filteredIds = getFilteredBlockIds(state.blocks, state.filter);
-      if (filteredIds.length === 0) return state;
+      if (filteredIds.length === 0) {
+        return state;
+      }
 
       if (!state.focusedBlockId) {
         return { focusedBlockId: filteredIds[filteredIds.length - 1] ?? null };
@@ -179,7 +177,9 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
   focusNextBlock: () =>
     set((state) => {
       const filteredIds = getFilteredBlockIds(state.blocks, state.filter);
-      if (filteredIds.length === 0) return state;
+      if (filteredIds.length === 0) {
+        return state;
+      }
 
       if (!state.focusedBlockId) {
         return { focusedBlockId: filteredIds[0] ?? null };

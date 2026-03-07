@@ -85,7 +85,9 @@ export class DecorationManager {
    * Inject CSS styles for decorations
    */
   private injectStyles(): void {
-    if (this.styleElement) return;
+    if (this.styleElement) {
+      return;
+    }
 
     this.styleElement = document.createElement('style');
     this.styleElement.textContent = `
@@ -231,7 +233,6 @@ export class DecorationManager {
     // xterm.js 5.x uses registerMarker instead of addMarker
     const marker = this.terminal.registerMarker(block.startLine);
     if (!marker) {
-      console.warn('[DecorationManager] Failed to create marker for block:', block.id);
       return null;
     }
 
@@ -287,7 +288,9 @@ export class DecorationManager {
   private renderStatusIcon(element: HTMLElement, block: BlockInfo): void {
     const isSelected = this.selectedBlockIds.has(block.id);
     const classes = ['block-status-icon', block.type];
-    if (isSelected) classes.push('selected');
+    if (isSelected) {
+      classes.push('selected');
+    }
     if (block.status === 'streaming' || block.status === 'running') {
       classes.push(block.status);
     }
@@ -378,7 +381,9 @@ export class DecorationManager {
    */
   updateStatus(blockId: string, status: BlockStatus): void {
     const decoration = this.decorations.get(blockId);
-    if (!decoration?.statusDecoration?.element) return;
+    if (!decoration?.statusDecoration?.element) {
+      return;
+    }
 
     const element = decoration.statusDecoration.element;
 
@@ -405,7 +410,9 @@ export class DecorationManager {
    */
   toggleSelection(blockId: string): void {
     const decoration = this.decorations.get(blockId);
-    if (!decoration) return;
+    if (!decoration) {
+      return;
+    }
 
     if (this.selectedBlockIds.has(blockId)) {
       this.selectedBlockIds.delete(blockId);
@@ -470,7 +477,9 @@ export class DecorationManager {
    */
   removeBlock(blockId: string): void {
     const decoration = this.decorations.get(blockId);
-    if (!decoration) return;
+    if (!decoration) {
+      return;
+    }
 
     decoration.statusDecoration?.dispose();
     decoration.actionDecoration?.dispose();
@@ -542,7 +551,9 @@ export class DecorationManager {
    */
   scrollToBlock(blockId: string): void {
     const decoration = this.decorations.get(blockId);
-    if (!decoration) return;
+    if (!decoration) {
+      return;
+    }
 
     // Use the marker's line to scroll
     const line = decoration.marker.line;

@@ -4,12 +4,12 @@
  * Handles read-only share link creation from the browser.
  */
 
+import type { Mountable, Scope } from '@/browser/shared/lifecycle.js';
+import type { TerminalUiConfig } from '@/browser/shared/types.js';
+import { bindClickScoped, getSessionNameFromURL } from '@/browser/shared/utils.js';
 import qrcode from 'qrcode-generator';
 import { type ToolbarApiClient, createApiClient } from './ApiClient.js';
 import { type ModalController, createModalController } from './ModalController.js';
-import type { Mountable, Scope } from './lifecycle.js';
-import type { TerminalUiConfig } from './types.js';
-import { bindClickScoped, getSessionNameFromURL } from './utils.js';
 
 export class ShareManager implements Mountable {
   private config: TerminalUiConfig;
@@ -33,24 +33,24 @@ export class ShareManager implements Mountable {
   /**
    * Bind modal elements (stores reference only)
    */
-  bindElements(
-    shareBtn: HTMLElement,
-    modal: HTMLElement,
-    modalClose: HTMLElement,
-    createBtn: HTMLElement,
-    resultSection: HTMLElement,
-    urlInput: HTMLInputElement,
-    copyBtn: HTMLElement,
-    qrBtn: HTMLElement
-  ): void {
-    this.shareBtn = shareBtn;
-    this.modal = modal;
-    this.modalClose = modalClose;
-    this.createBtn = createBtn;
-    this.resultSection = resultSection;
-    this.urlInput = urlInput;
-    this.copyBtn = copyBtn;
-    this.qrBtn = qrBtn;
+  bindElements(elements: {
+    shareBtn: HTMLElement;
+    modal: HTMLElement;
+    modalClose: HTMLElement;
+    createBtn: HTMLElement;
+    resultSection: HTMLElement;
+    urlInput: HTMLInputElement;
+    copyBtn: HTMLElement;
+    qrBtn: HTMLElement;
+  }): void {
+    this.shareBtn = elements.shareBtn;
+    this.modal = elements.modal;
+    this.modalClose = elements.modalClose;
+    this.createBtn = elements.createBtn;
+    this.resultSection = elements.resultSection;
+    this.urlInput = elements.urlInput;
+    this.copyBtn = elements.copyBtn;
+    this.qrBtn = elements.qrBtn;
     this.expiryOptions = document.querySelectorAll(
       'input[name="tui-share-expiry"]'
     ) as NodeListOf<HTMLInputElement>;

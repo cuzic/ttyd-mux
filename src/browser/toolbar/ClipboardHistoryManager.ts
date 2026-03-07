@@ -5,13 +5,13 @@
  * Shows history popup on long press of paste button.
  */
 
+import { type Mountable, type Scope, on } from '@/browser/shared/lifecycle.js';
+import type { ClipboardHistoryItem } from '@/browser/shared/types.js';
+import { STORAGE_KEYS } from '@/browser/shared/types.js';
+import { bindClickScoped } from '@/browser/shared/utils.js';
 import { z } from 'zod';
 import type { InputHandler } from './InputHandler.js';
 import { type StorageManager, createStorageManager } from './StorageManager.js';
-import { type Mountable, type Scope, on } from './lifecycle.js';
-import type { ClipboardHistoryItem } from './types.js';
-import { STORAGE_KEYS } from './types.js';
-import { bindClickScoped } from './utils.js';
 
 const MAX_HISTORY_ITEMS = 10;
 const LONG_PRESS_DURATION = 500; // ms

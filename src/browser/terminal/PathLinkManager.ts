@@ -656,7 +656,9 @@ export class PathLinkManager {
    * Position popup at specified coordinates
    */
   private positionPopup(x: number, y: number): void {
-    if (!this.popup) return;
+    if (!this.popup) {
+      return;
+    }
 
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;

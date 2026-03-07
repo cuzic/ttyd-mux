@@ -184,9 +184,7 @@ export function useTerminal(options: UseTerminalOptions): UseTerminalReturn {
           terminalRef.current?.write('\x07');
           break;
       }
-    } catch (err) {
-      console.error('[useTerminal] Failed to parse message:', err);
-    }
+    } catch (_err) {}
   }, []);
 
   // Connect to WebSocket
@@ -266,7 +264,6 @@ export function useTerminal(options: UseTerminalOptions): UseTerminalReturn {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('[useTerminal] Connected');
         reconnectAttemptsRef.current = 0;
         setIsConnected(true);
         setIsLoading(false);
@@ -288,13 +285,11 @@ export function useTerminal(options: UseTerminalOptions): UseTerminalReturn {
         handleMessage(event.data);
       };
 
-      ws.onerror = (event) => {
-        console.error('[useTerminal] WebSocket error:', event);
+      ws.onerror = (_event) => {
         reject(new Error('WebSocket connection failed'));
       };
 
-      ws.onclose = (event) => {
-        console.log('[useTerminal] Disconnected:', event.code, event.reason);
+      ws.onclose = (_event) => {
         stopPing();
         setIsConnected(false);
 

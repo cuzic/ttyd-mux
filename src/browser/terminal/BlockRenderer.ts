@@ -264,10 +264,14 @@ export class BlockRenderer {
     const selectedIds = this.options.blockManager.getSelectedBlockIds();
 
     const blockId = focusedId ?? selectedIds[0];
-    if (!blockId) return;
+    if (!blockId) {
+      return;
+    }
 
     const block = this.options.blockManager.getBlock(blockId);
-    if (!block) return;
+    if (!block) {
+      return;
+    }
 
     this.rerunCommand(block.command);
   }
@@ -280,10 +284,14 @@ export class BlockRenderer {
     const selectedIds = this.options.blockManager.getSelectedBlockIds();
 
     const blockId = focusedId ?? selectedIds[0];
-    if (!blockId) return;
+    if (!blockId) {
+      return;
+    }
 
     const block = this.options.blockManager.getBlock(blockId);
-    if (!block) return;
+    if (!block) {
+      return;
+    }
 
     this.options.onEditAndRerun?.(block.command);
   }
@@ -296,7 +304,9 @@ export class BlockRenderer {
       const confirmed = confirm(
         `This command may be dangerous:\n\n${command}\n\nAre you sure you want to re-run it?`
       );
-      if (!confirmed) return;
+      if (!confirmed) {
+        return;
+      }
     }
 
     this.options.onRerunCommand?.(command);
@@ -545,7 +555,9 @@ export class BlockRenderer {
    * Refresh the sidebar list
    */
   private refreshSidebarList(filter = 'all'): void {
-    if (!this.sidebarList) return;
+    if (!this.sidebarList) {
+      return;
+    }
 
     this.sidebarList.innerHTML = '';
 
@@ -622,8 +634,12 @@ export class BlockRenderer {
    * Format duration in ms to human readable
    */
   private formatDurationMs(ms: number): string {
-    if (ms < 1000) return `${ms}ms`;
-    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+    if (ms < 1000) {
+      return `${ms}ms`;
+    }
+    if (ms < 60000) {
+      return `${(ms / 1000).toFixed(1)}s`;
+    }
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${minutes}m${seconds}s`;
@@ -633,7 +649,9 @@ export class BlockRenderer {
    * Show sidebar
    */
   showSidebar(): void {
-    if (!this.sidebar) return;
+    if (!this.sidebar) {
+      return;
+    }
     this.sidebar.classList.remove('hidden');
     this.refreshSidebarList();
   }
@@ -649,7 +667,9 @@ export class BlockRenderer {
    * Toggle sidebar visibility
    */
   toggleSidebar(): void {
-    if (!this.sidebar) return;
+    if (!this.sidebar) {
+      return;
+    }
     if (this.sidebar.classList.contains('hidden')) {
       this.showSidebar();
     } else {
@@ -661,7 +681,9 @@ export class BlockRenderer {
    * Show search toolbar
    */
   private showSearch(): void {
-    if (!this.searchToolbar || !this.searchInput) return;
+    if (!this.searchToolbar || !this.searchInput) {
+      return;
+    }
 
     this.searchToolbar.classList.remove('hidden');
     this.searchInput.focus();
@@ -672,7 +694,9 @@ export class BlockRenderer {
    * Hide search toolbar
    */
   private hideSearch(): void {
-    if (!this.searchToolbar) return;
+    if (!this.searchToolbar) {
+      return;
+    }
 
     this.searchToolbar.classList.add('hidden');
     this.options.blockManager.clearSearch();
@@ -690,7 +714,9 @@ export class BlockRenderer {
    * Perform search with current input and options
    */
   private performSearch(): void {
-    if (!this.searchInput || !this.searchResultsLabel) return;
+    if (!this.searchInput || !this.searchResultsLabel) {
+      return;
+    }
 
     const query = this.searchInput.value;
     const caseSensitive =
@@ -724,7 +750,9 @@ export class BlockRenderer {
     this.clearSearchHighlights();
 
     const currentResult = this.options.blockManager.currentSearchResult;
-    if (!currentResult) return;
+    if (!currentResult) {
+      return;
+    }
 
     // Update results label with current position
     if (this.searchResultsLabel) {
@@ -769,7 +797,9 @@ export class BlockRenderer {
    */
   updateBookmarkState(blockId: string): void {
     const blockEl = this.blockElements.get(blockId);
-    if (!blockEl) return;
+    if (!blockEl) {
+      return;
+    }
 
     const isBookmarked = this.options.blockManager.isBookmarked(blockId);
     const bookmarkBtn = blockEl.headerElement.querySelector(
@@ -800,7 +830,9 @@ export class BlockRenderer {
    * Update filter toolbar state
    */
   updateFilterState(filter: BlockFilter, counts: BlockCounts): void {
-    if (!this.filterToolbar) return;
+    if (!this.filterToolbar) {
+      return;
+    }
 
     // Update active button
     const buttons = Array.from(this.filterToolbar.querySelectorAll('.block-filter-btn'));
@@ -890,7 +922,9 @@ export class BlockRenderer {
    * Show context menu at position
    */
   private showContextMenu(x: number, y: number): void {
-    if (!this.contextMenu) return;
+    if (!this.contextMenu) {
+      return;
+    }
 
     this.contextMenu.style.left = `${x}px`;
     this.contextMenu.style.top = `${y}px`;
@@ -940,7 +974,9 @@ export class BlockRenderer {
    * Position the overlay to match terminal position
    */
   private positionOverlay(): void {
-    if (!this.overlayContainer) return;
+    if (!this.overlayContainer) {
+      return;
+    }
 
     const termRect = this.options.terminalElement.getBoundingClientRect();
     const containerRect = this.options.container.getBoundingClientRect();
@@ -961,7 +997,9 @@ export class BlockRenderer {
    * Add a block to the UI
    */
   addBlock(block: Block): void {
-    if (!this.overlayContainer || !this.isVisible) return;
+    if (!this.overlayContainer || !this.isVisible) {
+      return;
+    }
 
     // Create block header element
     const blockEl = document.createElement('div');
@@ -1208,7 +1246,9 @@ export class BlockRenderer {
    */
   updateBlock(block: Block): void {
     const blockEl = this.blockElements.get(block.id);
-    if (!blockEl) return;
+    if (!blockEl) {
+      return;
+    }
 
     // Update status class (preserve selection state)
     const isSelected = this.options.blockManager.isSelected(block.id);
@@ -1256,7 +1296,9 @@ export class BlockRenderer {
     const termEl = this.options.terminalElement;
     const xtermRows = termEl.querySelector('.xterm-rows') as HTMLElement;
 
-    if (!xtermRows) return;
+    if (!xtermRows) {
+      return;
+    }
 
     // Calculate row height from actual terminal
     const rowEl = xtermRows.querySelector('.xterm-row') as HTMLElement;
@@ -1369,8 +1411,10 @@ export class BlockRenderer {
    * Truncate command for display
    */
   private truncateCommand(command: string, maxLength: number): string {
-    if (command.length <= maxLength) return command;
-    return command.slice(0, maxLength - 3) + '...';
+    if (command.length <= maxLength) {
+      return command;
+    }
+    return `${command.slice(0, maxLength - 3)}...`;
   }
 
   /**
@@ -1378,8 +1422,10 @@ export class BlockRenderer {
    */
   private shortenPath(path: string): string {
     const parts = path.split('/');
-    if (parts.length <= 3) return path;
-    return '.../' + parts.slice(-2).join('/');
+    if (parts.length <= 3) {
+      return path;
+    }
+    return `.../${parts.slice(-2).join('/')}`;
   }
 
   /**

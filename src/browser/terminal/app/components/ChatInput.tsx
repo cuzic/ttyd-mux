@@ -4,7 +4,7 @@
  * Text input for sending messages to AI.
  */
 
-import { useChatStore } from '@/daemon/native-terminal/client/app/stores/chatStore.js';
+import { useChatStore } from '@/browser/terminal/app/stores/chatStore.js';
 import { type FC, type FormEvent, useCallback, useRef, useState } from 'react';
 import { FileSelector } from './FileSelector.js';
 import { RunnerSelector } from './RunnerSelector.js';
@@ -31,7 +31,9 @@ export const ChatInput: FC<ChatInputProps> = ({ sessionId, disabled = false }) =
       e.preventDefault();
 
       const trimmedValue = inputValue.trim();
-      if (!trimmedValue || isLoading) return;
+      if (!trimmedValue || isLoading) {
+        return;
+      }
 
       await sendMessage(trimmedValue, sessionId);
 
@@ -169,7 +171,7 @@ function getContextHintText(
   if (hasFiles) {
     parts.push(`${fileCount} file${fileCount > 1 ? 's' : ''}`);
   }
-  return parts.join(', ') + ' in context';
+  return `${parts.join(', ')} in context`;
 }
 
 const styles: Record<string, React.CSSProperties> = {

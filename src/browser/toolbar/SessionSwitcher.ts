@@ -8,10 +8,10 @@
  * - Navigate to selected session
  */
 
-import { toolbarEvents } from './events.js';
-import { type Mountable, type Scope, on, onBus } from './lifecycle.js';
-import type { SessionSwitcherElements, TerminalUiConfig } from './types.js';
-import { bindClickScoped } from './utils.js';
+import { toolbarEvents } from '@/browser/shared/events.js';
+import { type Mountable, type Scope, on, onBus } from '@/browser/shared/lifecycle.js';
+import type { SessionSwitcherElements, TerminalUiConfig } from '@/browser/shared/types.js';
+import { bindClickScoped } from '@/browser/shared/utils.js';
 
 /** Session data from API */
 interface SessionInfo {

@@ -5,7 +5,7 @@
  * Works with BlockRenderer for UI display.
  */
 
-import type { Block, BlockStatus } from '../types.js';
+import type { Block, BlockStatus } from '@/core/protocol/blocks.js';
 
 export type { Block, BlockStatus };
 
@@ -141,7 +141,9 @@ export class BlockManager {
    */
   handleBlockEnd(blockId: string, exitCode: number, endedAt: string, endLine: number): void {
     const block = this.blocks.get(blockId);
-    if (!block) return;
+    if (!block) {
+      return;
+    }
 
     block.exitCode = exitCode;
     block.endedAt = endedAt;
@@ -160,7 +162,9 @@ export class BlockManager {
    */
   handleBlockOutput(blockId: string, data: string): void {
     const block = this.blocks.get(blockId);
-    if (!block) return;
+    if (!block) {
+      return;
+    }
 
     block.output += data;
     this.handlers.onBlockOutput?.(blockId, data);
@@ -197,7 +201,9 @@ export class BlockManager {
    * Get the active (running) block
    */
   getActiveBlock(): Block | null {
-    if (!this.activeBlockId) return null;
+    if (!this.activeBlockId) {
+      return null;
+    }
     return this.blocks.get(this.activeBlockId) ?? null;
   }
 
@@ -224,7 +230,9 @@ export class BlockManager {
    */
   getDecodedOutput(blockId: string): string {
     const block = this.blocks.get(blockId);
-    if (!block || !block.output) return '';
+    if (!block || !block.output) {
+      return '';
+    }
 
     try {
       // The output is accumulated as base64 strings concatenated
@@ -266,7 +274,9 @@ export class BlockManager {
    * Select a single block (clears previous selection)
    */
   selectBlock(blockId: string): void {
-    if (!this.blocks.has(blockId)) return;
+    if (!this.blocks.has(blockId)) {
+      return;
+    }
 
     this.selectedBlockIds.clear();
     this.selectedBlockIds.add(blockId);
@@ -278,7 +288,9 @@ export class BlockManager {
    * Toggle block selection (add/remove from selection)
    */
   toggleBlockSelection(blockId: string): void {
-    if (!this.blocks.has(blockId)) return;
+    if (!this.blocks.has(blockId)) {
+      return;
+    }
 
     if (this.selectedBlockIds.has(blockId)) {
       this.selectedBlockIds.delete(blockId);
@@ -293,7 +305,9 @@ export class BlockManager {
    * Select a range of blocks (Shift+click behavior)
    */
   selectBlockRange(blockId: string): void {
-    if (!this.blocks.has(blockId)) return;
+    if (!this.blocks.has(blockId)) {
+      return;
+    }
 
     if (!this.lastSelectedId || !this.blocks.has(this.lastSelectedId)) {
       this.selectBlock(blockId);
@@ -374,7 +388,9 @@ export class BlockManager {
    */
   async copySelection(format: CopyFormat = 'plain', includeOutput = true): Promise<string> {
     const selectedBlocks = this.getSelectedBlocks();
-    if (selectedBlocks.length === 0) return '';
+    if (selectedBlocks.length === 0) {
+      return '';
+    }
 
     let text = '';
 
@@ -385,14 +401,18 @@ export class BlockManager {
         text += `\`\`\`bash\n$ ${block.command}\n`;
         if (output) {
           text += output;
-          if (!output.endsWith('\n')) text += '\n';
+          if (!output.endsWith('\n')) {
+            text += '\n';
+          }
         }
         text += '```\n\n';
       } else {
         text += `$ ${block.command}\n`;
         if (output) {
           text += output;
-          if (!output.endsWith('\n')) text += '\n';
+          if (!output.endsWith('\n')) {
+            text += '\n';
+          }
         }
         text += '\n';
       }
@@ -407,7 +427,9 @@ export class BlockManager {
    */
   async copyCommands(): Promise<string> {
     const selectedBlocks = this.getSelectedBlocks();
-    if (selectedBlocks.length === 0) return '';
+    if (selectedBlocks.length === 0) {
+      return '';
+    }
 
     const text = selectedBlocks.map((b) => b.command).join('\n');
     await this.copyToClipboard(text);
@@ -419,7 +441,9 @@ export class BlockManager {
    */
   async copyOutput(): Promise<string> {
     const selectedBlocks = this.getSelectedBlocks();
-    if (selectedBlocks.length === 0) return '';
+    if (selectedBlocks.length === 0) {
+      return '';
+    }
 
     const outputs = selectedBlocks.map((b) => this.getDecodedOutput(b.id)).filter(Boolean);
     const text = outputs.join('\n');
@@ -580,7 +604,9 @@ export class BlockManager {
    */
   focusPreviousBlock(): void {
     const filteredIds = this.getFilteredBlockIds();
-    if (filteredIds.length === 0) return;
+    if (filteredIds.length === 0) {
+      return;
+    }
 
     if (!this.focusedBlockId) {
       // Focus the last block
@@ -604,7 +630,9 @@ export class BlockManager {
    */
   focusNextBlock(): void {
     const filteredIds = this.getFilteredBlockIds();
-    if (filteredIds.length === 0) return;
+    if (filteredIds.length === 0) {
+      return;
+    }
 
     if (!this.focusedBlockId) {
       // Focus the first block
@@ -977,7 +1005,7 @@ export class BlockManager {
       // Truncate command
       let truncatedCommand = block.command;
       if (block.command.length > maxCommandLength) {
-        truncatedCommand = block.command.slice(0, maxCommandLength) + '...';
+        truncatedCommand = `${block.command.slice(0, maxCommandLength)}...`;
       }
 
       return {
@@ -1055,9 +1083,9 @@ export class BlockManager {
       // Calculate end index (path + optional :line:col)
       let pathEnd = pathStr;
       if (lineStr) {
-        pathEnd += ':' + lineStr;
+        pathEnd += `:${lineStr}`;
         if (columnStr) {
-          pathEnd += ':' + columnStr;
+          pathEnd += `:${columnStr}`;
         }
       }
       const endIndex = actualStartIndex + pathEnd.length;

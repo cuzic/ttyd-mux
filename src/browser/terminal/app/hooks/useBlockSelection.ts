@@ -4,9 +4,9 @@
  * React hook for managing block selection state.
  */
 
-import type { Block } from '@/daemon/native-terminal/client/BlockManager.js';
-import { useBlockStore } from '@/daemon/native-terminal/client/app/stores/blockStore.js';
-import { useChatStore } from '@/daemon/native-terminal/client/app/stores/chatStore.js';
+import type { Block } from '@/browser/terminal/BlockManager.js';
+import { useBlockStore } from '@/browser/terminal/app/stores/blockStore.js';
+import { useChatStore } from '@/browser/terminal/app/stores/chatStore.js';
 import { useCallback } from 'react';
 
 export interface UseBlockSelectionReturn {
@@ -47,7 +47,7 @@ export function useBlockSelection(): UseBlockSelectionReturn {
   const addContextBlock = useChatStore((s) => s.addContextBlock);
   const removeContextBlock = useChatStore((s) => s.removeContextBlock);
   const clearContextBlocks = useChatStore((s) => s.clearContextBlocks);
-  const setContextBlocks = useChatStore((s) => s.setContextBlocks);
+  const _setContextBlocks = useChatStore((s) => s.setContextBlocks);
 
   // Select block range using current block order
   const selectBlockRange = useCallback(

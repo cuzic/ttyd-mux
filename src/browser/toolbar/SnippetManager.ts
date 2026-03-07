@@ -5,13 +5,13 @@
  * Provides CRUD operations with localStorage persistence.
  */
 
+import { type Mountable, type Scope, on } from '@/browser/shared/lifecycle.js';
+import type { Snippet, SnippetElements } from '@/browser/shared/types.js';
+import { STORAGE_KEYS } from '@/browser/shared/types.js';
+import { bindClickScoped } from '@/browser/shared/utils.js';
 import { z } from 'zod';
 import type { InputHandler } from './InputHandler.js';
 import { type StorageManager, createStorageManager } from './StorageManager.js';
-import { type Mountable, type Scope, on } from './lifecycle.js';
-import type { Snippet, SnippetElements } from './types.js';
-import { STORAGE_KEYS } from './types.js';
-import { bindClickScoped } from './utils.js';
 
 // Schema for snippet storage
 const snippetSchema = z.object({

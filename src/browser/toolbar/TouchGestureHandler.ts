@@ -8,12 +8,12 @@
  * - Shift+touch for text selection
  */
 
+import { toolbarEvents } from '@/browser/shared/events.js';
+import { type Mountable, type Scope, on } from '@/browser/shared/lifecycle.js';
+import type { TerminalUiConfig } from '@/browser/shared/types.js';
 import type { InputHandler } from './InputHandler.js';
 import type { ModifierKeyState } from './ModifierKeyState.js';
 import type { TerminalController } from './TerminalController.js';
-import { toolbarEvents } from './events.js';
-import { type Mountable, type Scope, on } from './lifecycle.js';
-import type { TerminalUiConfig } from './types.js';
 
 // Safari GestureEvent type declaration (not in standard DOM types)
 declare global {

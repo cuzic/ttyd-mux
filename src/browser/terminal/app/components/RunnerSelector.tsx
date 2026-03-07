@@ -4,8 +4,8 @@
  * Dropdown for selecting AI runner.
  */
 
-import type { RunnerName, RunnerStatus } from '@/daemon/native-terminal/ai/types.js';
-import { useChatStore } from '@/daemon/native-terminal/client/app/stores/chatStore.js';
+import { useChatStore } from '@/browser/terminal/app/stores/chatStore.js';
+import type { RunnerName, RunnerStatus } from '@/features/ai/server/types.js';
 import { type FC, useCallback, useEffect, useState } from 'react';
 
 export interface RunnerSelectorProps {
@@ -47,8 +47,12 @@ export const RunnerSelector: FC<RunnerSelectorProps> = ({ disabled = false }) =>
     const display = displayNames[name] ?? name;
 
     if (status) {
-      if (!status.available) return `${display} (Not installed)`;
-      if (!status.authenticated) return `${display} (Not authenticated)`;
+      if (!status.available) {
+        return `${display} (Not installed)`;
+      }
+      if (!status.authenticated) {
+        return `${display} (Not authenticated)`;
+      }
     }
 
     return display;
@@ -56,9 +60,15 @@ export const RunnerSelector: FC<RunnerSelectorProps> = ({ disabled = false }) =>
 
   // Get status icon
   const getStatusIcon = (status?: RunnerStatus): string => {
-    if (!status) return '◯';
-    if (!status.available) return '✗';
-    if (!status.authenticated) return '⚠';
+    if (!status) {
+      return '◯';
+    }
+    if (!status.available) {
+      return '✗';
+    }
+    if (!status.authenticated) {
+      return '⚠';
+    }
     return '✓';
   };
 

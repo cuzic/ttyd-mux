@@ -5,7 +5,7 @@
  * This bridges the vanilla JS terminal client with the React AI Chat app.
  */
 
-import { useChatStore } from '@/daemon/native-terminal/client/app/stores/chatStore.js';
+import { useChatStore } from '@/browser/terminal/app/stores/chatStore.js';
 import { useEffect } from 'react';
 
 /** Event detail from terminal-client */
@@ -26,13 +26,6 @@ export function useBlockContextBridge(): void {
     const handleAddContext = (event: Event) => {
       const customEvent = event as CustomEvent<BlockContextEventDetail>;
       const { blockId, type, content, metadata } = customEvent.detail;
-
-      console.log('[useBlockContextBridge] Received add-context event:', {
-        blockId,
-        type,
-        contentLength: content.length,
-        metadata
-      });
 
       // Add block to context
       addContextBlock(blockId);

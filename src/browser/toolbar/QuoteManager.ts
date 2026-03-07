@@ -5,16 +5,16 @@
  * Supports 4 tabs: Claude Turns, Project Markdown, Plans, Git Diff
  */
 
+import { type Mountable, type Scope, on } from '@/browser/shared/lifecycle.js';
+import type { TerminalUiConfig } from '@/browser/shared/types.js';
+import { bindClickScoped } from '@/browser/shared/utils.js';
 import type {
   ClaudeSessionInfo,
   ClaudeTurnFull,
   ClaudeTurnSummary,
   GitDiffResponse,
   MarkdownFile
-} from '../../native-terminal/claude-quotes/types.js';
-import { type Mountable, type Scope, on } from './lifecycle.js';
-import type { TerminalUiConfig } from './types.js';
-import { bindClickScoped } from './utils.js';
+} from '@/features/ai/server/quotes/types.js';
 
 // Types
 type QuoteTab = 'turns' | 'projectMd' | 'plans' | 'gitDiff';
@@ -92,7 +92,9 @@ export class QuoteManager implements Mountable {
    * Show tooltip
    */
   private showTooltip(content: string, x: number, y: number): void {
-    if (!this.tooltipElement) return;
+    if (!this.tooltipElement) {
+      return;
+    }
 
     // Clear any pending hide
     if (this.tooltipTimeout) {
@@ -133,7 +135,9 @@ export class QuoteManager implements Mountable {
    * Hide tooltip
    */
   private hideTooltip(): void {
-    if (!this.tooltipElement) return;
+    if (!this.tooltipElement) {
+      return;
+    }
 
     this.tooltipTimeout = setTimeout(() => {
       if (this.tooltipElement) {
@@ -211,7 +215,9 @@ export class QuoteManager implements Mountable {
    * Open modal
    */
   async open(): Promise<void> {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     this.elements.modal.classList.remove('hidden');
     this.isOpen = true;
@@ -227,7 +233,9 @@ export class QuoteManager implements Mountable {
    * Close modal
    */
   close(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     this.elements.modal.classList.add('hidden');
     this.isOpen = false;
@@ -237,7 +245,9 @@ export class QuoteManager implements Mountable {
    * Switch tab
    */
   private switchTab(tab: QuoteTab): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     this.activeTab = tab;
 
@@ -308,8 +318,7 @@ export class QuoteManager implements Mountable {
         const data = await response.json();
         this.claudeSessions = data.sessions || [];
       }
-    } catch (error) {
-      console.error('Failed to fetch Claude sessions:', error);
+    } catch (_error) {
       this.claudeSessions = [];
     }
   }
@@ -333,8 +342,7 @@ export class QuoteManager implements Mountable {
       } else {
         this.turns = [];
       }
-    } catch (error) {
-      console.error('Failed to fetch Claude turns:', error);
+    } catch (_error) {
       this.turns = [];
     }
   }
@@ -351,8 +359,7 @@ export class QuoteManager implements Mountable {
         const data = await response.json();
         this.projectMarkdown = data.files || [];
       }
-    } catch (error) {
-      console.error('Failed to fetch project markdown:', error);
+    } catch (_error) {
       this.projectMarkdown = [];
     }
   }
@@ -367,8 +374,7 @@ export class QuoteManager implements Mountable {
         const data = await response.json();
         this.plans = data.files || [];
       }
-    } catch (error) {
-      console.error('Failed to fetch plans:', error);
+    } catch (_error) {
       this.plans = [];
     }
   }
@@ -384,8 +390,7 @@ export class QuoteManager implements Mountable {
       if (response.ok) {
         this.gitDiff = await response.json();
       }
-    } catch (error) {
-      console.error('Failed to fetch git diff:', error);
+    } catch (_error) {
       this.gitDiff = null;
     }
   }
@@ -394,7 +399,9 @@ export class QuoteManager implements Mountable {
    * Render list based on active tab
    */
   private renderList(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     const list = this.elements.list;
     list.innerHTML = '';
@@ -491,7 +498,7 @@ export class QuoteManager implements Mountable {
       // Show assistant response as main text (truncate to 150 chars for display)
       const displayText =
         turn.assistantSummary.length > 150
-          ? turn.assistantSummary.slice(0, 150) + '...'
+          ? `${turn.assistantSummary.slice(0, 150)}...`
           : turn.assistantSummary;
       header.innerHTML = `
         <span class="tui-quote-item-title">${this.escapeHtml(displayText)}</span>
@@ -503,9 +510,8 @@ export class QuoteManager implements Mountable {
       if (turn.hasToolUse) {
         const meta = document.createElement('div');
         meta.className = 'tui-quote-item-meta';
-        meta.textContent = turn.editedFiles?.length
-          ? `Edited: ${turn.editedFiles.join(', ')}`
-          : 'Used tools';
+        meta.textContent =
+          turn.editedFiles?.length > 0 ? `Edited: ${turn.editedFiles.join(', ')}` : 'Used tools';
         content.appendChild(meta);
       }
 
@@ -672,7 +678,9 @@ export class QuoteManager implements Mountable {
    * Update selection info
    */
   private updateSelectionInfo(): void {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     const count =
       this.selectedTurnUuids.size +
@@ -699,7 +707,9 @@ export class QuoteManager implements Mountable {
     const gitTokens = this.selectFullDiff ? 2000 : this.selectedGitFiles.size * 200;
     const total = turnTokens + fileTokens + gitTokens;
 
-    if (total < 1000) return `~${total} tokens`;
+    if (total < 1000) {
+      return `~${total} tokens`;
+    }
     return `~${(total / 1000).toFixed(1)}k tokens`;
   }
 
@@ -718,7 +728,7 @@ export class QuoteManager implements Mountable {
         this.plans.forEach((f) => this.selectedFilePaths.add(`plans:${f.path}`));
         break;
       case 'gitDiff':
-        if (this.gitDiff?.files.length) {
+        if (this.gitDiff?.files.length > 0) {
           this.selectedGitFiles = new Set(this.gitDiff.files.map((f) => f.path));
           this.selectFullDiff = false;
         }
@@ -751,10 +761,11 @@ export class QuoteManager implements Mountable {
           }
         }
         break;
-      case 'gitDiff':
+      case 'gitDiff': {
         this.selectedGitFiles.clear();
         this.selectFullDiff = false;
         break;
+      }
     }
     this.renderList();
   }
@@ -763,7 +774,9 @@ export class QuoteManager implements Mountable {
    * Copy selected items to clipboard
    */
   private async copyToClipboard(): Promise<void> {
-    if (!this.elements) return;
+    if (!this.elements) {
+      return;
+    }
 
     const basePath = this.config.base_path;
     const sessionName = this.getSessionName();
@@ -804,9 +817,7 @@ export class QuoteManager implements Mountable {
               parts.push('---');
               parts.push('');
             }
-          } catch (error) {
-            console.error(`Failed to fetch turn ${uuid}:`, error);
-          }
+          } catch (_error) {}
         }
       }
 
@@ -832,9 +843,7 @@ export class QuoteManager implements Mountable {
               parts.push('```');
               parts.push('');
             }
-          } catch (error) {
-            console.error(`Failed to fetch file ${path}:`, error);
-          }
+          } catch (_error) {}
         }
       }
 
@@ -862,9 +871,7 @@ export class QuoteManager implements Mountable {
               parts.push('```');
               parts.push('');
             }
-          } catch (error) {
-            console.error(`Failed to fetch diff for ${filePath}:`, error);
-          }
+          } catch (_error) {}
         }
       }
 
@@ -875,8 +882,7 @@ export class QuoteManager implements Mountable {
           this.close();
         }, 800);
       }
-    } catch (error) {
-      console.error('Failed to copy to clipboard:', error);
+    } catch (_error) {
       this.elements.copyBtn.textContent = 'エラー';
     } finally {
       setTimeout(() => {
@@ -900,10 +906,18 @@ export class QuoteManager implements Mountable {
     const diffHour = Math.floor(diffMin / 60);
     const diffDay = Math.floor(diffHour / 24);
 
-    if (diffSec < 60) return 'just now';
-    if (diffMin < 60) return `${diffMin}m ago`;
-    if (diffHour < 24) return `${diffHour}h ago`;
-    if (diffDay < 7) return `${diffDay}d ago`;
+    if (diffSec < 60) {
+      return 'just now';
+    }
+    if (diffMin < 60) {
+      return `${diffMin}m ago`;
+    }
+    if (diffHour < 24) {
+      return `${diffHour}h ago`;
+    }
+    if (diffDay < 7) {
+      return `${diffDay}d ago`;
+    }
     return date.toLocaleDateString();
   }
 
@@ -916,10 +930,9 @@ export class QuoteManager implements Mountable {
     </div>`;
 
     let metaSection = '';
-    if (turn.hasToolUse || turn.editedFiles?.length) {
-      const tools = turn.editedFiles?.length
-        ? `Edited: ${turn.editedFiles.join(', ')}`
-        : 'Used tools';
+    if (turn.hasToolUse || turn.editedFiles?.length > 0) {
+      const tools =
+        turn.editedFiles?.length > 0 ? `Edited: ${turn.editedFiles.join(', ')}` : 'Used tools';
       metaSection = `<div style="color: #888; font-size: 9px; margin-top: 4px;">🔧 ${this.escapeHtml(tools)}</div>`;
     }
 

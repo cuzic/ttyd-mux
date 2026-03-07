@@ -7,11 +7,8 @@
  * - Project: Working directory .md files
  */
 
-import type { FileSource } from '@/daemon/native-terminal/ai/types.js';
-import {
-  type ContextFileRef,
-  useChatStore
-} from '@/daemon/native-terminal/client/app/stores/chatStore.js';
+import { type ContextFileRef, useChatStore } from '@/browser/terminal/app/stores/chatStore.js';
+import type { FileSource } from '@/features/ai/server/types.js';
 import { type FC, useCallback, useEffect, useRef, useState } from 'react';
 
 export interface FileSelectorProps {
@@ -44,10 +41,18 @@ function formatRelativeTime(isoString: string): string {
   const diffHour = Math.floor(diffMin / 60);
   const diffDay = Math.floor(diffHour / 24);
 
-  if (diffSec < 60) return 'just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffHour < 24) return `${diffHour}h ago`;
-  if (diffDay < 7) return `${diffDay}d ago`;
+  if (diffSec < 60) {
+    return 'just now';
+  }
+  if (diffMin < 60) {
+    return `${diffMin}m ago`;
+  }
+  if (diffHour < 24) {
+    return `${diffHour}h ago`;
+  }
+  if (diffDay < 7) {
+    return `${diffDay}d ago`;
+  }
   return date.toLocaleDateString();
 }
 

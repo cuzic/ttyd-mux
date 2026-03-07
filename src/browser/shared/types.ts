@@ -195,8 +195,8 @@ export type SmartPasteContentType =
   | { type: 'file'; file: File }
   | { type: 'html'; html: string; text: string };
 
-/** Pending upload item for preview - re-exported from smartPasteMachine */
-export type { PendingUpload } from './smartPasteMachine.js';
+/** Pending upload item for preview - re-exported from toolbar */
+export type { PendingUpload } from '@/browser/toolbar/smartPasteMachine.js';
 
 /** Session switcher modal elements */
 export interface SessionSwitcherElements {

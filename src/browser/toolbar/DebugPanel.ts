@@ -30,8 +30,8 @@ export class DebugPanel {
    * Initialize debug panel if enabled
    */
   static init(): void {
-    if (this.isEnabled()) {
-      this.enable();
+    if (DebugPanel.isEnabled()) {
+      DebugPanel.enable();
     }
   }
 
@@ -39,12 +39,14 @@ export class DebugPanel {
    * Enable debug panel and start capturing logs
    */
   static enable(): void {
-    if (this.panel) return;
+    if (DebugPanel.panel) {
+      return;
+    }
 
     // Create panel
-    this.panel = document.createElement('div');
-    this.panel.id = 'debug-panel';
-    this.panel.innerHTML = `
+    DebugPanel.panel = document.createElement('div');
+    DebugPanel.panel.id = 'debug-panel';
+    DebugPanel.panel.innerHTML = `
       <div id="debug-header">
         <span>Debug Console</span>
         <div id="debug-actions">
@@ -126,37 +128,43 @@ export class DebugPanel {
       }
     `;
     document.head.appendChild(style);
-    document.body.appendChild(this.panel);
+    document.body.appendChild(DebugPanel.panel);
 
-    this.logContainer = this.panel.querySelector('#debug-logs');
+    DebugPanel.logContainer = DebugPanel.panel.querySelector('#debug-logs');
 
     // Event handlers
-    this.panel.querySelector('#debug-copy')?.addEventListener('click', () => this.copyLogs());
-    this.panel.querySelector('#debug-clear')?.addEventListener('click', () => this.clearLogs());
-    this.panel.querySelector('#debug-close')?.addEventListener('click', () => this.disable());
+    DebugPanel.panel
+      .querySelector('#debug-copy')
+      ?.addEventListener('click', () => DebugPanel.copyLogs());
+    DebugPanel.panel
+      .querySelector('#debug-clear')
+      ?.addEventListener('click', () => DebugPanel.clearLogs());
+    DebugPanel.panel
+      .querySelector('#debug-close')
+      ?.addEventListener('click', () => DebugPanel.disable());
 
     // Override console.log
-    this.originalLog = console.log;
+    DebugPanel.originalLog = console.log;
     console.log = (...args: unknown[]) => {
-      this.addLog(args);
-      this.originalLog?.apply(console, args);
+      DebugPanel.addLog(args);
+      DebugPanel.originalLog?.apply(console, args);
     };
 
-    this.addLog(['[DebugPanel] Enabled']);
+    DebugPanel.addLog(['[DebugPanel] Enabled']);
   }
 
   /**
    * Disable debug panel and restore console.log
    */
   static disable(): void {
-    if (this.originalLog) {
-      console.log = this.originalLog;
-      this.originalLog = null;
+    if (DebugPanel.originalLog) {
+      console.log = DebugPanel.originalLog;
+      DebugPanel.originalLog = null;
     }
 
-    this.panel?.remove();
-    this.panel = null;
-    this.logContainer = null;
+    DebugPanel.panel?.remove();
+    DebugPanel.panel = null;
+    DebugPanel.logContainer = null;
 
     document.getElementById('debug-panel-styles')?.remove();
   }
@@ -180,26 +188,26 @@ export class DebugPanel {
       .join(' ');
 
     const logEntry = `[${time}] ${message}`;
-    this.logs.push(logEntry);
+    DebugPanel.logs.push(logEntry);
 
     // Trim old logs
-    if (this.logs.length > this.maxLogs) {
-      this.logs = this.logs.slice(-this.maxLogs);
+    if (DebugPanel.logs.length > DebugPanel.maxLogs) {
+      DebugPanel.logs = DebugPanel.logs.slice(-DebugPanel.maxLogs);
     }
 
     // Update UI
-    if (this.logContainer) {
+    if (DebugPanel.logContainer) {
       const div = document.createElement('div');
       div.className = 'debug-log';
-      div.innerHTML = `<span class="debug-log-time">${time}</span>${this.escapeHtml(message)}`;
-      this.logContainer.appendChild(div);
+      div.innerHTML = `<span class="debug-log-time">${time}</span>${DebugPanel.escapeHtml(message)}`;
+      DebugPanel.logContainer.appendChild(div);
 
       // Auto-scroll to bottom
-      this.logContainer.scrollTop = this.logContainer.scrollHeight;
+      DebugPanel.logContainer.scrollTop = DebugPanel.logContainer.scrollHeight;
 
       // Trim old DOM elements
-      while (this.logContainer.children.length > this.maxLogs) {
-        this.logContainer.firstChild?.remove();
+      while (DebugPanel.logContainer.children.length > DebugPanel.maxLogs) {
+        DebugPanel.logContainer.firstChild?.remove();
       }
     }
   }
@@ -208,9 +216,9 @@ export class DebugPanel {
    * Copy all logs to clipboard
    */
   private static copyLogs(): void {
-    const text = this.logs.join('\n');
+    const text = DebugPanel.logs.join('\n');
     navigator.clipboard.writeText(text).then(() => {
-      this.originalLog?.('[DebugPanel] Logs copied to clipboard');
+      DebugPanel.originalLog?.('[DebugPanel] Logs copied to clipboard');
     });
   }
 
@@ -218,9 +226,9 @@ export class DebugPanel {
    * Clear all logs
    */
   private static clearLogs(): void {
-    this.logs = [];
-    if (this.logContainer) {
-      this.logContainer.innerHTML = '';
+    DebugPanel.logs = [];
+    if (DebugPanel.logContainer) {
+      DebugPanel.logContainer.innerHTML = '';
     }
   }
 

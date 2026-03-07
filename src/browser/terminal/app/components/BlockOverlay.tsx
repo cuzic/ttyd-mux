@@ -4,10 +4,10 @@
  * Renders block boundaries and selection UI over the terminal.
  */
 
-import type { Block } from '@/daemon/native-terminal/client/BlockManager.js';
-import { useBlockSelection } from '@/daemon/native-terminal/client/app/hooks/useBlockSelection.js';
-import { useBlockStore } from '@/daemon/native-terminal/client/app/stores/blockStore.js';
-import { useChatStore } from '@/daemon/native-terminal/client/app/stores/chatStore.js';
+import type { Block } from '@/browser/terminal/BlockManager.js';
+import { useBlockSelection } from '@/browser/terminal/app/hooks/useBlockSelection.js';
+import { useBlockStore } from '@/browser/terminal/app/stores/blockStore.js';
+import { useChatStore } from '@/browser/terminal/app/stores/chatStore.js';
 import { type FC, useCallback, useMemo, useState } from 'react';
 
 export interface BlockOverlayProps {
@@ -33,7 +33,9 @@ export const BlockOverlay: FC<BlockOverlayProps> = ({ terminalElement }) => {
 
   // Filtered blocks
   const filteredBlocks = useMemo(() => {
-    if (filter === 'all') return blocks;
+    if (filter === 'all') {
+      return blocks;
+    }
     return blocks.filter((b) => b.status === filter);
   }, [blocks, filter]);
 
@@ -261,15 +263,21 @@ function getStatusIcon(status: string): string {
 }
 
 function truncateCommand(command: string, maxLength: number): string {
-  if (command.length <= maxLength) return command;
-  return command.slice(0, maxLength - 3) + '...';
+  if (command.length <= maxLength) {
+    return command;
+  }
+  return `${command.slice(0, maxLength - 3)}...`;
 }
 
 function calculateDuration(start: string, end: string): string {
   const durationMs = new Date(end).getTime() - new Date(start).getTime();
-  if (durationMs < 1000) return `${durationMs}ms`;
+  if (durationMs < 1000) {
+    return `${durationMs}ms`;
+  }
   const seconds = Math.floor(durationMs / 1000);
-  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
   return `${minutes}m ${remainingSeconds}s`;

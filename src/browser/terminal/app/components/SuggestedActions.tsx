@@ -4,7 +4,7 @@
  * Quick action buttons for common AI queries.
  */
 
-import { useChatStore } from '@/daemon/native-terminal/client/app/stores/chatStore.js';
+import { useChatStore } from '@/browser/terminal/app/stores/chatStore.js';
 import { type FC, useCallback } from 'react';
 
 export interface SuggestedActionsProps {

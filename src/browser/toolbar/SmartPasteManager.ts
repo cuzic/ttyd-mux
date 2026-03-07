@@ -10,6 +10,9 @@
  * State management is handled by XState state machine.
  */
 
+import { type Mountable, type Scope, on } from '@/browser/shared/lifecycle.js';
+import type { SmartPasteElements, TerminalUiConfig } from '@/browser/shared/types.js';
+import { blobToBase64, getSessionNameFromURL } from '@/browser/shared/utils.js';
 import { type Actor, createActor } from 'xstate';
 import type { ClipboardHistoryManager } from './ClipboardHistoryManager.js';
 import type { InputHandler } from './InputHandler.js';
@@ -19,15 +22,13 @@ import {
   type SmartPasteEvent,
   smartPasteMachine
 } from './smartPasteMachine.js';
-import type { SmartPasteElements, TerminalUiConfig } from './types.js';
-import { blobToBase64, getSessionNameFromURL } from './utils.js';
 
 // Re-export PendingUpload from state machine
 export type { PendingUpload } from './smartPasteMachine.js';
 
 type SmartPasteActor = Actor<typeof smartPasteMachine>;
 
-export class SmartPasteManager {
+export class SmartPasteManager implements Mountable {
   private config: TerminalUiConfig;
   private inputHandler: InputHandler;
   private historyManager: ClipboardHistoryManager;
@@ -116,8 +117,6 @@ export class SmartPasteManager {
    */
   bindElements(elements: SmartPasteElements): void {
     this.elements = elements;
-    this.setupEventListeners();
-    this.setupDropZone();
   }
 
   /**
@@ -128,119 +127,144 @@ export class SmartPasteManager {
   }
 
   /**
-   * Setup event listeners for modal controls
+   * Mount event listeners to scope for automatic cleanup
    */
-  private setupEventListeners(): void {
+  mount(scope: Scope): void {
     if (!this.elements) {
       return;
     }
 
-    // Close button
-    this.elements.previewClose.addEventListener('click', () => {
-      this.send({ type: 'CANCEL' });
-    });
+    // Modal control event listeners
+    scope.add(
+      on(this.elements.previewClose, 'click', () => {
+        this.send({ type: 'CANCEL' });
+      })
+    );
 
-    // Cancel button
-    this.elements.previewCancel.addEventListener('click', () => {
-      this.send({ type: 'CANCEL' });
-    });
+    scope.add(
+      on(this.elements.previewCancel, 'click', () => {
+        this.send({ type: 'CANCEL' });
+      })
+    );
 
-    // Submit button
-    this.elements.previewSubmit.addEventListener('click', () => {
-      this.handleSubmit();
-    });
+    scope.add(
+      on(this.elements.previewSubmit, 'click', () => {
+        this.handleSubmit();
+      })
+    );
 
-    // Navigation buttons
-    this.elements.previewPrev.addEventListener('click', () => {
-      this.send({ type: 'PREV' });
-    });
+    scope.add(
+      on(this.elements.previewPrev, 'click', () => {
+        this.send({ type: 'PREV' });
+      })
+    );
 
-    this.elements.previewNext.addEventListener('click', () => {
-      this.send({ type: 'NEXT' });
-    });
+    scope.add(
+      on(this.elements.previewNext, 'click', () => {
+        this.send({ type: 'NEXT' });
+      })
+    );
 
-    // Remove current item button
-    this.elements.previewRemove.addEventListener('click', () => {
-      this.send({ type: 'REMOVE' });
-    });
+    scope.add(
+      on(this.elements.previewRemove, 'click', () => {
+        this.send({ type: 'REMOVE' });
+      })
+    );
 
     // Close on backdrop click
-    this.elements.previewModal.addEventListener('click', (e) => {
-      if (e.target === this.elements?.previewModal) {
-        this.send({ type: 'CANCEL' });
-      }
-    });
+    scope.add(
+      on(this.elements.previewModal, 'click', (e) => {
+        if (e.target === this.elements?.previewModal) {
+          this.send({ type: 'CANCEL' });
+        }
+      })
+    );
 
     // Keyboard navigation
-    document.addEventListener('keydown', (e) => {
-      if (!this.isPreviewVisible()) {
-        return;
-      }
+    scope.add(
+      on(document, 'keydown', (e) => {
+        if (!this.isPreviewVisible()) {
+          return;
+        }
+        const event = e as KeyboardEvent;
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          this.send({ type: 'CANCEL' });
+        } else if (event.key === 'ArrowLeft') {
+          event.preventDefault();
+          this.send({ type: 'PREV' });
+        } else if (event.key === 'ArrowRight') {
+          event.preventDefault();
+          this.send({ type: 'NEXT' });
+        } else if (event.key === 'Enter') {
+          event.preventDefault();
+          this.handleSubmit();
+        } else if (event.key === 'Delete' || event.key === 'Backspace') {
+          event.preventDefault();
+          this.send({ type: 'REMOVE' });
+        }
+      })
+    );
 
-      if (e.key === 'Escape') {
+    // Dot click handler (event delegation)
+    scope.add(
+      on(this.elements.previewDots, 'click', (e) => {
+        const target = e.target as HTMLElement;
+        if (target.classList.contains('tui-preview-dot') && target.dataset.index) {
+          const index = Number.parseInt(target.dataset.index, 10);
+          this.send({ type: 'GOTO', index });
+        }
+      })
+    );
+
+    // Drag and drop zone setup
+    scope.add(
+      on(document, 'dragover', (e) => {
         e.preventDefault();
-        this.send({ type: 'CANCEL' });
-      } else if (e.key === 'ArrowLeft') {
+      })
+    );
+
+    scope.add(
+      on(document, 'drop', (e) => {
         e.preventDefault();
-        this.send({ type: 'PREV' });
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        this.send({ type: 'NEXT' });
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        this.handleSubmit();
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault();
-        this.send({ type: 'REMOVE' });
-      }
-    });
-
-    // Setup dot click handler (event delegation)
-    this.setupDotClickHandler();
-  }
-
-  /**
-   * Setup drag and drop zone
-   */
-  private setupDropZone(): void {
-    // Prevent default drag behaviors on document
-    document.addEventListener('dragover', (e) => {
-      e.preventDefault();
-    });
-
-    document.addEventListener('drop', (e) => {
-      e.preventDefault();
-      this.hideDropZone();
-    });
-
-    // Show drop zone when dragging files
-    document.addEventListener('dragenter', (e) => {
-      if (this.hasFiles(e.dataTransfer)) {
-        this.showDropZone();
-      }
-    });
-
-    // Hide drop zone when leaving
-    document.addEventListener('dragleave', (e) => {
-      // Only hide if leaving the document
-      if (e.relatedTarget === null) {
         this.hideDropZone();
-      }
-    });
+      })
+    );
 
-    // Handle drop on drop zone
-    if (this.elements?.dropZone) {
-      this.elements.dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      });
+    scope.add(
+      on(document, 'dragenter', (e) => {
+        if (this.hasFiles((e as DragEvent).dataTransfer)) {
+          this.showDropZone();
+        }
+      })
+    );
 
-      this.elements.dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.hideDropZone();
-        this.handleDrop(e);
-      });
+    scope.add(
+      on(document, 'dragleave', (e) => {
+        // Only hide if leaving the document
+        if ((e as MouseEvent).relatedTarget === null) {
+          this.hideDropZone();
+        }
+      })
+    );
+
+    // Handle drop on drop zone element
+    if (this.elements.dropZone) {
+      scope.add(
+        on(this.elements.dropZone, 'dragover', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        })
+      );
+
+      scope.add(
+        on(this.elements.dropZone, 'drop', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.hideDropZone();
+          this.handleDrop(e as DragEvent);
+        })
+      );
     }
   }
 
@@ -496,23 +520,6 @@ export class SmartPasteManager {
       }
       this.elements.previewDots.appendChild(dot);
     }
-  }
-
-  /**
-   * Setup dot click handler using event delegation
-   */
-  private setupDotClickHandler(): void {
-    if (!this.elements) {
-      return;
-    }
-
-    this.elements.previewDots.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
-      if (target.classList.contains('tui-preview-dot') && target.dataset.index) {
-        const index = Number.parseInt(target.dataset.index, 10);
-        this.send({ type: 'GOTO', index });
-      }
-    });
   }
 
   /**

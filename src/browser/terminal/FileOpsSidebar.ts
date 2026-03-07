@@ -232,7 +232,9 @@ export class FileOpsSidebar {
    * Show the sidebar
    */
   show(): void {
-    if (!this.pane) return;
+    if (!this.pane) {
+      return;
+    }
     this.pane.classList.remove('hidden');
     this.isVisible = true;
     document.body.classList.add('file-ops-open');
@@ -244,7 +246,9 @@ export class FileOpsSidebar {
    * Hide the sidebar
    */
   hide(): void {
-    if (!this.pane) return;
+    if (!this.pane) {
+      return;
+    }
     this.pane.classList.add('hidden');
     this.isVisible = false;
     document.body.classList.remove('file-ops-open');
@@ -281,7 +285,9 @@ export class FileOpsSidebar {
    * Render a single item to the list
    */
   private renderItem(op: FileOperation): void {
-    if (!this.listContainer) return;
+    if (!this.listContainer) {
+      return;
+    }
 
     const item = document.createElement('div');
     item.className = 'file-ops-item';
@@ -322,7 +328,9 @@ export class FileOpsSidebar {
    */
   private updateItemStatus(id: string, status: FileOperation['status']): void {
     const item = this.listContainer?.querySelector(`[data-id="${id}"]`);
-    if (!item) return;
+    if (!item) {
+      return;
+    }
 
     const statusEl = item.querySelector('.file-ops-status');
     if (statusEl) {
@@ -366,14 +374,18 @@ export class FileOpsSidebar {
    */
   private setupResizer(): void {
     const resizer = document.getElementById('tui-file-ops-resizer');
-    if (!resizer || !this.pane) return;
+    if (!resizer || !this.pane) {
+      return;
+    }
 
     let startX = 0;
     let startWidth = 0;
     let isDragging = false;
 
     const onMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return;
+      if (!isDragging) {
+        return;
+      }
 
       // Calculate new width (resize from left edge)
       const delta = startX - e.clientX;
@@ -387,7 +399,9 @@ export class FileOpsSidebar {
     };
 
     const onMouseUp = () => {
-      if (!isDragging) return;
+      if (!isDragging) {
+        return;
+      }
       isDragging = false;
 
       document.removeEventListener('mousemove', onMouseMove);
@@ -417,18 +431,26 @@ export class FileOpsSidebar {
 
     // Touch support for mobile/tablet
     const onTouchStart = (touchStartEvent: TouchEvent) => {
-      if (touchStartEvent.touches.length !== 1) return;
+      if (touchStartEvent.touches.length !== 1) {
+        return;
+      }
       const touch = touchStartEvent.touches[0];
-      if (!touch) return;
+      if (!touch) {
+        return;
+      }
 
       isDragging = true;
       startX = touch.clientX;
       startWidth = this.currentWidth;
 
       const onTouchMove = (e: TouchEvent) => {
-        if (!isDragging || e.touches.length !== 1) return;
+        if (!isDragging || e.touches.length !== 1) {
+          return;
+        }
         const moveTouch = e.touches[0];
-        if (!moveTouch) return;
+        if (!moveTouch) {
+          return;
+        }
 
         const delta = startX - moveTouch.clientX;
         let newWidth = startWidth + delta;
