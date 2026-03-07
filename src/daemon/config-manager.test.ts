@@ -23,7 +23,7 @@ describe('ConfigManager', () => {
     writeFileSync(
       configPath,
       `
-base_port: 8000
+daemon_port: 8000
 terminal_ui:
   font_size_default_mobile: 36
 `
@@ -32,13 +32,13 @@ terminal_ui:
     const manager = initConfigManager(configPath);
     const config = manager.getConfig();
 
-    expect(config.base_port).toBe(8000);
+    expect(config.daemon_port).toBe(8000);
     expect(config.terminal_ui.font_size_default_mobile).toBe(36);
   });
 
   test('reload detects no changes', () => {
     const configPath = join(TEST_CONFIG_DIR, 'config.yaml');
-    writeFileSync(configPath, 'base_port: 8000\n');
+    writeFileSync(configPath, 'daemon_port: 8000\n');
 
     const manager = initConfigManager(configPath);
     const result = manager.reload();
@@ -97,7 +97,7 @@ terminal_ui:
 
   test('reload handles invalid config gracefully', () => {
     const configPath = join(TEST_CONFIG_DIR, 'config.yaml');
-    writeFileSync(configPath, 'base_port: 8000\n');
+    writeFileSync(configPath, 'daemon_port: 8000\n');
 
     const manager = initConfigManager(configPath);
 
@@ -111,7 +111,7 @@ terminal_ui:
 
     // Original config should be preserved
     const config = manager.getConfig();
-    expect(config.base_port).toBe(8000);
+    expect(config.daemon_port).toBe(8000);
   });
 
   test('reload detects multiple changes', () => {
@@ -122,7 +122,6 @@ terminal_ui:
 terminal_ui:
   font_size_default_mobile: 32
   font_size_default_pc: 14
-proxy_mode: proxy
 `
     );
 
@@ -135,7 +134,6 @@ proxy_mode: proxy
 terminal_ui:
   font_size_default_mobile: 40
   font_size_default_pc: 16
-proxy_mode: static
 daemon_port: 9000
 `
     );
@@ -145,7 +143,6 @@ daemon_port: 9000
     expect(result.success).toBe(true);
     expect(result.reloaded).toContain('terminal_ui.font_size_default_mobile');
     expect(result.reloaded).toContain('terminal_ui.font_size_default_pc');
-    expect(result.reloaded).toContain('proxy_mode');
     expect(result.requiresRestart).toContain('daemon_port');
   });
 });

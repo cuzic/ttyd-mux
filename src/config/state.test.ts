@@ -19,7 +19,7 @@ describe('state', () => {
       const { getStateDir, getSocketPath } = await import('./state.js');
 
       expect(getStateDir()).toBe(TEST_STATE_DIR);
-      expect(getSocketPath()).toBe(`${TEST_STATE_DIR}/ttyd-mux.sock`);
+      expect(getSocketPath()).toBe(`${TEST_STATE_DIR}/bunterm.sock`);
     });
   });
 
@@ -110,7 +110,6 @@ describe('state', () => {
       const session = {
         name: 'test-session',
         pid: 12345,
-        port: 7601,
         path: '/test',
         dir: '/home/test',
         started_at: '2024-01-01T00:00:00Z'
@@ -121,7 +120,6 @@ describe('state', () => {
 
       expect(result?.name).toBe('test-session');
       expect(result?.pid).toBe(12345);
-      expect(result?.port).toBe(7601);
 
       removeSession('test-session');
       expect(getSession('test-session')).toBeUndefined();
@@ -133,7 +131,6 @@ describe('state', () => {
       addSession({
         name: 'session-1',
         pid: 1001,
-        port: 7601,
         path: '/s1',
         dir: '/dir1',
         started_at: '2024-01-01T00:00:00Z'
@@ -141,7 +138,6 @@ describe('state', () => {
       addSession({
         name: 'session-2',
         pid: 1002,
-        port: 7602,
         path: '/s2',
         dir: '/dir2',
         started_at: '2024-01-01T00:00:00Z'
@@ -159,7 +155,6 @@ describe('state', () => {
       addSession({
         name: 'my-project',
         pid: 1001,
-        port: 7601,
         path: '/my-project',
         dir: '/home/user/my-project',
         started_at: '2024-01-01T00:00:00Z'
@@ -171,73 +166,21 @@ describe('state', () => {
     });
   });
 
-  describe('getNextPort', () => {
-    test('returns base_port + 1 when no sessions', async () => {
-      const { getNextPort } = await import('./state.js');
-
-      const port = getNextPort(7600);
-
-      expect(port).toBe(7601);
-    });
-
-    test('returns next available port when sessions exist', async () => {
-      const { addSession, getNextPort } = await import('./state.js');
-
-      addSession({
-        name: 'session-1',
-        pid: 1001,
-        port: 7601,
-        path: '/s1',
-        dir: '/dir1',
-        started_at: '2024-01-01T00:00:00Z'
-      });
-
-      const port = getNextPort(7600);
-
-      expect(port).toBe(7602);
-    });
-
-    test('skips used ports', async () => {
-      const { addSession, getNextPort } = await import('./state.js');
-
-      addSession({
-        name: 'session-1',
-        pid: 1001,
-        port: 7601,
-        path: '/s1',
-        dir: '/dir1',
-        started_at: '2024-01-01T00:00:00Z'
-      });
-      addSession({
-        name: 'session-2',
-        pid: 1002,
-        port: 7602,
-        path: '/s2',
-        dir: '/dir2',
-        started_at: '2024-01-01T00:00:00Z'
-      });
-
-      const port = getNextPort(7600);
-
-      expect(port).toBe(7603);
-    });
-  });
-
   describe('getNextPath', () => {
     test('combines base path and name', async () => {
       const { getNextPath } = await import('./state.js');
 
-      const path = getNextPath('/ttyd-mux', 'my-session');
+      const path = getNextPath('/bunterm', 'my-session');
 
-      expect(path).toBe('/ttyd-mux/my-session');
+      expect(path).toBe('/bunterm/my-session');
     });
 
     test('normalizes multiple slashes', async () => {
       const { getNextPath } = await import('./state.js');
 
-      const path = getNextPath('/ttyd-mux/', '/my-session');
+      const path = getNextPath('/bunterm/', '/my-session');
 
-      expect(path).toBe('/ttyd-mux/my-session');
+      expect(path).toBe('/bunterm/my-session');
     });
   });
 });

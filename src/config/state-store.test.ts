@@ -10,7 +10,7 @@ describe('createInMemoryStateStore', () => {
 
     test('getSocketPath returns test socket path', () => {
       const store = createInMemoryStateStore();
-      expect(store.getSocketPath()).toBe('/tmp/test-state/ttyd-mux.sock');
+      expect(store.getSocketPath()).toBe('/tmp/test-state/bunterm.sock');
     });
   });
 
@@ -29,7 +29,6 @@ describe('createInMemoryStateStore', () => {
           {
             name: 'test',
             pid: 456,
-            port: 7601,
             path: '/test',
             dir: '/home',
             started_at: '2024-01-01'
@@ -57,7 +56,6 @@ describe('createInMemoryStateStore', () => {
       state1.sessions.push({
         name: 'modified',
         pid: 1,
-        port: 1,
         path: '/',
         dir: '/',
         started_at: ''
@@ -94,7 +92,6 @@ describe('createInMemoryStateStore', () => {
       store.addSession({
         name: 'test',
         pid: 123,
-        port: 7601,
         path: '/test',
         dir: '/home',
         started_at: '2024-01-01'
@@ -108,7 +105,6 @@ describe('createInMemoryStateStore', () => {
       store.addSession({
         name: 'test',
         pid: 123,
-        port: 7601,
         path: '/test',
         dir: '/home',
         started_at: '2024-01-01'
@@ -116,7 +112,6 @@ describe('createInMemoryStateStore', () => {
       store.addSession({
         name: 'test',
         pid: 456,
-        port: 7602,
         path: '/test2',
         dir: '/home2',
         started_at: '2024-01-02'
@@ -130,7 +125,6 @@ describe('createInMemoryStateStore', () => {
       store.addSession({
         name: 'test',
         pid: 123,
-        port: 7601,
         path: '/test',
         dir: '/home',
         started_at: '2024-01-01'
@@ -150,7 +144,6 @@ describe('createInMemoryStateStore', () => {
       store.addSession({
         name: 'test',
         pid: 123,
-        port: 7601,
         path: '/test',
         dir: '/home/user/project',
         started_at: '2024-01-01'
@@ -168,74 +161,25 @@ describe('createInMemoryStateStore', () => {
       store.addSession({
         name: 'test',
         pid: 123,
-        port: 7601,
         path: '/test',
         dir: '/home',
         started_at: '2024-01-01'
       });
       const sessions = store.getAllSessions();
-      sessions.push({ name: 'modified', pid: 1, port: 1, path: '/', dir: '/', started_at: '' });
+      sessions.push({ name: 'modified', pid: 1, path: '/', dir: '/', started_at: '' });
       expect(store.getAllSessions().length).toBe(1);
     });
   });
 
   describe('utilities', () => {
-    test('getNextPort returns basePort + 1 when no sessions', () => {
-      const store = createInMemoryStateStore();
-      expect(store.getNextPort(7600)).toBe(7601);
-    });
-
-    test('getNextPort returns next available port', () => {
-      const store = createInMemoryStateStore();
-      store.addSession({
-        name: 'test1',
-        pid: 1,
-        port: 7601,
-        path: '/t1',
-        dir: '/d1',
-        started_at: ''
-      });
-      store.addSession({
-        name: 'test2',
-        pid: 2,
-        port: 7602,
-        path: '/t2',
-        dir: '/d2',
-        started_at: ''
-      });
-      expect(store.getNextPort(7600)).toBe(7603);
-    });
-
-    test('getNextPort skips used ports', () => {
-      const store = createInMemoryStateStore();
-      store.addSession({
-        name: 'test1',
-        pid: 1,
-        port: 7601,
-        path: '/t1',
-        dir: '/d1',
-        started_at: ''
-      });
-      store.addSession({
-        name: 'test2',
-        pid: 2,
-        port: 7603,
-        path: '/t2',
-        dir: '/d2',
-        started_at: ''
-      });
-      // 7602 is available, so it should return 7602
-      expect(store.getNextPort(7600)).toBe(7602);
-    });
-
     test('getNextPath constructs path from basePath and name', () => {
       const store = createInMemoryStateStore();
-      expect(store.getNextPath('/ttyd-mux', 'my-project')).toBe('/ttyd-mux/my-project');
+      expect(store.getNextPath('/bunterm', 'my-project')).toBe('/bunterm/my-project');
     });
 
     test('getNextPath normalizes double slashes', () => {
       const store = createInMemoryStateStore();
-      expect(store.getNextPath('/ttyd-mux/', 'my-project')).toBe('/ttyd-mux/my-project');
+      expect(store.getNextPath('/bunterm/', 'my-project')).toBe('/bunterm/my-project');
     });
   });
 
