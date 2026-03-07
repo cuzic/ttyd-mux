@@ -1,7 +1,7 @@
 /**
  * Toolbar Client Utilities Tests
  *
- * Note: Browser-specific functions (isMobileDevice, getSessionNameFromURL, bindClick)
+ * Note: Browser-specific functions (isMobileDevice, getSessionNameFromURL)
  * are tested via integration tests in the browser.
  * Unit tests here focus on pure functions.
  */

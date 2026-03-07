@@ -31,34 +31,6 @@ export function getSessionNameFromURL(basePath: string): string {
   return match?.[1] ?? '';
 }
 
-/** No-op function for null-safe returns */
-const noop = (): void => undefined;
-
-/**
- * Bind a click event handler to an element with preventDefault
- * @param element - The element to bind to (null-safe)
- * @param handler - The click handler function
- * @returns Cleanup function to remove the listener
- * @deprecated Use bindClickScoped with a Scope for automatic cleanup
- */
-export function bindClick(
-  element: HTMLElement | null,
-  handler: (e: MouseEvent) => void
-): () => void {
-  if (!element) {
-    return noop;
-  }
-
-  const wrappedHandler = (e: MouseEvent) => {
-    e.preventDefault();
-    handler(e);
-  };
-
-  element.addEventListener('click', wrappedHandler);
-
-  return () => element.removeEventListener('click', wrappedHandler);
-}
-
 /**
  * Bind a click event handler to an element with automatic cleanup via Scope.
  * @param scope - Scope for automatic cleanup

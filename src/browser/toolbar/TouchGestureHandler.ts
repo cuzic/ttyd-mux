@@ -97,20 +97,6 @@ export class TouchGestureHandler implements Mountable {
   }
 
   /**
-   * Setup all touch event handlers (legacy method)
-   * @deprecated Use mount(scope) instead for automatic cleanup
-   */
-  setup(): void {
-    // Create a temporary scope that is never closed (legacy behavior)
-    const scope = new (class {
-      add(d: () => void) {
-        return d;
-      }
-    })() as Scope;
-    this.mount(scope);
-  }
-
-  /**
    * Mount all touch event handlers to a scope for automatic cleanup
    */
   mount(scope: Scope): void {
