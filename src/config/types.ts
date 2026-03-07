@@ -242,6 +242,9 @@ export const DEFAULT_SENTRY_CONFIG: SentryConfig = {
 export const SessionBackendSchema = z.enum(['ttyd', 'native']);
 export type SessionBackend = z.infer<typeof SessionBackendSchema>;
 
+export const DaemonManagerSchema = z.enum(['direct', 'pm2']);
+export type DaemonManager = z.infer<typeof DaemonManagerSchema>;
+
 export const NativeTerminalConfigSchema = z.object({
   enabled: z.boolean().default(false),
   default_shell: z.string().default('/bin/bash'),
@@ -311,7 +314,8 @@ export const ConfigSchema = z.object({
   hostname: z.string().optional(),
   caddy_admin_api: z.string().default('http://localhost:2019'),
   tmux_mode: TmuxModeSchema.default('auto'),
-  session_backend: SessionBackendSchema.default('ttyd'),
+  session_backend: SessionBackendSchema.default('native'),
+  daemon_manager: DaemonManagerSchema.default('direct'),
   terminal_ui: TerminalUiConfigSchema.default(DEFAULT_TERMINAL_UI_CONFIG),
   notifications: NotificationConfigSchema.default(DEFAULT_NOTIFICATION_CONFIG),
   file_transfer: FileTransferConfigSchema.default(DEFAULT_FILE_TRANSFER_CONFIG),

@@ -1,7 +1,8 @@
-import { isAbsolute, resolve } from 'node:path';
+import { isAbsolute, resolve, dirname } from 'node:path';
 import { type StateStore, defaultStateStore } from '@/config/state-store.js';
 import { type ProcessRunner, defaultProcessRunner } from '@/utils/process-runner.js';
 import { type SocketClient, defaultSocketClient } from '@/utils/socket-client.js';
+import type { DaemonManager } from '@/config/types.js';
 
 const DAEMON_START_TIMEOUT = 5000;
 const DAEMON_STOP_TIMEOUT = 5000;
@@ -177,13 +178,117 @@ async function waitForDaemon(): Promise<boolean> {
 }
 
 /**
+ * Find the project root directory (where ecosystem.config.cjs is located)
+ */
+function findProjectRoot(): string {
+  // Try to find from current script location
+  const scriptPath = process.argv[1];
+  if (scriptPath) {
+    // Go up from src/index.ts or dist/index.js to project root
+    let dir = dirname(resolve(scriptPath));
+    for (let i = 0; i < 5; i++) {
+      const ecosystemPath = resolve(dir, 'ecosystem.config.cjs');
+      try {
+        if (require('node:fs').existsSync(ecosystemPath)) {
+          return dir;
+        }
+      } catch {
+        // Ignore
+      }
+      dir = dirname(dir);
+    }
+  }
+  // Fallback to cwd
+  return process.cwd();
+}
+
+/**
+ * Check if pm2 is available
+ */
+async function isPm2Available(): Promise<boolean> {
+  try {
+    const result = currentDeps.processRunner.spawnSync('pm2', ['--version'], {
+      stdio: 'pipe'
+    });
+    return result.status === 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if bunterm is managed by pm2
+ */
+async function isPm2Managing(): Promise<boolean> {
+  try {
+    const result = currentDeps.processRunner.spawnSync('pm2', ['jlist'], {
+      stdio: 'pipe'
+    });
+    if (result.status !== 0) return false;
+    const output = result.stdout?.toString() || '';
+    const processes = JSON.parse(output);
+    return processes.some((p: { name: string }) => p.name === 'bunterm');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Start daemon via pm2
+ */
+async function startWithPm2(): Promise<boolean> {
+  const projectRoot = findProjectRoot();
+  const ecosystemPath = resolve(projectRoot, 'ecosystem.config.cjs');
+
+  try {
+    const result = currentDeps.processRunner.spawnSync('pm2', ['start', ecosystemPath], {
+      stdio: 'pipe',
+      cwd: projectRoot
+    });
+    return result.status === 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Ensure daemon is running, starting it if necessary
  */
-export async function ensureDaemon(configPath?: string): Promise<void> {
+export async function ensureDaemon(configPath?: string, daemonManager?: DaemonManager): Promise<void> {
   if (await isDaemonRunning()) {
     return;
   }
 
+  // Use pm2 if configured
+  if (daemonManager === 'pm2') {
+    if (!(await isPm2Available())) {
+      throw new Error(
+        'pm2 is not installed. Install with: npm install -g pm2\n' +
+        'Or change daemon_manager to "direct" in config.yaml'
+      );
+    }
+
+    // Check if already managed by pm2 (might be stopped)
+    if (await isPm2Managing()) {
+      // Restart the pm2 process
+      currentDeps.processRunner.spawnSync('pm2', ['restart', 'bunterm'], { stdio: 'pipe' });
+    } else {
+      // Start fresh with pm2
+      if (!(await startWithPm2())) {
+        throw new Error('Failed to start daemon with pm2. Check pm2 logs: pm2 logs bunterm');
+      }
+    }
+
+    if (!(await waitForDaemon())) {
+      throw new Error(
+        `Failed to start daemon via pm2: timeout after ${DAEMON_START_TIMEOUT / 1000} seconds.\n` +
+        'Check pm2 logs: pm2 logs bunterm'
+      );
+    }
+    return;
+  }
+
+  // Direct mode (default)
   const { executable, args } = buildDaemonCommand(configPath);
 
   const child = currentDeps.processRunner.spawn(executable, args, {
@@ -196,7 +301,7 @@ export async function ensureDaemon(configPath?: string): Promise<void> {
 
   if (!(await waitForDaemon())) {
     throw new Error(
-      `Failed to start daemon: timeout after ${DAEMON_START_TIMEOUT / 1000} seconds.\n  Possible causes:\n    - Required commands (ttyd, tmux) not installed\n    - Port ${process.env['TTYD_MUX_DAEMON_PORT'] || 7680} already in use\n    - Permission issues with socket path\n  Run 'ttyd-mux doctor' to diagnose the problem.\n  Or start manually: ttyd-mux start -f`
+      `Failed to start daemon: timeout after ${DAEMON_START_TIMEOUT / 1000} seconds.\n  Possible causes:\n    - Required commands (ttyd, tmux) not installed\n    - Port ${process.env['TTYD_MUX_DAEMON_PORT'] || 7680} already in use\n    - Permission issues with socket path\n  Run 'bunterm doctor' to diagnose the problem.\n  Or start manually: bunterm start -f`
     );
   }
 }

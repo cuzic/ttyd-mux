@@ -19,7 +19,7 @@ export async function upCommand(options: UpOptions): Promise<void> {
   const shouldAttach = options.detach ? false : (options.attach ?? config.auto_attach);
 
   // Ensure daemon is running
-  await ensureDaemon(options.config);
+  await ensureDaemon(options.config, config.daemon_manager);
 
   try {
     const session = await apiStartSession(config, {

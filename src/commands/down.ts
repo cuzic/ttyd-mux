@@ -12,7 +12,7 @@ export async function downCommand(options: DownOptions): Promise<void> {
   const dir = process.cwd();
 
   // Ensure daemon is running
-  await ensureDaemon(options.config);
+  await ensureDaemon(options.config, config.daemon_manager);
 
   // Find session for current directory
   const sessions = await getSessions(config);

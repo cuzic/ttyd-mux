@@ -32,8 +32,10 @@ function getShareManager() {
  * Create a share link for a session
  */
 export async function shareCommand(sessionName: string, options: ShareOptions): Promise<void> {
+  const config = loadConfig();
+
   // Ensure daemon is running
-  await ensureDaemon();
+  await ensureDaemon(undefined, config.daemon_manager);
 
   // Check if session exists
   const session = getSession(sessionName);
