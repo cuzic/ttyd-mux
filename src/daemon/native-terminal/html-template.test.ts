@@ -8,14 +8,11 @@ import { generateNativeTerminalHtml } from './html-template.js';
 
 const createTestConfig = (): Config => ({
   base_path: '/bunterm',
-  base_port: 7600,
   daemon_port: 7680,
   listen_addresses: ['127.0.0.1'],
   listen_sockets: [],
   auto_attach: true,
   sessions: [],
-  proxy_mode: 'proxy',
-  session_backend: 'native',
   caddy_admin_api: 'http://localhost:2019',
   tmux_mode: 'auto',
   terminal_ui: {

@@ -11,15 +11,12 @@ import { NativeSessionManager } from './session-manager.js';
 
 // Test config
 const createTestConfig = (): Config => ({
-  base_path: '/ttyd-mux',
-  base_port: 7600,
+  base_path: '/bunterm',
   daemon_port: 7680,
   listen_addresses: ['127.0.0.1'],
   listen_sockets: [],
   auto_attach: true,
   sessions: [],
-  proxy_mode: 'proxy',
-  session_backend: 'native',
   caddy_admin_api: 'http://localhost:2019',
   tmux_mode: 'auto',
   terminal_ui: {
@@ -103,7 +100,7 @@ describe('NativeSessionManager', () => {
 
   describe('session path resolution', () => {
     test('getSessionByPath returns undefined when no sessions exist', () => {
-      expect(manager.getSessionByPath('/ttyd-mux/my-session')).toBeUndefined();
+      expect(manager.getSessionByPath('/bunterm/my-session')).toBeUndefined();
     });
   });
 
@@ -151,7 +148,7 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     const session = await manager.createSession({
       name: 'test-pty-session',
       dir: testDir,
-      path: '/ttyd-mux/test-pty-session'
+      path: '/bunterm/test-pty-session'
     });
 
     expect(session).toBeDefined();
@@ -164,14 +161,14 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     await manager.createSession({
       name: 'duplicate-session',
       dir: testDir,
-      path: '/ttyd-mux/duplicate-session'
+      path: '/bunterm/duplicate-session'
     });
 
     await expect(
       manager.createSession({
         name: 'duplicate-session',
         dir: testDir,
-        path: '/ttyd-mux/duplicate-session'
+        path: '/bunterm/duplicate-session'
       })
     ).rejects.toThrow('Session duplicate-session already exists');
   });
@@ -180,7 +177,7 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     await manager.createSession({
       name: 'get-session-test',
       dir: testDir,
-      path: '/ttyd-mux/get-session-test'
+      path: '/bunterm/get-session-test'
     });
 
     const session = manager.getSession('get-session-test');
@@ -192,10 +189,10 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     await manager.createSession({
       name: 'path-test-session',
       dir: testDir,
-      path: '/ttyd-mux/path-test-session'
+      path: '/bunterm/path-test-session'
     });
 
-    const session = manager.getSessionByPath('/ttyd-mux/path-test-session');
+    const session = manager.getSessionByPath('/bunterm/path-test-session');
     expect(session).toBeDefined();
     expect(session?.name).toBe('path-test-session');
   });
@@ -204,10 +201,10 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     await manager.createSession({
       name: 'ws-path-session',
       dir: testDir,
-      path: '/ttyd-mux/ws-path-session'
+      path: '/bunterm/ws-path-session'
     });
 
-    const session = manager.getSessionByPath('/ttyd-mux/ws-path-session/ws');
+    const session = manager.getSessionByPath('/bunterm/ws-path-session/ws');
     expect(session).toBeDefined();
     expect(session?.name).toBe('ws-path-session');
   });
@@ -216,7 +213,7 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     await manager.createSession({
       name: 'stop-test-session',
       dir: testDir,
-      path: '/ttyd-mux/stop-test-session'
+      path: '/bunterm/stop-test-session'
     });
 
     expect(manager.hasSession('stop-test-session')).toBe(true);
@@ -230,21 +227,21 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     await manager.createSession({
       name: 'list-test-session',
       dir: testDir,
-      path: '/ttyd-mux/list-test-session'
+      path: '/bunterm/list-test-session'
     });
 
     const sessions = manager.listSessions();
     expect(sessions).toHaveLength(1);
     expect(sessions[0].name).toBe('list-test-session');
     expect(sessions[0].dir).toBe(testDir);
-    expect(sessions[0].path).toBe('/ttyd-mux/list-test-session');
+    expect(sessions[0].path).toBe('/bunterm/list-test-session');
   });
 
   test('getSessionInfo returns session details', async () => {
     await manager.createSession({
       name: 'info-test-session',
       dir: testDir,
-      path: '/ttyd-mux/info-test-session',
+      path: '/bunterm/info-test-session',
       cols: 120,
       rows: 40
     });
@@ -261,13 +258,13 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     await manager.createSession({
       name: 'multi-session-1',
       dir: testDir,
-      path: '/ttyd-mux/multi-session-1'
+      path: '/bunterm/multi-session-1'
     });
 
     await manager.createSession({
       name: 'multi-session-2',
       dir: testDir,
-      path: '/ttyd-mux/multi-session-2'
+      path: '/bunterm/multi-session-2'
     });
 
     expect(manager.sessionCount).toBe(2);
@@ -279,13 +276,13 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     await manager.createSession({
       name: 'stopall-1',
       dir: testDir,
-      path: '/ttyd-mux/stopall-1'
+      path: '/bunterm/stopall-1'
     });
 
     await manager.createSession({
       name: 'stopall-2',
       dir: testDir,
-      path: '/ttyd-mux/stopall-2'
+      path: '/bunterm/stopall-2'
     });
 
     expect(manager.sessionCount).toBe(2);

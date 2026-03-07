@@ -7,14 +7,13 @@ import { createSessionResolver } from './session-resolver.js';
 
 describe('SessionResolver', () => {
   const baseConfig: Config = {
-    base_path: '/ttyd-mux',
-    base_port: 7600,
+    base_path: '/bunterm',
     daemon_port: 7680,
     listen_addresses: ['127.0.0.1'],
     auto_attach: true,
     sessions: [
-      { name: 'config-session', dir: '/home/user/config', path: '/config', port_offset: 1 },
-      { name: 'another-session', dir: '/home/user/another', path: '/another', port_offset: 2 }
+      { name: 'config-session', dir: '/home/user/config', path: '/config' },
+      { name: 'another-session', dir: '/home/user/another', path: '/another' }
     ]
   };
 
@@ -32,7 +31,6 @@ describe('SessionResolver', () => {
       const session: SessionState = {
         name: 'test-session',
         pid: 1234,
-        port: 7601,
         path: '/test',
         dir: '/home/user/test',
         started_at: '2024-01-01T00:00:00Z'
@@ -55,7 +53,6 @@ describe('SessionResolver', () => {
       const session: SessionState = {
         name: 'test-session',
         pid: 1234,
-        port: 7601,
         path: '/test',
         dir: '/home/user/test',
         started_at: '2024-01-01T00:00:00Z'
@@ -78,7 +75,6 @@ describe('SessionResolver', () => {
       const session: SessionState = {
         name: 'test-session',
         pid: 1234,
-        port: 7601,
         path: '/test',
         dir: '/home/user/test',
         started_at: '2024-01-01T00:00:00Z'
@@ -86,7 +82,7 @@ describe('SessionResolver', () => {
       addSession(session);
 
       const resolver = createSessionResolver(baseConfig);
-      expect(resolver.byPath('/ttyd-mux/test/ws')).toEqual(session);
+      expect(resolver.byPath('/bunterm/test/ws')).toEqual(session);
     });
 
     test('finds session for exact path match', async () => {
@@ -94,7 +90,6 @@ describe('SessionResolver', () => {
       const session: SessionState = {
         name: 'test-session',
         pid: 1234,
-        port: 7601,
         path: '/test',
         dir: '/home/user/test',
         started_at: '2024-01-01T00:00:00Z'
@@ -102,12 +97,12 @@ describe('SessionResolver', () => {
       addSession(session);
 
       const resolver = createSessionResolver(baseConfig);
-      expect(resolver.byPath('/ttyd-mux/test')).toEqual(session);
+      expect(resolver.byPath('/bunterm/test')).toEqual(session);
     });
 
     test('returns null for non-matching path', () => {
       const resolver = createSessionResolver(baseConfig);
-      expect(resolver.byPath('/ttyd-mux/non-existent')).toBeNull();
+      expect(resolver.byPath('/bunterm/non-existent')).toBeNull();
     });
   });
 
@@ -131,7 +126,6 @@ describe('SessionResolver', () => {
       addSession({
         name: 'test',
         pid: 1234,
-        port: 7601,
         path: '/test',
         dir: '/test',
         started_at: '2024-01-01T00:00:00Z'
@@ -153,7 +147,6 @@ describe('SessionResolver', () => {
       addSession({
         name: 'session1',
         pid: 1234,
-        port: 7601,
         path: '/s1',
         dir: '/s1',
         started_at: '2024-01-01T00:00:00Z'
@@ -161,7 +154,6 @@ describe('SessionResolver', () => {
       addSession({
         name: 'session2',
         pid: 5678,
-        port: 7602,
         path: '/s2',
         dir: '/s2',
         started_at: '2024-01-01T00:00:00Z'

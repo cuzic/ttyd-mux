@@ -4,14 +4,12 @@ import { generateJsonResponse, generatePortalHtml } from './portal.js';
 
 describe('portal', () => {
   const baseConfig: Config = {
-    base_path: '/ttyd-mux',
-    base_port: 7600,
+    base_path: '/bunterm',
     daemon_port: 7680,
     listen_addresses: ['127.0.0.1'],
     listen_sockets: [],
     auto_attach: true,
     sessions: [],
-    proxy_mode: 'proxy',
     caddy_admin_api: 'http://localhost:2019',
     tmux_mode: 'auto',
     terminal_ui: {
@@ -61,9 +59,9 @@ describe('portal', () => {
       const html = generatePortalHtml(baseConfig, []);
 
       expect(html).toContain('<!DOCTYPE html>');
-      expect(html).toContain('<title>ttyd-mux</title>');
+      expect(html).toContain('<title>bunterm</title>');
       expect(html).toContain('No active sessions');
-      expect(html).toContain('ttyd-mux up');
+      expect(html).toContain('bunterm up');
     });
 
     test('generates HTML with sessions', () => {
@@ -71,7 +69,6 @@ describe('portal', () => {
         {
           name: 'test-session',
           pid: 12345,
-          port: 7601,
           path: '/test',
           dir: '/home/user/test',
           started_at: '2024-01-01T00:00:00Z'
@@ -81,8 +78,7 @@ describe('portal', () => {
       const html = generatePortalHtml(baseConfig, sessions);
 
       expect(html).toContain('test-session');
-      expect(html).toContain('/ttyd-mux/test/');
-      expect(html).toContain(':7601');
+      expect(html).toContain('/bunterm/test/');
       expect(html).toContain('/home/user/test');
       expect(html).not.toContain('No active sessions');
     });
@@ -92,7 +88,6 @@ describe('portal', () => {
         {
           name: 'seminar',
           pid: 12345,
-          port: 7601,
           path: '/seminar',
           dir: '/home/user/seminar',
           started_at: '2024-01-01T00:00:00Z'
@@ -101,7 +96,7 @@ describe('portal', () => {
 
       const html = generatePortalHtml(baseConfig, sessions);
 
-      expect(html).toContain('href="/ttyd-mux/seminar/"');
+      expect(html).toContain('href="/bunterm/seminar/"');
     });
 
     test('escapes HTML in session names', () => {
@@ -109,7 +104,6 @@ describe('portal', () => {
         {
           name: '<script>alert("xss")</script>',
           pid: 12345,
-          port: 7601,
           path: '/test',
           dir: '/home/user/test',
           started_at: '2024-01-01T00:00:00Z'
@@ -129,7 +123,6 @@ describe('portal', () => {
         {
           name: 'test',
           pid: 12345,
-          port: 7601,
           path: '/test',
           dir: '/home/<user>/test',
           started_at: '2024-01-01T00:00:00Z'
@@ -146,7 +139,6 @@ describe('portal', () => {
         {
           name: 'session-1',
           pid: 12345,
-          port: 7601,
           path: '/s1',
           dir: '/home/user/s1',
           started_at: '2024-01-01T00:00:00Z'
@@ -154,7 +146,6 @@ describe('portal', () => {
         {
           name: 'session-2',
           pid: 12346,
-          port: 7602,
           path: '/s2',
           dir: '/home/user/s2',
           started_at: '2024-01-01T00:00:00Z'
@@ -162,7 +153,6 @@ describe('portal', () => {
         {
           name: 'session-3',
           pid: 12347,
-          port: 7603,
           path: '/s3',
           dir: '/home/user/s3',
           started_at: '2024-01-01T00:00:00Z'
@@ -174,9 +164,6 @@ describe('portal', () => {
       expect(html).toContain('session-1');
       expect(html).toContain('session-2');
       expect(html).toContain('session-3');
-      expect(html).toContain(':7601');
-      expect(html).toContain(':7602');
-      expect(html).toContain(':7603');
     });
 
     test('includes refresh link', () => {

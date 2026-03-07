@@ -29,7 +29,7 @@ describe('client HTTP API feature tests', () => {
         path: '/test',
         dir: '/home/user/test',
         started_at: '2024-01-01T00:00:00Z',
-        fullPath: '/ttyd-mux/test'
+        fullPath: '/bunterm/test'
       }
     ]
   };
@@ -43,7 +43,7 @@ describe('client HTTP API feature tests', () => {
     path: '/new',
     dir: '/home/user/new',
     started_at: '2024-01-01T00:00:00Z',
-    fullPath: '/ttyd-mux/new'
+    fullPath: '/bunterm/new'
   };
 
   // Route handlers for mock server
@@ -54,23 +54,23 @@ describe('client HTTP API feature tests', () => {
     sessions: typeof mockSessions,
     newSession: typeof mockNewSession
   ): RouteHandler[] => [
-    // GET /ttyd-mux/api/status
+    // GET /bunterm/api/status
     (req, path) =>
-      path === '/ttyd-mux/api/status' && req.method === 'GET' ? Response.json(status) : null,
+      path === '/bunterm/api/status' && req.method === 'GET' ? Response.json(status) : null,
 
-    // GET /ttyd-mux/api/sessions
+    // GET /bunterm/api/sessions
     (req, path) =>
-      path === '/ttyd-mux/api/sessions' && req.method === 'GET' ? Response.json(sessions) : null,
+      path === '/bunterm/api/sessions' && req.method === 'GET' ? Response.json(sessions) : null,
 
-    // POST /ttyd-mux/api/sessions
+    // POST /bunterm/api/sessions
     (req, path) =>
-      path === '/ttyd-mux/api/sessions' && req.method === 'POST'
+      path === '/bunterm/api/sessions' && req.method === 'POST'
         ? Response.json(newSession, { status: 201 })
         : null,
 
-    // DELETE /ttyd-mux/api/sessions/:name
+    // DELETE /bunterm/api/sessions/:name
     (req, path) => {
-      if (!path.startsWith('/ttyd-mux/api/sessions/') || req.method !== 'DELETE') {
+      if (!path.startsWith('/bunterm/api/sessions/') || req.method !== 'DELETE') {
         return null;
       }
       const name = decodeURIComponent(path.split('/').pop() ?? '');
@@ -79,9 +79,9 @@ describe('client HTTP API feature tests', () => {
         : Response.json({ success: true });
     },
 
-    // POST /ttyd-mux/api/shutdown
+    // POST /bunterm/api/shutdown
     (req, path) =>
-      path === '/ttyd-mux/api/shutdown' && req.method === 'POST'
+      path === '/bunterm/api/shutdown' && req.method === 'POST'
         ? Response.json({ success: true })
         : null
   ];
@@ -120,13 +120,11 @@ describe('client HTTP API feature tests', () => {
   });
 
   const testConfig: Config = {
-    base_path: '/ttyd-mux',
-    base_port: 7600,
+    base_path: '/bunterm',
     daemon_port: 7680, // Will be overridden by getDaemonState
     listen_addresses: ['127.0.0.1'],
     auto_attach: true,
     sessions: [],
-    proxy_mode: 'proxy',
     caddy_admin_api: 'http://localhost:2019',
     tmux_mode: 'auto'
   };
@@ -161,7 +159,7 @@ describe('client HTTP API feature tests', () => {
 
       expect(session.name).toBe('new-session');
       expect(session.port).toBe(7602);
-      expect(session.fullPath).toBe('/ttyd-mux/new');
+      expect(session.fullPath).toBe('/bunterm/new');
     });
   });
 

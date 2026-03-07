@@ -37,8 +37,7 @@ describe('client', () => {
   describe('API request building', () => {
     test('constructs correct URL', () => {
       const config = {
-        base_path: '/ttyd-mux',
-        base_port: 7600,
+        base_path: '/bunterm',
         daemon_port: 7680
       };
 
@@ -46,7 +45,7 @@ describe('client', () => {
       const path = '/api/sessions';
       const fullUrl = `${baseUrl}${config.base_path}${path}`;
 
-      expect(fullUrl).toBe('http://localhost:7680/ttyd-mux/api/sessions');
+      expect(fullUrl).toBe('http://localhost:7680/bunterm/api/sessions');
     });
 
     test('encodes session name in URL', () => {
