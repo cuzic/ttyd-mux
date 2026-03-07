@@ -9,6 +9,10 @@ const TRAILING_SLASH_REGEX = /\/$/;
 
 function getConfigPaths(): string[] {
   return [
+    join(process.cwd(), 'bunterm.yaml'),
+    join(process.cwd(), '.bunterm.yaml'),
+    join(homedir(), '.config', 'bunterm', 'config.yaml'),
+    // Legacy paths for backward compatibility
     join(process.cwd(), 'ttyd-mux.yaml'),
     join(process.cwd(), '.ttyd-mux.yaml'),
     join(homedir(), '.config', 'ttyd-mux', 'config.yaml')

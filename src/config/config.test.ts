@@ -22,13 +22,19 @@ describe('config', () => {
   });
 
   describe('loadConfig', () => {
-    test('returns default config when no config path provided', () => {
-      // loadConfig() without argument should return defaults if no config file found
-      const config = loadConfig();
+    test('uses zod defaults for missing fields', () => {
+      // Test that zod defaults are applied for fields not in config file
+      const configPath = join(TEST_CONFIG_DIR, 'minimal.yaml');
+      writeFileSync(configPath, 'base_path: /custom\n');
 
-      expect(config.base_path).toBe('/ttyd-mux');
+      const config = loadConfig(configPath);
+
+      // Custom value from file
+      expect(config.base_path).toBe('/custom');
+      // Default values from zod schema
       expect(config.base_port).toBe(7600);
       expect(config.daemon_port).toBe(7680);
+      expect(config.daemon_manager).toBe('direct');
     });
 
     test('throws when specified config file does not exist', () => {

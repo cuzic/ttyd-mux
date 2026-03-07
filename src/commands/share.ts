@@ -51,7 +51,6 @@ export async function shareCommand(sessionName: string, options: ShareOptions): 
   });
 
   // Generate URL
-  const config = loadConfig();
   const hostname = config.hostname ?? `localhost:${config.daemon_port}`;
   const protocol = config.hostname ? 'https' : 'http';
   const url = `${protocol}://${hostname}${config.base_path}/share/${share.token}`;
