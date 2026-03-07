@@ -1,4 +1,3 @@
-import { getFullPath } from '@/config/config.js';
 import type { Config, SessionState } from '@/config/types.js';
 
 export interface CaddyfileOptions {
@@ -8,14 +7,15 @@ export interface CaddyfileOptions {
 
 export function generateCaddyfileSnippet(
   config: Config,
-  sessions: SessionState[],
+  _sessions: SessionState[],
   options: CaddyfileOptions
 ): string {
   const { hostname, portalDir } = options;
   const basePath = config.base_path;
+  const daemonPort = config.daemon_port;
 
   const lines: string[] = [
-    `# ttyd-mux static mode configuration for ${hostname}`,
+    `# bunterm configuration for ${hostname}`,
     `# Generated at ${new Date().toISOString()}`,
     '# Add this inside your site block in Caddyfile',
     '',
@@ -30,35 +30,29 @@ export function generateCaddyfileSnippet(
     '    rewrite * /index.html',
     `    root * ${portalDir}`,
     '    file_server',
+    '}',
+    '',
+    '# All session traffic proxied through daemon',
+    `handle ${basePath}/* {`,
+    `    reverse_proxy localhost:${daemonPort}`,
     '}'
   ];
-
-  if (sessions.length > 0) {
-    lines.push('', '# Session routes (direct to ttyd)');
-
-    for (const session of sessions) {
-      const fullPath = getFullPath(config, session.path);
-      lines.push('', `# Session: ${session.name}`);
-      lines.push(`handle ${fullPath}/* {`);
-      lines.push(`    reverse_proxy localhost:${session.port}`);
-      lines.push('}');
-    }
-  }
 
   return lines.join('\n');
 }
 
 export function generateCaddyJson(
   config: Config,
-  sessions: SessionState[],
+  _sessions: SessionState[],
   options: CaddyfileOptions
 ): object {
   const { hostname, portalDir } = options;
   const basePath = config.base_path;
+  const daemonPort = config.daemon_port;
 
   const routes: object[] = [];
 
-  // Portal routes
+  // Portal routes (static HTML)
   routes.push({
     match: [{ host: [hostname], path: [basePath, `${basePath}/`] }],
     handle: [
@@ -67,19 +61,16 @@ export function generateCaddyJson(
     ]
   });
 
-  // Session routes
-  for (const session of sessions) {
-    const fullPath = getFullPath(config, session.path);
-    routes.push({
-      match: [{ host: [hostname], path: [`${fullPath}/*`] }],
-      handle: [
-        {
-          handler: 'reverse_proxy',
-          upstreams: [{ dial: `localhost:${session.port}` }]
-        }
-      ]
-    });
-  }
+  // All session traffic proxied through daemon
+  routes.push({
+    match: [{ host: [hostname], path: [`${basePath}/*`] }],
+    handle: [
+      {
+        handler: 'reverse_proxy',
+        upstreams: [{ dial: `localhost:${daemonPort}` }]
+      }
+    ]
+  });
 
   return { routes };
 }

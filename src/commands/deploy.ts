@@ -17,7 +17,7 @@ export interface DeployOptions {
 }
 
 function getDefaultDeployDir(): string {
-  return join(homedir(), '.local', 'share', 'ttyd-mux', 'deploy');
+  return join(homedir(), '.local', 'share', 'bunterm', 'deploy');
 }
 
 export async function deployCommand(options: DeployOptions): Promise<void> {
@@ -45,7 +45,7 @@ export async function deployCommand(options: DeployOptions): Promise<void> {
     sessions = getAllSessions();
   }
 
-  console.log('ttyd-mux deploy');
+  console.log('bunterm deploy');
   console.log('================');
   console.log('');
   console.log(`Hostname: ${hostname}`);
@@ -102,15 +102,15 @@ export async function deployCommand(options: DeployOptions): Promise<void> {
   console.log(`  cat ${caddyfilePath}`);
   console.log('');
   console.log('Option 2: Use Caddy Admin API');
-  console.log(`  ttyd-mux caddy setup --hostname ${hostname}`);
+  console.log(`  bunterm caddy setup --hostname ${hostname}`);
   console.log('');
 
   if (sessions.length > 0) {
     console.log('Sessions included:');
     for (const session of sessions) {
-      console.log(`  - ${session.name} (:${session.port})`);
+      console.log(`  - ${session.name}`);
     }
   } else {
-    console.log('Note: No sessions found. Start sessions with "ttyd-mux up" and run deploy again.');
+    console.log('Note: No sessions found. Start sessions with "bunterm up" and run deploy again.');
   }
 }

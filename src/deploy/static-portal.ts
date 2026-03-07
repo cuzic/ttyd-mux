@@ -15,7 +15,7 @@ export function generateStaticPortalHtml(config: Config, sessions: SessionState[
       return `      <li class="session">
         <a href="${fullPath}/" target="_blank">
           <span class="name">${escapeHtml(session.name)}</span>
-          <span class="info">:${session.port} - ${escapeHtml(session.dir)}</span>
+          <span class="info">${escapeHtml(session.dir)}</span>
         </a>
       </li>`;
     })
@@ -23,7 +23,7 @@ export function generateStaticPortalHtml(config: Config, sessions: SessionState[
 
   const noSessions =
     sessions.length === 0
-      ? '<p class="no-sessions">No active sessions. Use <code>ttyd-mux up</code> to start one, then run <code>ttyd-mux deploy</code> again.</p>'
+      ? '<p class="no-sessions">No active sessions. Use <code>bunterm up</code> to start one, then run <code>bunterm deploy</code> again.</p>'
       : '';
 
   const generatedAt = new Date().toISOString();
@@ -33,7 +33,7 @@ export function generateStaticPortalHtml(config: Config, sessions: SessionState[
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ttyd-mux</title>${generatePwaHead(basePath)}
+  <title>bunterm</title>${generatePwaHead(basePath)}
   <style>${portalStyles}
     .footer {
       margin-top: 2rem;
@@ -53,7 +53,7 @@ export function generateStaticPortalHtml(config: Config, sessions: SessionState[
   </style>
 </head>
 <body>
-  <h1>ttyd-mux <span class="mode-badge">static mode</span></h1>
+  <h1>bunterm <span class="mode-badge">static mode</span></h1>
   <p class="subtitle">Terminal Sessions</p>
   <ul>
 ${sessionItems}
@@ -61,7 +61,7 @@ ${sessionItems}
   ${noSessions}
   <div class="footer">
     <p>Static portal generated at ${generatedAt}</p>
-    <p>Run <code>ttyd-mux deploy</code> to update after session changes</p>
+    <p>Run <code>bunterm deploy</code> to update after session changes</p>
   </div>${generateSwRegistration(basePath)}
 </body>
 </html>

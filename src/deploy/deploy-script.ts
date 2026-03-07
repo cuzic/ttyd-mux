@@ -11,11 +11,11 @@ export function generateDeployScript(config: Config, options: DeployScriptOption
   const basePath = config.base_path;
 
   return `#!/bin/bash
-# ttyd-mux deploy script for static mode
+# bunterm deploy script for static mode
 # Generated at ${new Date().toISOString()}
 #
-# This script sets up Caddy routes for ttyd-mux static mode.
-# Run this after starting sessions with 'ttyd-mux up'.
+# This script sets up Caddy routes for bunterm static mode.
+# Run this after starting sessions with 'bunterm up'.
 
 set -e
 
@@ -24,14 +24,14 @@ HOSTNAME="${hostname}"
 BASE_PATH="${basePath}"
 CADDY_ADMIN_API="${caddyAdminApi}"
 
-echo "ttyd-mux deploy script"
+echo "bunterm deploy script"
 echo "======================"
 echo ""
 
 # Check if portal directory exists
 if [ ! -d "\$DEPLOY_DIR/portal" ]; then
     echo "Error: Portal directory not found at \$DEPLOY_DIR/portal"
-    echo "Run 'ttyd-mux deploy' first to generate deployment files."
+    echo "Run 'bunterm deploy' first to generate deployment files."
     exit 1
 fi
 
@@ -60,12 +60,12 @@ if [ -f "\$DEPLOY_DIR/caddy-routes.json" ]; then
     echo "Applying routes for \$HOSTNAME..."
 
     # Note: This is a basic implementation. For production use,
-    # you may want to use 'ttyd-mux caddy setup' or manually configure.
+    # you may want to use 'bunterm caddy setup' or manually configure.
     echo ""
     echo "Routes configuration saved to: \$DEPLOY_DIR/caddy-routes.json"
     echo ""
     echo "To apply manually, either:"
-    echo "1. Run: ttyd-mux caddy setup --hostname \$HOSTNAME"
+    echo "1. Run: bunterm caddy setup --hostname \$HOSTNAME"
     echo "2. Add the snippet from \$DEPLOY_DIR/Caddyfile.snippet to your Caddyfile"
 else
     echo "Warning: caddy-routes.json not found"
