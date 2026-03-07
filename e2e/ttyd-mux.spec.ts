@@ -34,7 +34,6 @@ function createTestConfig(daemonPort: number): string {
   const configContent = `
 daemon_port: ${daemonPort}
 base_path: ${BASE_PATH}
-base_port: 17600
 `;
   writeFileSync(configPath, configContent);
   return configPath;
@@ -1150,7 +1149,6 @@ test.describe('Directory Browser', () => {
     const configContent = `
 daemon_port: ${port}
 base_path: ${BASE_PATH}
-base_port: 17600
 directory_browser:
   enabled: true
   allowed_directories:
@@ -1405,7 +1403,6 @@ test.describe('Native Terminal Mode', () => {
     const configContent = `
 daemon_port: ${port}
 base_path: ${BASE_PATH}
-base_port: 17600
 session_backend: native
 tmux_mode: none
 native_terminal:

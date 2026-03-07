@@ -30,7 +30,6 @@ function createNativeTerminalConfig(port: number, useTmux = false): string {
   const configContent = `
 daemon_port: ${port}
 base_path: ${BASE_PATH}
-base_port: 18600
 session_backend: native
 tmux_mode: ${useTmux ? 'attach' : 'none'}
 native_terminal:
@@ -476,7 +475,6 @@ test.describe('Touch Gestures with tmux', () => {
     const configContent = `
 daemon_port: ${daemonPort}
 base_path: ${BASE_PATH}
-base_port: 18700
 session_backend: native
 tmux_mode: attach
 native_terminal:

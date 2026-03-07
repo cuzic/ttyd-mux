@@ -35,7 +35,6 @@ function createConfig(port: number): string {
   const configContent = `
 daemon_port: ${port}
 base_path: ${BASE_PATH}
-base_port: 18900
 session_backend: native
 tmux_mode: none
 native_terminal:
