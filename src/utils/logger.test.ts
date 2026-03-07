@@ -18,11 +18,8 @@ describe('logger', () => {
     originalConsoleLog = console.log;
     originalConsoleWarn = console.warn;
     originalConsoleError = console.error;
-    // biome-ignore lint/suspicious/noEmptyBlockStatements: mock needs empty function
     consoleLogMock = mock(() => {});
-    // biome-ignore lint/suspicious/noEmptyBlockStatements: mock needs empty function
     consoleWarnMock = mock(() => {});
-    // biome-ignore lint/suspicious/noEmptyBlockStatements: mock needs empty function
     consoleErrorMock = mock(() => {});
     console.log = consoleLogMock;
     console.warn = consoleWarnMock;

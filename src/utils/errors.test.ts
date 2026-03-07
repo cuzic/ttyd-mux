@@ -73,7 +73,6 @@ describe('handleCliError', () => {
 
   beforeEach(() => {
     originalConsoleError = console.error;
-    // biome-ignore lint/suspicious/noEmptyBlockStatements: mock needs empty function
     consoleErrorMock = mock(() => {});
     console.error = consoleErrorMock;
   });
@@ -103,7 +102,6 @@ describe('withErrorHandling', () => {
 
   beforeEach(() => {
     originalConsoleError = console.error;
-    // biome-ignore lint/suspicious/noEmptyBlockStatements: mock needs empty function
     consoleErrorMock = mock(() => {});
     console.error = consoleErrorMock;
   });
