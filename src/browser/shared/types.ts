@@ -85,6 +85,16 @@ export interface TerminalUiConfig {
   sentry?: ClientSentryConfig;
   /** tmux mode: 'none' | 'auto' | 'new' | 'attach' */
   tmuxMode?: string;
+  /** Session name (provided by server in native terminal mode) */
+  sessionName?: string;
+  /** Session path (provided by server in native terminal mode) */
+  sessionPath?: string;
+  /** Whether this is a shared (read-only) view */
+  isShared?: boolean;
+  /** Whether this is native terminal mode */
+  isNativeTerminal?: boolean;
+  /** Current working directory of the session */
+  cwd?: string;
 }
 
 /** DOM element IDs for toolbar */

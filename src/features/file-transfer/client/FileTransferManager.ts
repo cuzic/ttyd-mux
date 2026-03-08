@@ -58,7 +58,8 @@ export class FileTransferManager implements Mountable {
 
   constructor(config: TerminalUiConfig) {
     this.config = config;
-    this.sessionName = getSessionNameFromURL(config.base_path);
+    // Use sessionName from config if available (server-provided), otherwise extract from URL
+    this.sessionName = config.sessionName || getSessionNameFromURL(config.base_path);
   }
 
   /**

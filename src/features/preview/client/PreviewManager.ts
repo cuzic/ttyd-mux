@@ -48,7 +48,8 @@ export class PreviewManager implements Mountable {
     this.config = config;
     this.pane = deps.pane;
     this.watcher = deps.watcher;
-    this.sessionName = getSessionNameFromURL(config.base_path);
+    // Use sessionName from config if available (server-provided), otherwise extract from URL
+    this.sessionName = config.sessionName || getSessionNameFromURL(config.base_path);
 
     // Listen for file changes
     this.watcher.onFileChange((event) => this.onFileChange(event));

@@ -85,10 +85,11 @@ export class ShareManager implements Mountable {
   }
 
   /**
-   * Get session name from URL
+   * Get session name from config or URL
    */
   private getSessionName(): string {
-    return getSessionNameFromURL(this.config.base_path);
+    // Use sessionName from config if available (server-provided), otherwise extract from URL
+    return this.config.sessionName || getSessionNameFromURL(this.config.base_path);
   }
 
   /**

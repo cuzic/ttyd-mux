@@ -418,6 +418,120 @@ test.describe('Preview Pane', () => {
 
     await expect(page.locator('#tui-preview-iframe')).toBeAttached();
   });
+
+  test('preview opens file selector on first click', async ({ page }) => {
+    await page.goto(getBaseUrl());
+    await waitForTerminalReady(page);
+    await ensureToolbarVisible(page);
+
+    // Click preview button
+    await page.click('#tui-preview');
+    await page.waitForTimeout(500);
+
+    // Should open file browser modal in preview select mode
+    await expect(page.locator('#tui-file-modal')).toBeVisible();
+
+    // Modal title should indicate preview mode
+    const title = await page.locator('#tui-file-modal-title').textContent();
+    console.log('File modal title:', title);
+  });
+
+  test('can select HTML file for preview', async ({ page }) => {
+    await page.goto(getBaseUrl());
+    await waitForTerminalReady(page);
+    await ensureToolbarVisible(page);
+
+    // Click preview button - this opens file selector
+    await page.click('#tui-preview');
+    await page.waitForTimeout(500);
+
+    // File modal should be visible
+    await expect(page.locator('#tui-file-modal')).toBeVisible();
+
+    // Wait for file list to load
+    await page.waitForTimeout(500);
+
+    // Check if index.html is in the list
+    const fileList = page.locator('#tui-file-list');
+    const hasIndexHtml = await fileList.locator('text=index.html').count();
+    console.log('Found index.html:', hasIndexHtml > 0);
+
+    if (hasIndexHtml > 0) {
+      // Click on index.html
+      await fileList.locator('text=index.html').click();
+      await page.waitForTimeout(500);
+
+      // Preview pane should be visible with content
+      await expect(page.locator('#tui-preview-pane')).toBeVisible();
+
+      // Check iframe src
+      const iframeSrc = await page.locator('#tui-preview-iframe').getAttribute('src');
+      console.log('Preview iframe src:', iframeSrc);
+      expect(iframeSrc).toContain('session=');
+      expect(iframeSrc).toContain('path=');
+    }
+  });
+
+  test('preview API returns correct response', async ({ page }) => {
+    await page.goto(getBaseUrl());
+    await waitForTerminalReady(page);
+
+    // Test the preview API endpoint directly
+    const response = await page.request.get(
+      `http://127.0.0.1:${daemonPort}${BASE_PATH}/api/preview/file?session=${sessionName}&path=index.html`
+    );
+
+    console.log('Preview API status:', response.status());
+    const text = await response.text();
+    console.log('Preview API response:', text.substring(0, 200));
+
+    expect(response.status()).toBe(200);
+    expect(text).toContain('<h1>Test Page</h1>');
+  });
+
+  test('file list API returns correct response', async ({ page }) => {
+    await page.goto(getBaseUrl());
+    await waitForTerminalReady(page);
+
+    // Test the file list API endpoint
+    const response = await page.request.get(
+      `http://127.0.0.1:${daemonPort}${BASE_PATH}/api/files/list?session=${sessionName}&path=.`
+    );
+
+    console.log('Files API status:', response.status());
+    const json = await response.json();
+    console.log('Files API response:', JSON.stringify(json).substring(0, 300));
+
+    expect(response.status()).toBe(200);
+    expect(json.files).toBeDefined();
+  });
+
+  test('debug: check session name extraction', async ({ page }) => {
+    await page.goto(getBaseUrl());
+    await waitForTerminalReady(page);
+
+    // Debug: check what session name is being extracted on client side
+    const sessionNameOnClient = await page.evaluate(() => {
+      const basePath = (window as any).__TERMINAL_UI_CONFIG__?.base_path;
+      const pathname = window.location.pathname;
+      console.log('basePath:', basePath);
+      console.log('pathname:', pathname);
+
+      // Extract session name
+      const normalizedBase = (basePath || '').replace(/^\/|\/$/g, '');
+      const pattern = new RegExp(`^/${normalizedBase}/([^/]+)`);
+      const match = pathname.match(pattern);
+      return {
+        basePath,
+        pathname,
+        normalizedBase,
+        match: match ? match[1] : null
+      };
+    });
+
+    console.log('Session name debug:', sessionNameOnClient);
+    expect(sessionNameOnClient.match).toBe(sessionName);
+  });
 });
 
 // ============================================================================

@@ -24,7 +24,8 @@ export class FileWatcherClient {
   private isSetup = false;
 
   constructor(config: TerminalUiConfig) {
-    this.sessionName = getSessionNameFromURL(config.base_path);
+    // Use sessionName from config if available (server-provided), otherwise extract from URL
+    this.sessionName = config.sessionName || getSessionNameFromURL(config.base_path);
   }
 
   /**
