@@ -582,7 +582,8 @@ async function handleApiRequest(
       name: s.name,
       windows: s.windows,
       created: s.created.toISOString(),
-      attached: s.attached
+      attached: s.attached,
+      cwd: s.cwd
     }));
 
     return new Response(

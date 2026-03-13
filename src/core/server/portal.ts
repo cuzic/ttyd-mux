@@ -267,12 +267,23 @@ function generateTmuxSessionsScript(basePath: string): string {
       btn.textContent = 'Connecting...';
 
       try {
+        // Get tmux session's current working directory
+        let dir = null;
+        try {
+          const cwdRes = await fetch(TMUX_API_BASE + '/api/tmux/sessions');
+          const cwdData = await cwdRes.json();
+          const sess = cwdData.sessions?.find(function(s) { return s.name === tmuxSessionName; });
+          dir = sess?.cwd || null;
+        } catch (e) {
+          console.warn('Failed to get tmux session cwd:', e);
+        }
+
         const res = await fetch(TMUX_API_BASE + '/api/sessions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: sessionName,
-            dir: '.',
+            dir: dir,  // Use tmux session's cwd, or null to use server's cwd
             tmuxSession: tmuxSessionName
           })
         });

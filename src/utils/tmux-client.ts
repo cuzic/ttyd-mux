@@ -13,9 +13,10 @@ export interface TmuxSession {
   windows: number;
   created: Date;
   attached: boolean;
+  cwd?: string;
 }
 
-const SESSION_FORMAT = '#{session_name}|#{session_windows}|#{session_created}|#{session_attached}';
+const SESSION_FORMAT = '#{session_name}|#{session_windows}|#{session_created}|#{session_attached}|#{pane_current_path}';
 
 /**
  * Valid session name pattern: alphanumeric, underscore, hyphen, dot (max 64 chars)
@@ -45,12 +46,13 @@ export function sanitizeSessionName(name: string): string {
 }
 
 function parseSessionLine(line: string): TmuxSession {
-  const [name = '', windows = '0', created = '0', attached] = line.split('|');
+  const [name = '', windows = '0', created = '0', attached, cwd] = line.split('|');
   return {
     name,
     windows: Number.parseInt(windows, 10),
     created: new Date(Number.parseInt(created, 10) * 1000),
-    attached: attached === '1'
+    attached: attached === '1',
+    cwd: cwd || undefined
   };
 }
 
