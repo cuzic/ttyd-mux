@@ -200,8 +200,7 @@ export const terminalUiHtml = `
     </div>
     <div id="tui-quote-tabs">
       <button class="tui-quote-tab active" data-tab="turns">Claude</button>
-      <button class="tui-quote-tab" data-tab="recentMd">Recent Md</button>
-      <button class="tui-quote-tab" data-tab="projectMd">Project *.md</button>
+      <button class="tui-quote-tab" data-tab="projectMd">*.md</button>
       <button class="tui-quote-tab" data-tab="plans">Plans</button>
       <button class="tui-quote-tab" data-tab="gitDiff">Git Diff</button>
     </div>
