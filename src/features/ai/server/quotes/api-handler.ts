@@ -215,6 +215,7 @@ export async function handleClaudeQuotesApi(
     const source = params.get('source');
     const filePath = params.get('path');
     const sessionName = params.get('session');
+    const isPreview = params.get('preview') === 'true';
 
     if (!source || !filePath) {
       return errorResponse('source and path parameters required', headers);
@@ -247,7 +248,8 @@ export async function handleClaudeQuotesApi(
 
     const fullContent = readFileSync(pathResult.targetPath, 'utf-8');
     const lines = fullContent.split('\n');
-    const maxLines = 200;
+    // Use 30 lines for preview, 200 for full content
+    const maxLines = isPreview ? 30 : 200;
     const truncated = lines.length > maxLines;
 
     return jsonResponse(

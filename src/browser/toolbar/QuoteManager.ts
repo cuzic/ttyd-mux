@@ -585,6 +585,26 @@ export class QuoteManager implements Mountable {
       content.appendChild(header);
       content.appendChild(meta);
 
+      // Add hover tooltip for file content preview (PC only)
+      if (!this.isMobile()) {
+        item.addEventListener('mouseenter', async (e) => {
+          const preview = await this.fetchFilePreview(source, file.path);
+          if (preview) {
+            this.showTooltip(this.formatFileTooltip(file.path, preview), e.clientX, e.clientY);
+          }
+        });
+
+        item.addEventListener('mousemove', (e) => {
+          if (this.tooltipElement?.style.display === 'block') {
+            this.showTooltip(this.tooltipElement.innerHTML, e.clientX, e.clientY);
+          }
+        });
+
+        item.addEventListener('mouseleave', () => {
+          this.hideTooltip();
+        });
+      }
+
       item.appendChild(checkbox);
       item.appendChild(content);
       container.appendChild(item);
@@ -667,6 +687,26 @@ export class QuoteManager implements Mountable {
           </span>
         </div>
       `;
+
+      // Add hover tooltip for diff preview (PC only)
+      if (!this.isMobile()) {
+        item.addEventListener('mouseenter', async (e) => {
+          const preview = await this.fetchGitDiffPreview(file.path);
+          if (preview) {
+            this.showTooltip(this.formatDiffTooltip(file.path, preview), e.clientX, e.clientY);
+          }
+        });
+
+        item.addEventListener('mousemove', (e) => {
+          if (this.tooltipElement?.style.display === 'block') {
+            this.showTooltip(this.tooltipElement.innerHTML, e.clientX, e.clientY);
+          }
+        });
+
+        item.addEventListener('mouseleave', () => {
+          this.hideTooltip();
+        });
+      }
 
       item.appendChild(checkbox);
       item.appendChild(content);
@@ -939,6 +979,96 @@ export class QuoteManager implements Mountable {
     const timeSection = `<div style="color: #666; font-size: 9px; margin-top: 4px;">${this.formatRelativeTime(turn.timestamp)}</div>`;
 
     return assistantSection + metaSection + timeSection;
+  }
+
+  /**
+   * Fetch file content preview (first N lines)
+   */
+  private async fetchFilePreview(source: string, path: string): Promise<string | null> {
+    const basePath = this.config.base_path;
+    const sessionName = this.getSessionName();
+
+    try {
+      const response = await fetch(
+        `${basePath}/api/claude-quotes/file-content?source=${source}&path=${encodeURIComponent(path)}&session=${encodeURIComponent(sessionName)}&preview=true`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        return data.content || null;
+      }
+    } catch (_error) {
+      // Ignore errors
+    }
+    return null;
+  }
+
+  /**
+   * Fetch git diff preview for a file
+   */
+  private async fetchGitDiffPreview(filePath: string): Promise<string | null> {
+    const basePath = this.config.base_path;
+    const sessionName = this.getSessionName();
+
+    try {
+      const response = await fetch(
+        `${basePath}/api/claude-quotes/git-diff-file?session=${encodeURIComponent(sessionName)}&path=${encodeURIComponent(filePath)}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        // Truncate to first 30 lines for preview
+        const lines = (data.diff || '').split('\n').slice(0, 30);
+        if (lines.length === 30) {
+          lines.push('...');
+        }
+        return lines.join('\n');
+      }
+    } catch (_error) {
+      // Ignore errors
+    }
+    return null;
+  }
+
+  /**
+   * Format file content for tooltip
+   */
+  private formatFileTooltip(path: string, content: string): string {
+    const truncated = content.length > 1000 ? content.slice(0, 1000) + '...' : content;
+    return `<div style="font-family: monospace; font-size: 11px; max-height: 400px; overflow: hidden;">
+      <div style="color: #00d9ff; margin-bottom: 4px; font-weight: bold;">${this.escapeHtml(path)}</div>
+      <div style="color: #e0e0e0; white-space: pre-wrap;">${this.escapeHtml(truncated)}</div>
+    </div>`;
+  }
+
+  /**
+   * Format diff for tooltip
+   */
+  private formatDiffTooltip(path: string, diff: string): string {
+    // Apply simple diff coloring
+    const coloredDiff = diff
+      .split('\n')
+      .map((line) => {
+        if (line.startsWith('+') && !line.startsWith('+++')) {
+          return `<span style="color: #4caf50;">${this.escapeHtml(line)}</span>`;
+        } else if (line.startsWith('-') && !line.startsWith('---')) {
+          return `<span style="color: #f44336;">${this.escapeHtml(line)}</span>`;
+        } else if (line.startsWith('@@')) {
+          return `<span style="color: #00d9ff;">${this.escapeHtml(line)}</span>`;
+        }
+        return this.escapeHtml(line);
+      })
+      .join('\n');
+
+    return `<div style="font-family: monospace; font-size: 11px; max-height: 400px; overflow: hidden;">
+      <div style="color: #00d9ff; margin-bottom: 4px; font-weight: bold;">${this.escapeHtml(path)}</div>
+      <div style="white-space: pre-wrap;">${coloredDiff}</div>
+    </div>`;
+  }
+
+  /**
+   * Check if running on mobile device
+   */
+  private isMobile(): boolean {
+    return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   }
 
   /**

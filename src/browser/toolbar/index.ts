@@ -29,7 +29,6 @@ import { DebugPanel } from './DebugPanel.js';
 import { FontSizeManager } from './FontSizeManager.js';
 import { InputHandler } from './InputHandler.js';
 import { LayoutManager } from './LayoutManager.js';
-import { LinkManager } from './LinkManager.js';
 import { ModifierKeyState } from './ModifierKeyState.js';
 import { QuoteManager } from './QuoteManager.js';
 import { SearchManager } from './SearchManager.js';
@@ -55,7 +54,6 @@ class ToolbarApp {
   private modifiers: ModifierKeyState;
   private input: InputHandler;
   private search: SearchManager;
-  private link: LinkManager;
   private notifications: NotificationManager;
   private share: ShareManager;
   private snippet: SnippetManager;
@@ -87,7 +85,6 @@ class ToolbarApp {
     this.modifiers = new ModifierKeyState();
     this.input = new InputHandler(this.ws, this.modifiers);
     this.search = new SearchManager(() => this.terminal.findTerminal());
-    this.link = new LinkManager(() => this.terminal.findTerminal());
     this.notifications = new NotificationManager(config);
     this.snippet = new SnippetManager(this.input);
     this.clipboardHistory = new ClipboardHistoryManager(this.input);
@@ -331,10 +328,9 @@ class ToolbarApp {
     this.layout.mount(this.scope);
 
     // Setup bell handler (emits 'notification:bell' via EventBus)
-    // and initialize link addon for clickable URLs
+    // Note: WebLinksAddon is already loaded in xterm-bundle.ts, no need to initialize LinkManager
     setTimeout(() => {
       this.terminal.setupBellHandler();
-      this.link.initialize();
     }, 1000);
 
     // Subscribe to EventBus events
