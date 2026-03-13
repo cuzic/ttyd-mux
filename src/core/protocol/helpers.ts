@@ -71,6 +71,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
           return { type: 'unwatchDir', path: parsed.path };
         }
         break;
+      case 'replayRequest':
+        return { type: 'replayRequest' };
     }
     return null;
   } catch {
