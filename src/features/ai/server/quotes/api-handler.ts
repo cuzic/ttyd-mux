@@ -79,6 +79,37 @@ export async function handleClaudeQuotesApi(
     }
   }
 
+  // GET /api/claude-quotes/recent-markdown (must be before /recent to avoid prefix match)
+  if (apiPath.startsWith('/claude-quotes/recent-markdown') && method === 'GET') {
+    const sessionName = params.get('session');
+    const count = Math.min(Number.parseInt(params.get('count') ?? '20', 10), 50);
+    const hours = Math.min(Number.parseInt(params.get('hours') ?? '24', 10), 168); // max 1 week
+
+    if (!sessionName) {
+      return errorResponse('session parameter required', headers);
+    }
+
+    const session = sessionManager.getSession(sessionName);
+    if (!session) {
+      return jsonResponse({ error: 'Session not found', files: [] }, headers);
+    }
+
+    try {
+      const cutoffTime = Date.now() - hours * 60 * 60 * 1000;
+      const allFiles = collectMdFiles(session.cwd, session.cwd, {
+        excludeDirs: ['node_modules', '.git', 'dist', 'build', 'coverage', '.next', '__pycache__'],
+        maxDepth: 10 // Deeper search for recent files
+      });
+      const files = allFiles
+        .filter((f) => new Date(f.modifiedAt).getTime() > cutoffTime)
+        .sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime())
+        .slice(0, count);
+      return jsonResponse({ files }, headers);
+    } catch (error) {
+      return errorResponse(String(error), headers, 500);
+    }
+  }
+
   // GET /api/claude-quotes/recent
   if (apiPath.startsWith('/claude-quotes/recent') && method === 'GET') {
     const claudeSessionId = params.get('claudeSessionId');

@@ -17,7 +17,7 @@ import type {
 } from '@/features/ai/server/quotes/types.js';
 
 // Types
-type QuoteTab = 'turns' | 'projectMd' | 'plans' | 'gitDiff';
+type QuoteTab = 'turns' | 'recentMd' | 'projectMd' | 'plans' | 'gitDiff';
 
 interface QuoteElements {
   modal: HTMLElement;
@@ -43,6 +43,7 @@ export class QuoteManager implements Mountable {
   private claudeSessions: ClaudeSessionInfo[] = [];
   private selectedClaudeSession: ClaudeSessionInfo | null = null;
   private turns: ClaudeTurnSummary[] = [];
+  private recentMarkdown: MarkdownFile[] = [];
   private projectMarkdown: MarkdownFile[] = [];
   private plans: MarkdownFile[] = [];
   private gitDiff: GitDiffResponse | null = null;
@@ -284,6 +285,7 @@ export class QuoteManager implements Mountable {
     // Fetch all in parallel
     await Promise.all([
       this.fetchTurns(basePath),
+      this.fetchRecentMarkdown(basePath, sessionName),
       this.fetchProjectMarkdown(basePath, sessionName),
       this.fetchPlans(basePath),
       this.fetchGitDiff(basePath, sessionName)
@@ -344,6 +346,23 @@ export class QuoteManager implements Mountable {
       }
     } catch (_error) {
       this.turns = [];
+    }
+  }
+
+  /**
+   * Fetch recently modified markdown files (last 24 hours)
+   */
+  private async fetchRecentMarkdown(basePath: string, sessionName: string): Promise<void> {
+    try {
+      const response = await fetch(
+        `${basePath}/api/claude-quotes/recent-markdown?session=${encodeURIComponent(sessionName)}&count=20&hours=24`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        this.recentMarkdown = data.files || [];
+      }
+    } catch (_error) {
+      this.recentMarkdown = [];
     }
   }
 
@@ -409,6 +428,9 @@ export class QuoteManager implements Mountable {
     switch (this.activeTab) {
       case 'turns':
         this.renderTurns(list);
+        break;
+      case 'recentMd':
+        this.renderMarkdownFiles(list, this.recentMarkdown, 'recent');
         break;
       case 'projectMd':
         this.renderMarkdownFiles(list, this.projectMarkdown, 'project');
@@ -544,10 +566,15 @@ export class QuoteManager implements Mountable {
   private renderMarkdownFiles(
     container: HTMLElement,
     files: MarkdownFile[],
-    source: 'project' | 'plans'
+    source: 'recent' | 'project' | 'plans'
   ): void {
     if (files.length === 0) {
-      container.innerHTML = `<div class="tui-quote-empty">${source === 'project' ? 'プロジェクト内' : ''}マークダウンファイルが見つかりません</div>`;
+      const emptyMessages: Record<string, string> = {
+        recent: '最近更新されたマークダウンファイルがありません（24時間以内）',
+        project: 'プロジェクト内マークダウンファイルが見つかりません',
+        plans: 'マークダウンファイルが見つかりません'
+      };
+      container.innerHTML = `<div class="tui-quote-empty">${emptyMessages[source]}</div>`;
       return;
     }
 
@@ -761,6 +788,9 @@ export class QuoteManager implements Mountable {
       case 'turns':
         this.selectedTurnUuids = new Set(this.turns.map((t) => t.uuid));
         break;
+      case 'recentMd':
+        this.recentMarkdown.forEach((f) => this.selectedFilePaths.add(`recent:${f.path}`));
+        break;
       case 'projectMd':
         this.projectMarkdown.forEach((f) => this.selectedFilePaths.add(`project:${f.path}`));
         break;
@@ -784,6 +814,14 @@ export class QuoteManager implements Mountable {
     switch (this.activeTab) {
       case 'turns':
         this.selectedTurnUuids.clear();
+        break;
+      case 'recentMd':
+        // Only clear recent files
+        for (const key of [...this.selectedFilePaths]) {
+          if (key.startsWith('recent:')) {
+            this.selectedFilePaths.delete(key);
+          }
+        }
         break;
       case 'projectMd':
         // Only clear project files
@@ -867,14 +905,22 @@ export class QuoteManager implements Mountable {
           const [source, ...pathParts] = key.split(':');
           const path = pathParts.join(':');
 
+          // 'recent' files use 'project' source for API
+          const apiSource = source === 'recent' ? 'project' : source;
+
           try {
             const response = await fetch(
-              `${basePath}/api/claude-quotes/file-content?source=${source}&path=${encodeURIComponent(path)}&session=${encodeURIComponent(sessionName)}`
+              `${basePath}/api/claude-quotes/file-content?source=${apiSource}&path=${encodeURIComponent(path)}&session=${encodeURIComponent(sessionName)}`
             );
             if (response.ok) {
               const data = await response.json();
 
-              parts.push(`## ${source === 'plans' ? 'Plan' : 'Project'}: ${path}\n`);
+              const headerLabels: Record<string, string> = {
+                recent: 'Recent',
+                project: 'Project',
+                plans: 'Plan'
+              };
+              parts.push(`## ${headerLabels[source] || source}: ${path}\n`);
               parts.push('```markdown');
               parts.push(data.content);
               if (data.truncated) {
