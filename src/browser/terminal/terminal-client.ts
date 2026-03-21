@@ -8,8 +8,9 @@
  * - Reconnection logic
  */
 
-import type { Terminal as XtermTerminal } from '@xterm/xterm';
 import { copyToClipboard } from '@/browser/shared/utils.js';
+import { match, P } from 'ts-pattern';
+import type { Terminal as XtermTerminal } from '@xterm/xterm';
 import { type Block, BlockManager } from './BlockManager.js';
 import { BlockRenderer } from './BlockRenderer.js';
 import { ClaudeBlockManager } from './ClaudeBlockManager.js';
@@ -150,7 +151,7 @@ interface TerminalWithCore extends XtermTerminal {
   };
 }
 
-export class TerminalClient {
+export class TerminalClient implements Disposable {
   private ws: WebSocket | null = null;
   private terminal: import('@xterm/xterm').Terminal | null = null;
   private fitAddon: import('@xterm/addon-fit').FitAddon | null = null;
@@ -177,11 +178,8 @@ export class TerminalClient {
   // File watcher callbacks
   private fileChangeListeners: Array<(path: string, timestamp: number) => void> = [];
 
-  // Window event listeners for cleanup
-  private resizeListener: (() => void) | null = null;
-  private orientationListener: (() => void) | null = null;
-  private viewportResizeListener: (() => void) | null = null;
-  private viewportScrollListener: (() => void) | null = null;
+  // Event listener cleanup stack
+  private readonly eventListeners = new DisposableStack();
 
   private readonly options: Required<TerminalClientOptions>;
 
@@ -311,20 +309,21 @@ export class TerminalClient {
       });
     };
 
-    // Store references for cleanup
-    this.resizeListener = scheduleFit;
-    this.orientationListener = scheduleFit;
-    window.addEventListener('resize', this.resizeListener, { passive: true });
+    // Register event listeners with automatic cleanup via DisposableStack
+    window.addEventListener('resize', scheduleFit, { passive: true });
+    this.eventListeners.defer(() => window.removeEventListener('resize', scheduleFit));
 
     // Handle orientation change on mobile
-    window.addEventListener('orientationchange', this.orientationListener, { passive: true });
+    window.addEventListener('orientationchange', scheduleFit, { passive: true });
+    this.eventListeners.defer(() => window.removeEventListener('orientationchange', scheduleFit));
 
     // Handle Visual Viewport changes (mobile keyboard, address bar)
     if (window.visualViewport) {
-      this.viewportResizeListener = scheduleFit;
-      this.viewportScrollListener = scheduleFit;
-      window.visualViewport.addEventListener('resize', this.viewportResizeListener, { passive: true });
-      window.visualViewport.addEventListener('scroll', this.viewportScrollListener, { passive: true });
+      const vv = window.visualViewport;
+      vv.addEventListener('resize', scheduleFit, { passive: true });
+      this.eventListeners.defer(() => vv.removeEventListener('resize', scheduleFit));
+      vv.addEventListener('scroll', scheduleFit, { passive: true });
+      this.eventListeners.defer(() => vv.removeEventListener('scroll', scheduleFit));
     }
 
     // Wait for fonts to load before fitting (font metrics can change)
@@ -681,108 +680,83 @@ export class TerminalClient {
     try {
       const message: ServerMessage = JSON.parse(data);
 
-      switch (message.type) {
-        case 'output':
-          if (message.data && this.terminal) {
-            // Decode Base64 data
-            const bytes = Uint8Array.from(atob(message.data), (c) => c.charCodeAt(0));
-            const decoder = new TextDecoder('utf-8', { fatal: false });
-            const text = decoder.decode(bytes);
-            this.terminal.write(text);
-          }
-          break;
-
-        case 'title':
-          if (message.title) {
-            document.title = message.title;
-          }
-          break;
-
-        case 'exit': {
-          this.terminal?.write(`\r\n\x1b[31m[Session exited with code ${message.code}]\x1b[0m\r\n`);
-          break;
-        }
-
-        case 'pong':
-          // Keep-alive response
-          break;
-
-        case 'error': {
-          this.terminal?.write(`\r\n\x1b[31m[Error: ${message.message}]\x1b[0m\r\n`);
-          break;
-        }
-
-        case 'bell':
-          // Trigger xterm.js bell (plays sound if configured, triggers onBell handlers)
+      match(message)
+        .with({ type: 'output', data: P.string }, ({ data }) => {
           if (this.terminal) {
-            // Write bell character to trigger xterm.js bell event
-            this.terminal.write('\x07');
+            const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+            const decoder = new TextDecoder('utf-8', { fatal: false });
+            this.terminal.write(decoder.decode(bytes));
           }
-          break;
-
-        case 'fileChange':
-          // Notify file change listeners
-          if (message.path) {
-            const timestamp =
-              typeof message.timestamp === 'number' ? message.timestamp : Date.now();
-            for (const listener of this.fileChangeListeners) {
-              try {
-                listener(message.path, timestamp);
-              } catch {
-                // Ignore listener errors
-              }
+        })
+        .with({ type: 'title', title: P.string }, ({ title }) => {
+          document.title = title;
+        })
+        .with({ type: 'exit' }, ({ code }) => {
+          this.terminal?.write(`\r\n\x1b[31m[Session exited with code ${code}]\x1b[0m\r\n`);
+        })
+        .with({ type: 'pong' }, () => {
+          // Keep-alive response
+        })
+        .with({ type: 'error' }, ({ message: msg }) => {
+          this.terminal?.write(`\r\n\x1b[31m[Error: ${msg}]\x1b[0m\r\n`);
+        })
+        .with({ type: 'bell' }, () => {
+          this.terminal?.write('\x07');
+        })
+        .with({ type: 'fileChange', path: P.string }, ({ path, timestamp }) => {
+          const ts = typeof timestamp === 'number' ? timestamp : Date.now();
+          for (const listener of this.fileChangeListeners) {
+            try {
+              listener(path, ts);
+            } catch {
+              // Ignore listener errors
             }
           }
-          break;
-
+        })
         // Block UI messages
-        case 'blockStart':
-          if (message.block) {
-            this.blockManager?.handleBlockStart(message.block);
+        .with({ type: 'blockStart', block: P.not(P.nullish) }, ({ block }) => {
+          this.blockManager?.handleBlockStart(block);
+        })
+        .with(
+          {
+            type: 'blockEnd',
+            blockId: P.string,
+            exitCode: P.number,
+            endedAt: P.string,
+            endLine: P.number
+          },
+          ({ blockId, exitCode, endedAt, endLine }) => {
+            this.blockManager?.handleBlockEnd(blockId, exitCode, endedAt, endLine);
           }
-          break;
-
-        case 'blockEnd':
-          if (
-            message.blockId &&
-            message.exitCode !== undefined &&
-            message.endedAt &&
-            message.endLine !== undefined
-          ) {
-            this.blockManager?.handleBlockEnd(
-              message.blockId,
-              message.exitCode,
-              message.endedAt,
-              message.endLine
+        )
+        .with({ type: 'blockOutput', blockId: P.string, data: P.string }, ({ blockId, data }) => {
+          this.blockManager?.handleBlockOutput(blockId, data);
+        })
+        .with({ type: 'blockList', blocks: P.array() }, ({ blocks }) => {
+          this.blockManager?.handleBlockList(blocks);
+        })
+        // Claude Watcher messages
+        .with(
+          {
+            type: P.union(
+              'claudeUserMessage',
+              'claudeAssistantText',
+              'claudeThinking',
+              'claudeToolUse',
+              'claudeToolResult',
+              'claudeSessionStart',
+              'claudeSessionEnd'
+            )
+          },
+          (msg) => {
+            this.claudeBlockManager?.handleMessage(
+              msg as Parameters<ClaudeBlockManager['handleMessage']>[0]
             );
           }
-          break;
-
-        case 'blockOutput':
-          if (message.blockId && message.data) {
-            this.blockManager?.handleBlockOutput(message.blockId, message.data);
-          }
-          break;
-
-        case 'blockList':
-          if (message.blocks) {
-            this.blockManager?.handleBlockList(message.blocks);
-          }
-          break;
-
-        // Claude Watcher messages
-        case 'claudeUserMessage':
-        case 'claudeAssistantText':
-        case 'claudeThinking':
-        case 'claudeToolUse':
-        case 'claudeToolResult':
-        case 'claudeSessionStart':
-        case 'claudeSessionEnd':
-          this.claudeBlockManager?.handleMessage(
-            message as Parameters<ClaudeBlockManager['handleMessage']>[0]
-          );
-          break;
-      }
+        )
+        .otherwise(() => {
+          // Unknown message type - ignore
+        });
     } catch (_error) {}
   }
 
@@ -1207,23 +1181,8 @@ export class TerminalClient {
 
     this.stopPing();
 
-    // Cleanup window event listeners
-    if (this.resizeListener) {
-      window.removeEventListener('resize', this.resizeListener);
-      this.resizeListener = null;
-    }
-    if (this.orientationListener) {
-      window.removeEventListener('orientationchange', this.orientationListener);
-      this.orientationListener = null;
-    }
-    if (this.viewportResizeListener && window.visualViewport) {
-      window.visualViewport.removeEventListener('resize', this.viewportResizeListener);
-      this.viewportResizeListener = null;
-    }
-    if (this.viewportScrollListener && window.visualViewport) {
-      window.visualViewport.removeEventListener('scroll', this.viewportScrollListener);
-      this.viewportScrollListener = null;
-    }
+    // Cleanup all event listeners via DisposableStack
+    this.eventListeners[Symbol.dispose]();
 
     // Cleanup block UI
     this.blockRenderer?.dispose();
@@ -1363,6 +1322,14 @@ export class TerminalClient {
         this.fileChangeListeners.splice(index, 1);
       }
     };
+  }
+
+  /**
+   * Dispose the terminal client.
+   * Implements Symbol.dispose for use with `using` declarations.
+   */
+  [Symbol.dispose](): void {
+    this.disconnect();
   }
 }
 
