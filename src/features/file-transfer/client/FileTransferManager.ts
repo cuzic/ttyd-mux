@@ -5,11 +5,14 @@
  * Uses the file transfer API endpoints for secure file operations.
  */
 
-import { type Mountable, type Scope, on } from '@/browser/shared/lifecycle.js';
+import { BaseModal } from '@/browser/shared/BaseModal.js';
+import { type Scope, on } from '@/browser/shared/lifecycle.js';
 import type { TerminalUiConfig } from '@/browser/shared/types.js';
 import {
   bindClickScoped,
   escapeHtml,
+  formatFileSize,
+  formatRelativeTime,
   getSessionNameFromURL,
   isPreviewable as isPreviewableUtil
 } from '@/browser/shared/utils.js';
@@ -50,7 +53,7 @@ export interface PreviewSelection {
   isDirectory: boolean;
 }
 
-export class FileTransferManager implements Mountable {
+export class FileTransferManager extends BaseModal {
   private config: TerminalUiConfig;
   private inputHandler: InputHandler | null = null;
   private elements: FileTransferElements | null = null;
@@ -60,6 +63,7 @@ export class FileTransferManager implements Mountable {
   private previewCallback: ((selection: PreviewSelection) => void) | null = null;
 
   constructor(config: TerminalUiConfig, inputHandler?: InputHandler) {
+    super({ backdropClose: true });
     this.config = config;
     this.inputHandler = inputHandler ?? null;
     // Use sessionName from config if available (server-provided), otherwise extract from URL
@@ -91,12 +95,15 @@ export class FileTransferManager implements Mountable {
       uploadInput,
       uploadBtn2
     };
+
+    // Bind modal to base class
+    this.bindModal(modal, modalClose);
   }
 
   /**
-   * Mount event listeners to scope for automatic cleanup
+   * Additional mount logic for FileTransferManager
    */
-  mount(scope: Scope): void {
+  protected onMount(scope: Scope): void {
     const { elements } = this;
     if (!elements) {
       return;
@@ -111,18 +118,6 @@ export class FileTransferManager implements Mountable {
     scope.add(
       on(elements.uploadBtn, 'click', () => {
         elements.uploadInput.click();
-      })
-    );
-
-    // Close modal
-    bindClickScoped(scope, elements.modalClose, () => this.hide());
-
-    // Close on backdrop click
-    scope.add(
-      on(elements.modal, 'click', (e: Event) => {
-        if (e.target === elements.modal) {
-          this.hide();
-        }
       })
     );
 
@@ -150,10 +145,10 @@ export class FileTransferManager implements Mountable {
   }
 
   /**
-   * Check if modal is visible
+   * Clear recent files and reset state when hiding
    */
-  isVisible(): boolean {
-    return this.elements?.modal ? !this.elements.modal.classList.contains('hidden') : false;
+  protected onHide(): void {
+    this.clearRecentFiles();
   }
 
   /**
@@ -167,8 +162,8 @@ export class FileTransferManager implements Mountable {
     this.previewMode = false;
     this.previewCallback = null;
     this.elements.modalTitle.textContent = 'ファイルブラウザ';
-    this.elements.modal.classList.remove('hidden');
     this.currentPath = '.';
+    this.show();
     await this.loadFileList();
   }
 
@@ -183,8 +178,8 @@ export class FileTransferManager implements Mountable {
     this.previewMode = true;
     this.previewCallback = callback;
     this.elements.modalTitle.textContent = 'プレビューするファイルまたはフォルダを選択';
-    this.elements.modal.classList.remove('hidden');
     this.currentPath = '.';
+    this.show();
 
     // Load recent files and file list in parallel
     await Promise.all([this.loadRecentFiles(), this.loadFileList()]);
@@ -273,7 +268,7 @@ export class FileTransferManager implements Mountable {
 
     const time = document.createElement('span');
     time.className = 'tui-recent-time';
-    time.textContent = this.formatRelativeTime(file.modifiedAt);
+    time.textContent = formatRelativeTime(file.modifiedAt);
 
     item.appendChild(left);
     item.appendChild(time);
@@ -289,45 +284,6 @@ export class FileTransferManager implements Mountable {
     });
 
     return item;
-  }
-
-  /**
-   * Format relative time (e.g., "2分前", "1時間前")
-   */
-  private formatRelativeTime(isoString: string): string {
-    const date = new Date(isoString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffSec = Math.floor(diffMs / 1000);
-    const diffMin = Math.floor(diffSec / 60);
-    const diffHour = Math.floor(diffMin / 60);
-    const diffDay = Math.floor(diffHour / 24);
-
-    if (diffSec < 60) {
-      return 'たった今';
-    }
-    if (diffMin < 60) {
-      return `${diffMin}分前`;
-    }
-    if (diffHour < 24) {
-      return `${diffHour}時間前`;
-    }
-    if (diffDay < 7) {
-      return `${diffDay}日前`;
-    }
-    // Show date for older files
-    return date.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' });
-  }
-
-  /**
-   * Hide the modal
-   */
-  hide(): void {
-    if (!this.elements) {
-      return;
-    }
-    this.elements.modal.classList.add('hidden');
-    this.clearRecentFiles();
   }
 
   /**
@@ -457,7 +413,7 @@ export class FileTransferManager implements Mountable {
 
     const size = document.createElement('span');
     size.className = 'tui-file-size';
-    size.textContent = file.isDirectory ? '' : this.formatSize(file.size);
+    size.textContent = file.isDirectory ? '' : formatFileSize(file.size);
 
     item.appendChild(icon);
     item.appendChild(name);
@@ -669,18 +625,5 @@ export class FileTransferManager implements Mountable {
       );
       return null;
     }
-  }
-
-  /**
-   * Format file size for display
-   */
-  private formatSize(bytes: number): string {
-    if (bytes === 0) {
-      return '0 B';
-    }
-    const units = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-    const size = bytes / 1024 ** i;
-    return `${size.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
   }
 }
