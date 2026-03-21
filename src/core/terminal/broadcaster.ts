@@ -60,12 +60,18 @@ export class ClientBroadcaster {
    */
   broadcast(message: ServerMessage): void {
     const serialized = serializeServerMessage(message);
+    const failedClients: NativeTerminalWebSocket[] = [];
     for (const ws of this.clients) {
       try {
         ws.send(serialized);
       } catch {
-        // Client disconnected - will be cleaned up later
+        // Client disconnected - mark for removal
+        failedClients.push(ws);
       }
+    }
+    // Remove failed clients
+    for (const ws of failedClients) {
+      this.clients.delete(ws);
     }
   }
 
@@ -73,12 +79,18 @@ export class ClientBroadcaster {
    * Broadcast raw serialized data to all connected clients
    */
   broadcastRaw(serialized: string): void {
+    const failedClients: NativeTerminalWebSocket[] = [];
     for (const ws of this.clients) {
       try {
         ws.send(serialized);
       } catch {
-        // Client disconnected
+        // Client disconnected - mark for removal
+        failedClients.push(ws);
       }
+    }
+    // Remove failed clients
+    for (const ws of failedClients) {
+      this.clients.delete(ws);
     }
   }
 

@@ -99,9 +99,6 @@ export class TouchGestureHandler implements Mountable {
   toggleScrollMode(): boolean {
     this.scrollActive = !this.scrollActive;
     this.scrollBtn?.classList.toggle('active', this.scrollActive);
-    if (this.scrollActive) {
-    } else {
-    }
     return this.scrollActive;
   }
 

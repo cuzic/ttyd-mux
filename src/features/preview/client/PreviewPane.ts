@@ -39,9 +39,42 @@ export class PreviewPane {
   private onError: PreviewErrorCallback | null = null;
   private onConsoleError: PreviewConsoleErrorCallback | null = null;
 
+  // Event listener references for cleanup
+  private messageListener: ((event: MessageEvent) => void) | null = null;
+  private mouseMoveListener: ((e: MouseEvent) => void) | null = null;
+  private touchMoveListener: ((e: TouchEvent) => void) | null = null;
+  private mouseUpListener: (() => void) | null = null;
+  private touchEndListener: (() => void) | null = null;
+
   constructor(defaultWidth = 400) {
     this.width = this.loadWidth() || defaultWidth;
     this.setupMessageListener();
+  }
+
+  /**
+   * Dispose of all event listeners
+   */
+  dispose(): void {
+    if (this.messageListener) {
+      window.removeEventListener('message', this.messageListener);
+      this.messageListener = null;
+    }
+    if (this.mouseMoveListener) {
+      document.removeEventListener('mousemove', this.mouseMoveListener);
+      this.mouseMoveListener = null;
+    }
+    if (this.touchMoveListener) {
+      document.removeEventListener('touchmove', this.touchMoveListener);
+      this.touchMoveListener = null;
+    }
+    if (this.mouseUpListener) {
+      document.removeEventListener('mouseup', this.mouseUpListener);
+      this.mouseUpListener = null;
+    }
+    if (this.touchEndListener) {
+      document.removeEventListener('touchend', this.touchEndListener);
+      this.touchEndListener = null;
+    }
   }
 
   /**
@@ -62,7 +95,7 @@ export class PreviewPane {
    * Setup postMessage listener for errors from iframe
    */
   private setupMessageListener(): void {
-    window.addEventListener('message', (event) => {
+    this.messageListener = (event: MessageEvent) => {
       // Only handle messages from our iframe
       if (!this.elements) {
         return;
@@ -78,7 +111,8 @@ export class PreviewPane {
       } else if (data.type === 'preview-console-error' && data.message) {
         this.onConsoleError?.(data.message as string);
       }
-    });
+    };
+    window.addEventListener('message', this.messageListener);
   }
 
   /**
@@ -94,12 +128,15 @@ export class PreviewPane {
    * Show the preview pane
    */
   show(): void {
+    console.log('[PreviewPane] show() called, elements:', !!this.elements);
     if (!this.elements) {
+      console.warn('[PreviewPane] show() - elements not bound!');
       return;
     }
 
     this.elements.pane.classList.remove('hidden');
     document.body.classList.add('preview-open');
+    console.log('[PreviewPane] pane shown, classList:', this.elements.pane.className);
     this.updateTerminalWidth();
   }
 
@@ -127,12 +164,15 @@ export class PreviewPane {
    * Load a URL in the iframe
    */
   loadUrl(url: string): void {
+    console.log('[PreviewPane] loadUrl called:', url, 'elements:', !!this.elements);
     if (!this.elements) {
+      console.warn('[PreviewPane] elements not bound!');
       return;
     }
 
     this.currentUrl = url;
     this.elements.iframe.src = url;
+    console.log('[PreviewPane] iframe.src set to:', this.elements.iframe.src);
   }
 
   /**
@@ -193,25 +233,30 @@ export class PreviewPane {
       this.startResize();
     });
 
-    document.addEventListener('mousemove', (e) => {
+    // Store document-level listeners for cleanup
+    this.mouseMoveListener = (e: MouseEvent) => {
       if (this.isResizing) {
         this.resize(e.clientX);
       }
-    });
+    };
+    document.addEventListener('mousemove', this.mouseMoveListener);
 
-    document.addEventListener('touchmove', (e) => {
+    this.touchMoveListener = (e: TouchEvent) => {
       if (this.isResizing && e.touches[0]) {
         this.resize(e.touches[0].clientX);
       }
-    });
+    };
+    document.addEventListener('touchmove', this.touchMoveListener);
 
-    document.addEventListener('mouseup', () => {
+    this.mouseUpListener = () => {
       this.stopResize();
-    });
+    };
+    document.addEventListener('mouseup', this.mouseUpListener);
 
-    document.addEventListener('touchend', () => {
+    this.touchEndListener = () => {
       this.stopResize();
-    });
+    };
+    document.addEventListener('touchend', this.touchEndListener);
   }
 
   /**

@@ -177,6 +177,12 @@ export class TerminalClient {
   // File watcher callbacks
   private fileChangeListeners: Array<(path: string, timestamp: number) => void> = [];
 
+  // Window event listeners for cleanup
+  private resizeListener: (() => void) | null = null;
+  private orientationListener: (() => void) | null = null;
+  private viewportResizeListener: (() => void) | null = null;
+  private viewportScrollListener: (() => void) | null = null;
+
   private readonly options: Required<TerminalClientOptions>;
 
   constructor(options: TerminalClientOptions) {
@@ -305,15 +311,20 @@ export class TerminalClient {
       });
     };
 
-    window.addEventListener('resize', scheduleFit, { passive: true });
+    // Store references for cleanup
+    this.resizeListener = scheduleFit;
+    this.orientationListener = scheduleFit;
+    window.addEventListener('resize', this.resizeListener, { passive: true });
 
     // Handle orientation change on mobile
-    window.addEventListener('orientationchange', scheduleFit, { passive: true });
+    window.addEventListener('orientationchange', this.orientationListener, { passive: true });
 
     // Handle Visual Viewport changes (mobile keyboard, address bar)
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', scheduleFit, { passive: true });
-      window.visualViewport.addEventListener('scroll', scheduleFit, { passive: true });
+      this.viewportResizeListener = scheduleFit;
+      this.viewportScrollListener = scheduleFit;
+      window.visualViewport.addEventListener('resize', this.viewportResizeListener, { passive: true });
+      window.visualViewport.addEventListener('scroll', this.viewportScrollListener, { passive: true });
     }
 
     // Wait for fonts to load before fitting (font metrics can change)
@@ -536,8 +547,6 @@ export class TerminalClient {
               toolCallCount: claudeTurn.toolCalls.length
             }
           });
-          break;
-        case 'search':
           break;
       }
       return;
@@ -1197,6 +1206,24 @@ export class TerminalClient {
     }
 
     this.stopPing();
+
+    // Cleanup window event listeners
+    if (this.resizeListener) {
+      window.removeEventListener('resize', this.resizeListener);
+      this.resizeListener = null;
+    }
+    if (this.orientationListener) {
+      window.removeEventListener('orientationchange', this.orientationListener);
+      this.orientationListener = null;
+    }
+    if (this.viewportResizeListener && window.visualViewport) {
+      window.visualViewport.removeEventListener('resize', this.viewportResizeListener);
+      this.viewportResizeListener = null;
+    }
+    if (this.viewportScrollListener && window.visualViewport) {
+      window.visualViewport.removeEventListener('scroll', this.viewportScrollListener);
+      this.viewportScrollListener = null;
+    }
 
     // Cleanup block UI
     this.blockRenderer?.dispose();

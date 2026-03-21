@@ -46,12 +46,13 @@ const BELL_CHAR = 0x07;
 // DA2 response: CSI > Ps ; Ps ; Ps c (e.g., ESC[>0;276;0c)
 // DA3 response: CSI = Ps c (e.g., ESC[=...c)
 // Note: DA queries (CSI > c or CSI > 0 c) have no semicolons, so we require at least one
-const CSI_DA_RESPONSE_PATTERN = /\x1b\[[>?=]\d*;\d+[;\d]*c/g;
+// Pattern string - create new RegExp instances to avoid global state race conditions
+const CSI_DA_RESPONSE_PATTERN_STR = '\\x1b\\[[>?=]\\d*;\\d+[;\\d]*c';
 
 // Focus events from xterm.js - these can interfere with input timing
 // Focus In: ESC [ I
 // Focus Out: ESC [ O
-const FOCUS_EVENT_PATTERN = /\x1b\[[IO]/g;
+const FOCUS_EVENT_PATTERN_STR = '\\x1b\\[[IO]';
 
 // CJK character detection for first-character loss workaround
 // Includes: Hiragana, Katakana, CJK Unified Ideographs, Hangul Syllables
@@ -116,7 +117,9 @@ export class TerminalSession {
     this.claudeWatcher.on('message', (msg) => {
       this.broadcaster.broadcast(msg);
     });
-    this.claudeWatcher.on('error', (_err) => {});
+    this.claudeWatcher.on('error', (err) => {
+      console.debug(`[Session:${this.name}] Claude watcher error:`, err);
+    });
 
     // Initialize File Watcher for live preview
     this.fileWatcher = new FileWatcher(options.cwd, (path) => {
@@ -163,7 +166,9 @@ export class TerminalSession {
     });
 
     // Start Claude Session Watcher
-    this.claudeWatcher.start().catch((_err) => {});
+    this.claudeWatcher.start().catch((err) => {
+      console.debug(`[Session:${this.name}] Claude watcher start failed:`, err);
+    });
   }
 
   /**
@@ -289,11 +294,10 @@ export class TerminalSession {
    */
   writeString(data: string): void {
     // Filter out DA responses from xterm.js before writing to PTY
-    // Reset lastIndex before test() to avoid global regex state issues
-    CSI_DA_RESPONSE_PATTERN.lastIndex = 0;
-    if (CSI_DA_RESPONSE_PATTERN.test(data)) {
-      CSI_DA_RESPONSE_PATTERN.lastIndex = 0;
-      const filtered = data.replace(CSI_DA_RESPONSE_PATTERN, '');
+    // Create new RegExp instance to avoid global state race conditions
+    const daPattern = new RegExp(CSI_DA_RESPONSE_PATTERN_STR, 'g');
+    if (daPattern.test(data)) {
+      const filtered = data.replace(new RegExp(CSI_DA_RESPONSE_PATTERN_STR, 'g'), '');
       if (!filtered) {
         return;
       }
@@ -324,20 +328,19 @@ export class TerminalSession {
     let text = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
 
     // Filter out focus events from xterm.js
-    FOCUS_EVENT_PATTERN.lastIndex = 0;
-    if (FOCUS_EVENT_PATTERN.test(text)) {
-      FOCUS_EVENT_PATTERN.lastIndex = 0;
-      text = text.replace(FOCUS_EVENT_PATTERN, '');
+    // Create new RegExp instances to avoid global state race conditions
+    const focusPattern = new RegExp(FOCUS_EVENT_PATTERN_STR, 'g');
+    if (focusPattern.test(text)) {
+      text = text.replace(new RegExp(FOCUS_EVENT_PATTERN_STR, 'g'), '');
       if (!text) {
         return;
       }
     }
 
     // Filter out DA responses from xterm.js
-    CSI_DA_RESPONSE_PATTERN.lastIndex = 0;
-    if (CSI_DA_RESPONSE_PATTERN.test(text)) {
-      CSI_DA_RESPONSE_PATTERN.lastIndex = 0;
-      text = text.replace(CSI_DA_RESPONSE_PATTERN, '');
+    const daPattern = new RegExp(CSI_DA_RESPONSE_PATTERN_STR, 'g');
+    if (daPattern.test(text)) {
+      text = text.replace(new RegExp(CSI_DA_RESPONSE_PATTERN_STR, 'g'), '');
       if (!text) {
         return;
       }
@@ -380,7 +383,9 @@ export class TerminalSession {
     if (this.terminal && !this.terminal.closed && this.isRunning) {
       try {
         this.terminal.resize(cols, rows);
-      } catch (_error) {}
+      } catch (error) {
+        console.debug(`[Session:${this.name}] Resize failed:`, error);
+      }
     }
   }
 
@@ -566,8 +571,9 @@ export class TerminalSession {
         this.proc.kill();
         // Wait a bit for process to exit
         await Promise.race([this.proc.exited, new Promise((resolve) => setTimeout(resolve, 1000))]);
-      } catch {
+      } catch (error) {
         // Process may already be dead
+        console.debug(`[Session:${this.name}] Process kill failed (may already be dead):`, error);
       }
       this.proc = null;
       this.terminal = null;
