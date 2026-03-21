@@ -45,7 +45,7 @@ interface BlockElement {
   headerElement: HTMLElement;
 }
 
-export class BlockRenderer {
+export class BlockRenderer implements Disposable {
   private options: BlockRendererOptions;
   private overlayContainer: HTMLElement | null = null;
   private blockElements: Map<string, BlockElement> = new Map();
@@ -1480,5 +1480,13 @@ export class BlockRenderer {
     this.sidebar = null;
     this.sidebarList = null;
     this.blockElements.clear();
+  }
+
+  /**
+   * Dispose the block renderer.
+   * Implements Symbol.dispose for use with `using` declarations.
+   */
+  [Symbol.dispose](): void {
+    this.dispose();
   }
 }

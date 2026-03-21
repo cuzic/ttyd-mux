@@ -68,7 +68,7 @@ const OVERVIEW_COLORS: Record<BlockType, Record<BlockStatus, string>> = {
   }
 };
 
-export class DecorationManager {
+export class DecorationManager implements Disposable {
   private terminal: Terminal;
   private decorations: Map<string, BlockDecoration> = new Map();
   private options: DecorationManagerOptions;
@@ -507,6 +507,14 @@ export class DecorationManager {
       this.styleElement.remove();
       this.styleElement = null;
     }
+  }
+
+  /**
+   * Dispose the decoration manager.
+   * Implements Symbol.dispose for use with `using` declarations.
+   */
+  [Symbol.dispose](): void {
+    this.dispose();
   }
 
   /**

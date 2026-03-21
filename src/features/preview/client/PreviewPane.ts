@@ -35,7 +35,7 @@ export interface PreviewError {
 export type PreviewErrorCallback = (error: PreviewError) => void;
 export type PreviewConsoleErrorCallback = (message: string) => void;
 
-export class PreviewPane {
+export class PreviewPane implements Disposable {
   private elements: PreviewPaneElements | null = null;
   private width: number;
   private isResizing = false;
@@ -92,6 +92,14 @@ export class PreviewPane {
         this.resizerTouchStartListener = null;
       }
     }
+  }
+
+  /**
+   * Dispose the preview pane.
+   * Implements Symbol.dispose for use with `using` declarations.
+   */
+  [Symbol.dispose](): void {
+    this.dispose();
   }
 
   /**
