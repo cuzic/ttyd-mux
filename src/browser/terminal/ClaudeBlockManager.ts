@@ -5,6 +5,8 @@
  * them into conversation turns for display.
  */
 
+import { match } from 'ts-pattern';
+
 export interface ClaudeToolCall {
   id: string;
   name: string;
@@ -114,35 +116,15 @@ export class ClaudeBlockManager {
    * Handle incoming Claude message
    */
   handleMessage(message: ClaudeMessage): void {
-    switch (message.type) {
-      case 'claudeSessionStart':
-        this.handleSessionStart(message);
-        break;
-
-      case 'claudeSessionEnd':
-        this.handleSessionEnd(message);
-        break;
-
-      case 'claudeUserMessage':
-        this.handleUserMessage(message);
-        break;
-
-      case 'claudeAssistantText':
-        this.handleAssistantText(message);
-        break;
-
-      case 'claudeThinking':
-        this.handleThinking(message);
-        break;
-
-      case 'claudeToolUse':
-        this.handleToolUse(message);
-        break;
-
-      case 'claudeToolResult':
-        this.handleToolResult(message);
-        break;
-    }
+    match(message)
+      .with({ type: 'claudeSessionStart' }, (msg) => this.handleSessionStart(msg))
+      .with({ type: 'claudeSessionEnd' }, (msg) => this.handleSessionEnd(msg))
+      .with({ type: 'claudeUserMessage' }, (msg) => this.handleUserMessage(msg))
+      .with({ type: 'claudeAssistantText' }, (msg) => this.handleAssistantText(msg))
+      .with({ type: 'claudeThinking' }, (msg) => this.handleThinking(msg))
+      .with({ type: 'claudeToolUse' }, (msg) => this.handleToolUse(msg))
+      .with({ type: 'claudeToolResult' }, (msg) => this.handleToolResult(msg))
+      .exhaustive();
   }
 
   /**
