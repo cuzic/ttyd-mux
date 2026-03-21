@@ -6,7 +6,7 @@
  * and provides consistent priority ordering.
  */
 
-import { type Disposable, type Scope, on } from './lifecycle.js';
+import type { DisposeFn, Scope } from './lifecycle.js';
 
 /**
  * Key handler function.
@@ -26,12 +26,12 @@ interface HandlerEntry {
  * Features:
  * - Priority-based routing (higher priority handlers run first)
  * - Event consumption (return true to stop propagation to lower priority handlers)
- * - Automatic cleanup via Disposable pattern
+ * - Automatic cleanup via DisposeFn pattern
  *
  * Example:
  * ```typescript
  * const keys = new KeyRouter();
- * keys.mount(scope);
+ * scope.mount(keys);
  *
  * // High priority: modal escape
  * scope.add(keys.register((e) => {
@@ -58,9 +58,9 @@ export class KeyRouter {
    * Higher priority handlers run first.
    * @param fn - Handler function that returns true if event was consumed
    * @param priority - Priority level (default: 0, higher = runs first)
-   * @returns Disposable to unregister the handler
+   * @returns DisposeFn to unregister the handler
    */
-  register(fn: KeyHandler, priority = 0): Disposable {
+  register(fn: KeyHandler, priority = 0): DisposeFn {
     const entry: HandlerEntry = { priority, fn };
     this.handlers.push(entry);
     this.handlers.sort((a, b) => b.priority - a.priority);
@@ -90,7 +90,7 @@ export class KeyRouter {
    * @param scope - Scope for automatic cleanup
    */
   mount(scope: Scope): void {
-    scope.add(on(document, 'keydown', this.handle, { capture: true }));
+    scope.on(document, 'keydown', this.handle, { capture: true });
   }
 }
 
