@@ -421,12 +421,22 @@ class ToolbarApp {
     bindClickScoped(scope, elements.tabBtn, () => this.input.sendTab());
 
     // Backspace button with long-press repeat
+    let bsTimer: ReturnType<typeof setTimeout> | null = null;
     let bsInterval: ReturnType<typeof setInterval> | null = null;
     const startBsRepeat = () => {
+      if (bsTimer || bsInterval) return; // Guard against double-fire (touch + mouse)
       this.input.sendBackspace();
-      bsInterval = setInterval(() => this.input.sendBackspace(), 100);
+      // Initial delay before continuous repeat (like keyboard behavior)
+      bsTimer = setTimeout(() => {
+        bsTimer = null;
+        bsInterval = setInterval(() => this.input.sendBackspace(), 100);
+      }, 300);
     };
     const stopBsRepeat = () => {
+      if (bsTimer) {
+        clearTimeout(bsTimer);
+        bsTimer = null;
+      }
       if (bsInterval) {
         clearInterval(bsInterval);
         bsInterval = null;
@@ -445,6 +455,8 @@ class ToolbarApp {
     );
     scope.add(on(elements.bsBtn, 'touchend', stopBsRepeat));
     scope.add(on(elements.bsBtn, 'touchcancel', stopBsRepeat));
+    // Stop on window blur
+    scope.add(on(window, 'blur', stopBsRepeat));
 
     bindClickScoped(scope, elements.upBtn, () => this.input.sendArrow('up'));
     bindClickScoped(scope, elements.downBtn, () => this.input.sendArrow('down'));
