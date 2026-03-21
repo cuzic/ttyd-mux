@@ -259,14 +259,27 @@ function generateTmuxSessionsScript(basePath: string): string {
     }
 
     async function connectToTmux(tmuxSessionName) {
-      // Generate a unique bunterm session name
-      const sessionName = 'tmux-' + tmuxSessionName + '-' + Date.now().toString(36);
-
       const btn = event.target;
       btn.disabled = true;
       btn.textContent = 'Connecting...';
 
       try {
+        // Check if there's an existing session for this tmux session
+        const sessionsRes = await fetch(TMUX_API_BASE + '/api/sessions');
+        const sessions = await sessionsRes.json();
+        const existing = sessions.find(function(s) {
+          return s.tmuxSession === tmuxSessionName;
+        });
+
+        if (existing) {
+          // Navigate to existing session
+          window.location.href = TMUX_API_BASE + '/' + encodeURIComponent(existing.name) + '/';
+          return;
+        }
+
+        // Use the same name as tmux session
+        const sessionName = tmuxSessionName;
+
         // Get tmux session's current working directory
         let dir = null;
         try {
@@ -297,8 +310,8 @@ function generateTmuxSessionsScript(basePath: string): string {
           return;
         }
 
-        // Navigate to the new session
-        window.location.href = TMUX_API_BASE + '/' + encodeURIComponent(sessionName) + '/';
+        // Navigate to the session (use returned name, which may be different for existing sessions)
+        window.location.href = TMUX_API_BASE + '/' + encodeURIComponent(data.name) + '/';
       } catch (e) {
         console.error('Failed to connect to tmux session:', e);
         alert('Failed to connect to tmux session');

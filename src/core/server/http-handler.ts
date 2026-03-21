@@ -8,13 +8,29 @@
  * - API endpoints
  */
 
-import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { createHash, randomBytes } from 'node:crypto';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  writeFileSync
+} from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { addShare, getAllShares, getShare, getStateDir, removeShare } from '@/core/config/state.js';
-import type { Config } from '@/core/config/types.js';
+import {
+  addPushSubscription,
+  addShare,
+  getAllPushSubscriptions,
+  getAllShares,
+  getShare,
+  getStateDir,
+  removePushSubscription,
+  removeShare
+} from '@/core/config/state.js';
+import type { Config, PushSubscriptionState } from '@/core/config/types.js';
 import type { CommandRequest } from '@/core/protocol/index.js';
 import { generateNativeTerminalHtml } from '@/core/server/html-template.js';
 import {
@@ -557,7 +573,8 @@ async function handleApiRequest(
       port: 0,
       path: `/${s.name}`,
       dir: s.dir,
-      started_at: s.startedAt
+      started_at: s.startedAt,
+      tmuxSession: s.tmuxSession
     }));
     return new Response(JSON.stringify(sessions), { headers });
   }
@@ -612,14 +629,8 @@ async function handleApiRequest(
         });
       }
 
-      if (sessionManager.hasSession(name)) {
-        return new Response(JSON.stringify({ error: `Session ${name} already exists` }), {
-          status: 409,
-          headers
-        });
-      }
-
-      // If tmuxSession is specified, verify it exists
+      // If tmuxSession is specified, check for existing wrapper FIRST
+      // This allows seamless reconnection to tmux sessions
       if (tmuxSession) {
         const tmuxClient = createTmuxClient();
         if (!tmuxClient.isInstalled()) {
@@ -637,6 +648,34 @@ async function handleApiRequest(
             }
           );
         }
+
+        // Check if there's already a bunterm session wrapping this tmux session
+        const existingSessionName = sessionManager.findSessionByTmuxSession(tmuxSession);
+        if (existingSessionName) {
+          const existingSession = sessionManager.getSession(existingSessionName);
+          if (existingSession) {
+            // Return the existing session with 200 (not 201) to indicate it already exists
+            return new Response(
+              JSON.stringify({
+                name: existingSession.name,
+                pid: existingSession.pid,
+                path: `/${existingSessionName}`,
+                dir: existingSession.cwd,
+                tmuxSession,
+                existing: true
+              }),
+              { status: 200, headers }
+            );
+          }
+        }
+      }
+
+      // Check if session name already exists (only for non-tmux sessions, or new tmux attachments)
+      if (sessionManager.hasSession(name)) {
+        return new Response(JSON.stringify({ error: `Session ${name} already exists` }), {
+          status: 409,
+          headers
+        });
       }
 
       const session = await sessionManager.createSession({
@@ -652,7 +691,8 @@ async function handleApiRequest(
           pid: session.pid,
           path: `/${name}`,
           dir: session.cwd,
-          tmuxSession
+          tmuxSession,
+          existing: false
         }),
         { status: 201, headers }
       );
@@ -958,7 +998,121 @@ async function handleApiRequest(
 
   // GET /api/notifications/subscriptions
   if (apiPath === '/notifications/subscriptions' && method === 'GET') {
-    return new Response(JSON.stringify([]), { headers });
+    const subscriptions = getAllPushSubscriptions();
+    return new Response(JSON.stringify(subscriptions), { headers });
+  }
+
+  // POST /api/notifications/subscribe
+  if (apiPath === '/notifications/subscribe' && method === 'POST') {
+    try {
+      const body = (await req.json()) as {
+        endpoint: string;
+        keys: { p256dh: string; auth: string };
+        sessionName?: string;
+      };
+
+      if (!body.endpoint || !body.keys?.p256dh || !body.keys?.auth) {
+        return new Response(
+          JSON.stringify({ error: 'endpoint and keys (p256dh, auth) are required' }),
+          { status: 400, headers }
+        );
+      }
+
+      // Check if subscription already exists
+      const existing = getAllPushSubscriptions().find((s) => s.endpoint === body.endpoint);
+      if (existing) {
+        return new Response(JSON.stringify(existing), { headers });
+      }
+
+      // Create new subscription
+      const subscription: PushSubscriptionState = {
+        id: randomBytes(8).toString('hex'),
+        endpoint: body.endpoint,
+        keys: body.keys,
+        sessionName: body.sessionName,
+        createdAt: new Date().toISOString()
+      };
+
+      addPushSubscription(subscription);
+      log.info(`[notifications] New subscription: ${subscription.id}`);
+
+      return new Response(JSON.stringify(subscription), { status: 201, headers });
+    } catch (error) {
+      log.error(`[notifications] Subscribe error: ${error}`);
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers
+      });
+    }
+  }
+
+  // DELETE /api/notifications/subscribe/:id
+  const subscribeDeleteMatch = apiPath.match(/^\/notifications\/subscribe\/([^/]+)$/);
+  if (subscribeDeleteMatch && method === 'DELETE') {
+    const subscriptionId = subscribeDeleteMatch[1];
+    if (!subscriptionId) {
+      return new Response(JSON.stringify({ error: 'Subscription ID required' }), {
+        status: 400,
+        headers
+      });
+    }
+
+    const existing = getAllPushSubscriptions().find((s) => s.id === subscriptionId);
+    if (!existing) {
+      return new Response(JSON.stringify({ error: 'Subscription not found' }), {
+        status: 404,
+        headers
+      });
+    }
+
+    removePushSubscription(subscriptionId);
+    log.info(`[notifications] Subscription removed: ${subscriptionId}`);
+
+    return new Response(JSON.stringify({ success: true }), { headers });
+  }
+
+  // POST /api/notifications/bell
+  // Client-side bell trigger (from xterm.js onBell event)
+  if (apiPath === '/notifications/bell' && method === 'POST') {
+    try {
+      const body = (await req.json()) as { sessionName: string };
+
+      if (!body.sessionName) {
+        return new Response(JSON.stringify({ error: 'sessionName is required' }), {
+          status: 400,
+          headers
+        });
+      }
+
+      // Get subscriptions for this session
+      const subscriptions = getAllPushSubscriptions().filter(
+        (s) => !s.sessionName || s.sessionName === body.sessionName
+      );
+
+      if (subscriptions.length === 0) {
+        return new Response(JSON.stringify({ sent: 0, message: 'No subscriptions' }), { headers });
+      }
+
+      // Note: Actual push notification sending requires web-push library
+      // which needs VAPID keys. For now, we just acknowledge the bell.
+      // The actual notification sending should be done through NotificationService.
+      log.info(`[notifications] Bell triggered for session: ${body.sessionName}`);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          sessionName: body.sessionName,
+          subscriptionCount: subscriptions.length
+        }),
+        { headers }
+      );
+    } catch (error) {
+      log.error(`[notifications] Bell error: ${error}`);
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers
+      });
+    }
   }
 
   // === Share API ===
@@ -1188,16 +1342,14 @@ async function handleApiRequest(
     }
   }
 
-  // === Preview API ===
-
-  // GET /api/preview/file?session=<name>&path=<path>
-  if (apiPath.startsWith('/preview/file') && method === 'GET') {
+  // POST /api/clipboard-image?session=<name>
+  // Save clipboard images to temp directory
+  if (apiPath.startsWith('/clipboard-image') && method === 'POST') {
     const params = new URL(req.url).searchParams;
     const sessionName = params.get('session');
-    const filePath = params.get('path');
 
-    if (!sessionName || !filePath) {
-      return new Response(JSON.stringify({ error: 'session and path parameters are required' }), {
+    if (!sessionName) {
+      return new Response(JSON.stringify({ error: 'session parameter is required' }), {
         status: 400,
         headers
       });
@@ -1212,17 +1364,127 @@ async function handleApiRequest(
     }
 
     try {
+      const body = (await req.json()) as {
+        images: Array<{ data: string; mimeType: string; name?: string }>;
+      };
+
+      if (!body.images || !Array.isArray(body.images) || body.images.length === 0) {
+        return new Response(JSON.stringify({ error: 'images array is required' }), {
+          status: 400,
+          headers
+        });
+      }
+
+      // Create temp directory for bunterm clipboard images
+      const tempBaseDir = join(tmpdir(), 'bunterm-clipboard');
+      if (!existsSync(tempBaseDir)) {
+        mkdirSync(tempBaseDir, { recursive: true });
+      }
+
+      const savedPaths: string[] = [];
+
+      // Generate timestamp for filenames
+      const now = new Date();
+      const timestamp = now
+        .toISOString()
+        .replace(/[-:]/g, '')
+        .replace('T', '-')
+        .replace(/\.\d{3}Z/, '');
+
+      for (let i = 0; i < body.images.length; i++) {
+        const img = body.images[i];
+        if (!img) {
+          continue;
+        }
+
+        // Validate MIME type
+        if (!img.mimeType?.startsWith('image/')) {
+          return new Response(JSON.stringify({ error: 'Invalid MIME type: must be image/*' }), {
+            status: 400,
+            headers
+          });
+        }
+
+        // Extract extension from MIME type
+        const ext = img.mimeType.split('/')[1] || 'png';
+
+        // Generate filename with unique suffix
+        const uniqueSuffix = randomBytes(4).toString('hex');
+        let filename: string;
+        if (body.images.length === 1) {
+          filename = `clipboard-${timestamp}-${uniqueSuffix}.${ext}`;
+        } else {
+          const suffix = String(i + 1).padStart(3, '0');
+          filename = `clipboard-${timestamp}-${suffix}-${uniqueSuffix}.${ext}`;
+        }
+
+        // Decode base64 data
+        const base64Data = img.data.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        // Save file to temp directory
+        const targetPath = join(tempBaseDir, filename);
+        writeFileSync(targetPath, buffer);
+
+        // Return absolute path
+        savedPaths.push(targetPath);
+        log.info(`[clipboard-image] Saved: ${targetPath}`);
+      }
+
+      return new Response(JSON.stringify({ success: true, paths: savedPaths }), {
+        status: 201,
+        headers
+      });
+    } catch (error) {
+      log.error(`[clipboard-image] Error: ${error}`);
+      return new Response(JSON.stringify({ error: String(error) }), {
+        status: 500,
+        headers
+      });
+    }
+  }
+
+  // === Preview API ===
+
+  // GET /api/preview/file?session=<name>&path=<path>
+  if (apiPath.startsWith('/preview/file') && method === 'GET') {
+    const params = new URL(req.url).searchParams;
+    const sessionName = params.get('session');
+    const filePath = params.get('path');
+    log.info(`[preview] Request: session=${sessionName}, path=${filePath}`);
+
+    if (!sessionName || !filePath) {
+      return new Response(JSON.stringify({ error: 'session and path parameters are required' }), {
+        status: 400,
+        headers
+      });
+    }
+
+    const session = sessionManager.getSession(sessionName);
+    if (!session) {
+      log.warn(`[preview] Session not found: ${sessionName}`);
+      return new Response(JSON.stringify({ error: `Session "${sessionName}" not found` }), {
+        status: 404,
+        headers
+      });
+    }
+
+    try {
       const baseDir = session.cwd;
+      log.info(`[preview] baseDir=${baseDir}, filePath=${filePath}`);
       const pathResult = validateSecurePath(baseDir, filePath);
       if (!pathResult.valid) {
+        log.warn(`[preview] Invalid path: ${pathResult.error}`);
         return new Response(JSON.stringify({ error: pathResult.error }), {
           status: 400,
           headers
         });
       }
       const targetPath = pathResult.targetPath;
+      log.info(`[preview] Resolved path: ${targetPath}`);
 
       if (!existsSync(targetPath)) {
+        log.warn(`[preview] File not found: ${targetPath}`);
         return new Response(JSON.stringify({ error: 'File not found' }), {
           status: 404,
           headers
@@ -1230,6 +1492,7 @@ async function handleApiRequest(
       }
 
       const content = readFileSync(targetPath, 'utf-8');
+      log.info(`[preview] Serving file: ${targetPath} (${content.length} bytes)`);
 
       // Check if it's a Markdown file - render with markdown-it on client side
       const isMarkdown =

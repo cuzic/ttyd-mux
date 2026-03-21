@@ -31,10 +31,14 @@ export interface NativeSessionState {
   pid: number;
   startedAt: string;
   clientCount: number;
+  /** tmux session name if attached to one */
+  tmuxSession?: string;
 }
 
 export class NativeSessionManager {
   private sessions: Map<string, TerminalSession> = new Map();
+  /** Maps session name to tmux session name (if attached) */
+  private tmuxSessionMap: Map<string, string> = new Map();
   private readonly config: Config;
   private readonly nativeConfig: NativeTerminalConfig;
 
@@ -72,6 +76,11 @@ export class NativeSessionManager {
 
     // Store session
     this.sessions.set(name, session);
+
+    // Store tmux session mapping if attached
+    if (tmuxSession) {
+      this.tmuxSessionMap.set(name, tmuxSession);
+    }
 
     return session;
   }
@@ -161,6 +170,7 @@ export class NativeSessionManager {
 
     await session.stop();
     this.sessions.delete(name);
+    this.tmuxSessionMap.delete(name);
   }
 
   /**
@@ -207,7 +217,8 @@ export class NativeSessionManager {
         path: `${this.config.base_path}/${info.name}`,
         pid: info.pid,
         startedAt: info.startedAt,
-        clientCount: info.clientCount
+        clientCount: info.clientCount,
+        tmuxSession: this.tmuxSessionMap.get(info.name)
       };
     });
   }
@@ -217,6 +228,19 @@ export class NativeSessionManager {
    */
   getSessionInfo(name: string): TerminalSessionInfo | undefined {
     return this.sessions.get(name)?.getInfo();
+  }
+
+  /**
+   * Find a bunterm session that wraps a specific tmux session
+   * Returns the bunterm session name, or undefined if not found
+   */
+  findSessionByTmuxSession(tmuxSessionName: string): string | undefined {
+    for (const [sessionName, tmuxSession] of this.tmuxSessionMap) {
+      if (tmuxSession === tmuxSessionName) {
+        return sessionName;
+      }
+    }
+    return undefined;
   }
 
   /**

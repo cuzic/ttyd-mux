@@ -317,8 +317,11 @@ export class SessionSwitcher implements Mountable {
         return;
       }
 
+      // Parse response to get the actual session name (may be different for existing sessions)
+      const data = (await response.json()) as { name: string };
+
       // Open in new tab
-      const fullPath = `${this.config.base_path}/${encodeURIComponent(sessionName)}/`;
+      const fullPath = `${this.config.base_path}/${encodeURIComponent(data.name)}/`;
       window.open(fullPath, '_blank');
       this.hide();
     } catch (_error) {
