@@ -1,4 +1,4 @@
-import { startSession as apiStartSession, ensureDaemon } from '@/core/client/index.js';
+import { startSession as apiStartSession, ensureDaemon, getSessions } from '@/core/client/index.js';
 import { getFullPath, loadConfig } from '@/core/config/config.js';
 import { attachSession } from '@/tmux.js';
 import { getErrorMessage } from '@/utils/errors.js';
@@ -37,8 +37,21 @@ export async function upCommand(options: UpOptions): Promise<void> {
     }
   } catch (error) {
     const message = getErrorMessage(error);
-    if (message.includes('already running')) {
-      console.log(`Session '${name}' is already running.`);
+    // Handle "already exists" or "already running" errors
+    if (message.includes('already exists') || message.includes('already running')) {
+      // Get existing session info
+      const sessions = await getSessions(config);
+      const existing = sessions.find((s) => s.name === name);
+
+      if (existing) {
+        const fullPath = getFullPath(config, existing.path);
+        const url = `http://localhost:${config.daemon_port}${fullPath}/`;
+        console.log(`Session '${name}' is already running.`);
+        console.log(`URL: ${url}`);
+      } else {
+        console.log(`Session '${name}' is already running.`);
+      }
+
       if (shouldAttach) {
         await attachSession(name);
       }

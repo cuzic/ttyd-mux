@@ -101,3 +101,23 @@ export async function requestShutdown(config: Config, options?: ShutdownOptions)
     // Server will shut down, so connection may be lost
   }
 }
+
+export interface TmuxSessionResponse {
+  name: string;
+  windows: number;
+  created: string;
+  attached: boolean;
+  cwd?: string;
+}
+
+export interface TmuxSessionsResponse {
+  sessions: TmuxSessionResponse[];
+  installed: boolean;
+}
+
+/**
+ * Get tmux sessions
+ */
+export function getTmuxSessions(config: Config): Promise<TmuxSessionsResponse> {
+  return apiRequest<TmuxSessionsResponse>(config, 'GET', '/api/tmux/sessions');
+}
