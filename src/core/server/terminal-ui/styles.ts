@@ -185,77 +185,76 @@ export const terminalUiStyles = `
   color: #888;
 }
 
+/* Vertical tab toggle button on right edge */
 #tui-toggle {
   position: fixed;
-  bottom: 16px;
-  right: 16px;
-  background: #007acc;
-  border: 2px solid #005a9e;
-  border-radius: 28px;
+  top: 65%;
+  right: 0;
+  transform: translateY(-50%);
+  background: rgba(0, 122, 204, 0.85);
+  border: none;
+  border-radius: 8px 0 0 8px;
   color: #fff;
   cursor: pointer;
-  font-size: 20px;
-  min-width: 56px;
-  height: 56px;
-  padding: 0 16px;
+  font-size: 14px;
+  width: 28px;
+  padding: 12px 4px;
   z-index: 10001;
   touch-action: manipulation;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  box-shadow: -2px 0 8px rgba(0,0,0,0.2);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  transition: all 0.3s ease;
+  gap: 4px;
+  transition: all 0.2s ease;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
 }
 
 #tui-toggle:hover, #tui-toggle:active {
-  background: #005a9e;
-  transform: scale(1.05);
+  background: rgba(0, 90, 158, 0.95);
+  width: 32px;
+  box-shadow: -3px 0 12px rgba(0,0,0,0.3);
 }
 
 .tui-toggle-icon {
-  font-size: 20px;
+  font-size: 18px;
+  writing-mode: horizontal-tb;
 }
 
-.tui-toggle-badge {
-  font-size: 14px;
-  font-weight: bold;
-  display: none;
+.tui-toggle-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
-/* When toolbar is hidden, show badge and pulse animation */
+/* When toolbar is hidden, make tab more prominent */
 #tui.hidden ~ #tui-toggle {
-  bottom: 16px;
-  animation: tui-pulse 2s ease-in-out infinite;
-  background: linear-gradient(135deg, #007acc 0%, #28a745 100%);
-  border-color: #1e7e34;
+  background: linear-gradient(180deg, #007acc 0%, #28a745 100%);
+  animation: tui-tab-pulse 2s ease-in-out infinite;
 }
 
-#tui.hidden ~ #tui-toggle .tui-toggle-badge {
-  display: inline;
+#tui.hidden ~ #tui-toggle .tui-toggle-label {
+  display: block;
 }
 
-@keyframes tui-pulse {
+@keyframes tui-tab-pulse {
   0%, 100% {
-    box-shadow: 0 2px 8px rgba(0, 122, 204, 0.3);
+    box-shadow: -2px 0 8px rgba(0, 122, 204, 0.3);
   }
   50% {
-    box-shadow: 0 2px 20px rgba(0, 122, 204, 0.6), 0 0 10px rgba(40, 167, 69, 0.4);
+    box-shadow: -3px 0 16px rgba(0, 122, 204, 0.5), 0 0 8px rgba(40, 167, 69, 0.3);
   }
 }
 
-/* When toolbar is visible, show only icon */
+/* When toolbar is visible, make tab subtle */
 #tui:not(.hidden) ~ #tui-toggle {
-  border-radius: 50%;
-  padding: 0;
-  min-width: 56px;
-  width: 56px;
+  background: rgba(0, 122, 204, 0.6);
   animation: none;
-  background: #007acc;
-  border-color: #005a9e;
 }
 
-#tui:not(.hidden) ~ #tui-toggle .tui-toggle-badge {
+#tui:not(.hidden) ~ #tui-toggle .tui-toggle-label {
   display: none;
 }
 
@@ -483,23 +482,22 @@ body:has(#tui.hidden) .xterm-screen {
     padding: 10px;
   }
 
+  /* Mobile: slightly larger tab for easier touch */
   #tui-toggle {
-    min-width: 64px;
-    height: 64px;
-    font-size: 24px;
+    width: 32px;
+    padding: 16px 6px;
   }
 
   .tui-toggle-icon {
-    font-size: 24px;
+    font-size: 20px;
   }
 
-  .tui-toggle-badge {
-    font-size: 16px;
+  .tui-toggle-label {
+    font-size: 13px;
   }
 
-  #tui:not(.hidden) ~ #tui-toggle {
-    min-width: 64px;
-    width: 64px;
+  #tui-toggle:hover, #tui-toggle:active {
+    width: 36px;
   }
 
   /* Mobile: Layout now uses CSS variables from LayoutManager */
@@ -3562,6 +3560,124 @@ body.preview-open.file-ops-open .xterm {
   /* Reset preview pane position on mobile */
   body.preview-open.file-ops-open #tui-preview-pane {
     right: 0;
+  }
+}
+
+/* ============================================
+   Mobile Selection Handles
+   ============================================ */
+
+#tui-selection-handles {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1001;
+}
+
+#tui-selection-handles.hidden {
+  display: none;
+}
+
+.selection-handle {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  background: #1976d2;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  touch-action: none;
+  pointer-events: auto;
+  cursor: grab;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, 0);
+}
+
+.selection-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  background: #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.selection-handle:active {
+  cursor: grabbing;
+  background: #1565c0;
+  transform: translate(-50%, 0) scale(1.1);
+}
+
+#tui-handle-start::before {
+  content: '';
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  width: 2px;
+  height: 20px;
+  background: #1976d2;
+  transform: translateX(-50%);
+}
+
+#tui-handle-end::before {
+  content: '';
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  width: 2px;
+  height: 20px;
+  background: #1976d2;
+  transform: translateX(-50%);
+}
+
+/* Selection Copy Button */
+#tui-selection-copy-btn {
+  position: fixed;
+  background: #1976d2;
+  border: none;
+  border-radius: 20px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 8px 20px;
+  z-index: 1002;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+  transform: translateX(-50%);
+  touch-action: manipulation;
+  transition: background 0.15s, transform 0.15s;
+}
+
+#tui-selection-copy-btn.hidden {
+  display: none;
+}
+
+#tui-selection-copy-btn:hover,
+#tui-selection-copy-btn:active {
+  background: #1565c0;
+  transform: translateX(-50%) scale(1.05);
+}
+
+/* Mobile adjustments for selection handles */
+@media (max-width: 768px) {
+  .selection-handle {
+    width: 28px;
+    height: 28px;
+  }
+
+  .selection-handle::after {
+    width: 10px;
+    height: 10px;
+  }
+
+  #tui-selection-copy-btn {
+    font-size: 15px;
+    padding: 10px 24px;
   }
 }
 `;
