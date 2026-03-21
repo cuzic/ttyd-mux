@@ -228,7 +228,7 @@ export const DEFAULT_NATIVE_TERMINAL_CONFIG: NativeTerminalConfig = {
 };
 
 export const AIChatConfigSchema = z.object({
-  enabled: z.boolean().default(true),
+  enabled: z.boolean().default(false),
   default_runner: z.enum(['claude', 'codex', 'gemini', 'auto']).default('auto'),
   cache_enabled: z.boolean().default(true),
   cache_ttl_ms: z.number().int().min(0).default(3600000), // 1 hour
@@ -241,7 +241,7 @@ export type AIChatConfig = z.infer<typeof AIChatConfigSchema>;
 
 /** Default AI chat configuration */
 export const DEFAULT_AI_CHAT_CONFIG: AIChatConfig = {
-  enabled: true,
+  enabled: false,
   default_runner: 'auto',
   cache_enabled: true,
   cache_ttl_ms: 3600000,
@@ -374,6 +374,8 @@ export interface SessionResponse {
   dir: string;
   pid: number;
   started_at: string;
+  /** tmux session name if attached to one */
+  tmuxSession?: string;
 }
 
 export interface StatusResponse {
