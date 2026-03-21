@@ -90,7 +90,7 @@ class ToolbarApp {
     this.notifications = new NotificationManager(config);
     this.snippet = new SnippetManager(this.input);
     this.clipboardHistory = new ClipboardHistoryManager(this.input);
-    this.fileTransfer = new FileTransferManager(config);
+    this.fileTransfer = new FileTransferManager(config, this.input);
     this.smartPaste = new SmartPasteManager(config, this.input, this.clipboardHistory);
     this.touch = new TouchGestureHandler(config, this.terminal, this.input, this.modifiers);
     this.fontSizeManager = new FontSizeManager(config);

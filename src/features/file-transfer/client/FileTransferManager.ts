@@ -12,6 +12,7 @@ import {
   getSessionNameFromURL,
   isPreviewable as isPreviewableUtil
 } from '@/browser/shared/utils.js';
+import type { InputHandler } from '@/browser/toolbar/InputHandler.js';
 
 export interface FileInfo {
   name: string;
@@ -50,14 +51,16 @@ export interface PreviewSelection {
 
 export class FileTransferManager implements Mountable {
   private config: TerminalUiConfig;
+  private inputHandler: InputHandler | null = null;
   private elements: FileTransferElements | null = null;
   private currentPath = '.';
   private sessionName = '';
   private previewMode = false;
   private previewCallback: ((selection: PreviewSelection) => void) | null = null;
 
-  constructor(config: TerminalUiConfig) {
+  constructor(config: TerminalUiConfig, inputHandler?: InputHandler) {
     this.config = config;
+    this.inputHandler = inputHandler ?? null;
     // Use sessionName from config if available (server-provided), otherwise extract from URL
     this.sessionName = config.sessionName || getSessionNameFromURL(config.base_path);
   }
@@ -608,12 +611,25 @@ export class FileTransferManager implements Mountable {
   }
 
   /**
-   * Upload files
+   * Upload files and send their paths to terminal
    */
   private async uploadFiles(files: FileList): Promise<void> {
+    const uploadedPaths: string[] = [];
+
     for (const file of files) {
-      await this.uploadFile(file);
+      const path = await this.uploadFile(file);
+      if (path) {
+        uploadedPaths.push(path);
+      }
     }
+
+    // Send uploaded file paths to terminal
+    if (uploadedPaths.length > 0 && this.inputHandler) {
+      // Join paths with space for multiple files
+      const pathText = uploadedPaths.join(' ');
+      this.inputHandler.sendText(pathText);
+    }
+
     // Refresh file list if modal is open
     if (this.isVisible()) {
       await this.loadFileList();
@@ -622,8 +638,9 @@ export class FileTransferManager implements Mountable {
 
   /**
    * Upload a single file
+   * Returns the uploaded file path, or null on failure
    */
-  private async uploadFile(file: File): Promise<void> {
+  private async uploadFile(file: File): Promise<string | null> {
     const path = this.currentPath === '.' ? '' : this.currentPath;
     const url = `${this.config.base_path}/api/files/upload?session=${encodeURIComponent(this.sessionName)}&path=${encodeURIComponent(path)}`;
 
@@ -640,10 +657,15 @@ export class FileTransferManager implements Mountable {
         const error = await response.json();
         throw new Error(error.error || 'Upload failed');
       }
+
+      // Parse response to get the uploaded file path
+      const result = (await response.json()) as { success: boolean; path: string };
+      return result.path;
     } catch (error) {
       alert(
         `アップロードに失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
+      return null;
     }
   }
 
