@@ -16,7 +16,8 @@ export interface TmuxSession {
   cwd?: string;
 }
 
-const SESSION_FORMAT = '#{session_name}|#{session_windows}|#{session_created}|#{session_attached}|#{pane_current_path}';
+const SESSION_FORMAT =
+  '#{session_name}|#{session_windows}|#{session_created}|#{session_attached}|#{pane_current_path}';
 
 /**
  * Valid session name pattern: alphanumeric, underscore, hyphen, dot (max 64 chars)

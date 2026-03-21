@@ -9,14 +9,7 @@
  */
 
 import { createHash, randomBytes } from 'node:crypto';
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  statSync,
-  writeFileSync
-} from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
