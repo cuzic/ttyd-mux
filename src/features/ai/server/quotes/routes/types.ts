@@ -3,14 +3,15 @@
  *
  * This file defines:
  * - QuoteRouteContext: context passed to route handlers
- * - Locator/Workspace/ClaudeContext: types for input resolution
- * - parseLocator/resolveWorkspace/resolveClaudeContext: resolution functions
+ * - Locator/ClaudeContext: types for input resolution
+ * - resolveWorkspaceFromParams/resolveClaudeFromParams: one-step resolution helpers
  *
  * Response helpers (successResponse, failureResponse, handleError) are in response.ts.
  */
 
 import type { NativeSessionManager } from '@/core/server/session-manager.js';
 import { type Result, err, ok } from '@/utils/result.js';
+import { failureResponse } from './response.js';
 
 /**
  * Context passed to quote route handlers
@@ -37,21 +38,8 @@ export interface QuoteRouteContext {
 }
 
 // =============================================================================
-// Locator Resolution
+// Locator Types
 // =============================================================================
-//
-// ## Validation Boundary
-//
-// Route parameters are validated in two steps:
-// 1. parseSearchParams() - validates individual field types (count, hours, path, etc.)
-// 2. parseLocator() - validates the locator discriminated union (session OR claudeSessionId+projectPath)
-//
-// Why two steps?
-// - Schema validation (Zod) handles type/format of individual fields
-// - Locator validation handles the "one of two modes" business rule
-// - This keeps schemas simple and reusable
-//
-// ## Input Modes
 //
 // Routes accept two input modes:
 // 1. bunterm session: session=<name> -> uses sessionManager to get cwd
@@ -63,13 +51,6 @@ export interface QuoteRouteContext {
 export type Locator =
   | { kind: 'bunterm'; sessionName: string }
   | { kind: 'claude'; projectPath: string; claudeSessionId: string };
-
-/**
- * Resolved workspace - the directory to operate on
- */
-export interface Workspace {
-  cwd: string;
-}
 
 /**
  * Resolved Claude context - workspace + optional conversation reference
@@ -91,24 +72,12 @@ export interface RouteError {
 }
 
 /**
- * Parse URL params into a Locator (discriminated union validation)
+ * Parse URL params into a Locator (internal helper)
  *
- * This validates that at least one of the two input modes is present:
- * - bunterm mode: session parameter
- * - Claude mode: claudeSessionId + projectPath parameters
- *
- * Use AFTER parseSearchParams() to validate individual field types.
- *
- * @example
- * // Step 1: Validate field types
- * const parsed = parseSearchParams(ctx.params, RecentParamsSchema);
- * if (!parsed.ok) return failureResponse(parsed.error, ctx.headers, 400);
- *
- * // Step 2: Validate locator (one of two modes required)
- * const locator = parseLocator(ctx.params);
- * if (!locator.ok) return failureResponse(locator.error.error, ctx.headers, locator.error.status);
+ * Used internally by resolveWorkspaceFromParams/resolveClaudeFromParams.
+ * Routes should use the one-step helpers instead of calling this directly.
  */
-export function parseLocator(params: URLSearchParams): Result<Locator, RouteError> {
+function parseLocator(params: URLSearchParams): Result<Locator, RouteError> {
   const sessionName = params.get('session');
   const claudeSessionId = params.get('claudeSessionId');
   const projectPath = params.get('projectPath');
@@ -129,77 +98,57 @@ export function parseLocator(params: URLSearchParams): Result<Locator, RouteErro
   });
 }
 
+// =============================================================================
+// Resolution Helpers
+// =============================================================================
+
 /**
- * Resolve workspace from locator
- *
- * Use for routes that only need file system access (git-diff, markdown, file-content).
- *
- * @example
- * const locator = parseLocator(ctx.params);
- * if (!locator.ok) return failureResponse(locator.error.error, ctx.headers, locator.error.status);
- * const workspace = resolveWorkspace(locator.value, ctx.sessionManager);
- * if (!workspace.ok) return failureResponse(workspace.error.error, ctx.headers, workspace.error.status);
- * // Use workspace.value.cwd
+ * Resolve workspace (cwd) from request params.
+ * Returns either the cwd string or a failure Response.
  */
-export function resolveWorkspace(
-  locator: Locator,
-  sessionManager: NativeSessionManager
-): Result<Workspace, RouteError> {
-  if (locator.kind === 'claude') {
-    return ok({ cwd: locator.projectPath });
+export function resolveWorkspaceFromParams(ctx: QuoteRouteContext): string | Response {
+  const locator = parseLocator(ctx.params);
+  if (!locator.ok) {
+    return failureResponse(locator.error.error, ctx.headers, locator.error.status);
+  }
+
+  if (locator.value.kind === 'claude') {
+    return locator.value.projectPath;
   }
 
   // bunterm mode - lookup session
-  const session = sessionManager.getSession(locator.sessionName);
+  const session = ctx.sessionManager.getSession(locator.value.sessionName);
   if (!session) {
-    return err({ error: 'Session not found', status: 404 });
+    return failureResponse('Session not found', ctx.headers, 404);
   }
-  return ok({ cwd: session.cwd });
+  return session.cwd;
 }
 
 /**
- * Resolve Claude context from locator
- *
- * Use for routes that need Claude conversation history (recent, turn).
- * Returns ClaudeContext with optional claudeSessionId.
- *
- * When claudeSessionId is present (claude locator):
- *   Use getRecentClaudeTurnsFromSession / getClaudeTurnByUuidFromSession
- *
- * When claudeSessionId is null (bunterm locator):
- *   Use getRecentClaudeTurns / getClaudeTurnByUuid (queries most recent session)
- *
- * @example
- * const locator = parseLocator(ctx.params);
- * if (!locator.ok) return failureResponse(locator.error.error, ctx.headers, locator.error.status);
- * const claude = resolveClaudeContext(locator.value, ctx.sessionManager);
- * if (!claude.ok) return failureResponse(claude.error.error, ctx.headers, claude.error.status);
- *
- * // Choose method based on claudeSessionId presence
- * const turns = claude.value.claudeSessionId
- *   ? await getRecentClaudeTurnsFromSession(claude.value.cwd, claude.value.claudeSessionId, count)
- *   : await getRecentClaudeTurns(claude.value.cwd, count);
+ * Resolve Claude context from request params.
+ * Returns either ClaudeContext or a failure Response.
  */
-export function resolveClaudeContext(
-  locator: Locator,
-  sessionManager: NativeSessionManager
-): Result<ClaudeContext, RouteError> {
-  if (locator.kind === 'claude') {
-    return ok({
-      cwd: locator.projectPath,
-      claudeSessionId: locator.claudeSessionId
-    });
+export function resolveClaudeFromParams(ctx: QuoteRouteContext): ClaudeContext | Response {
+  const locator = parseLocator(ctx.params);
+  if (!locator.ok) {
+    return failureResponse(locator.error.error, ctx.headers, locator.error.status);
   }
 
-  // bunterm mode - lookup session for cwd
-  const session = sessionManager.getSession(locator.sessionName);
+  if (locator.value.kind === 'claude') {
+    return {
+      cwd: locator.value.projectPath,
+      claudeSessionId: locator.value.claudeSessionId
+    };
+  }
+
+  // bunterm mode - lookup session
+  const session = ctx.sessionManager.getSession(locator.value.sessionName);
   if (!session) {
-    return err({ error: 'Session not found', status: 404 });
+    return failureResponse('Session not found', ctx.headers, 404);
   }
 
-  // Return with null claudeSessionId - caller uses project-level queries
-  return ok({
+  return {
     cwd: session.cwd,
     claudeSessionId: null
-  });
+  };
 }
