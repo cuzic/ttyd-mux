@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { wrapCommand } from '@/core/cli/command-runner.js';
 import { attachCommand } from '@/core/cli/commands/attach.js';
 import {
   caddyRemoveCommand,
@@ -51,20 +52,21 @@ program
   .option('-c, --config <path>', 'Config file path')
   .option('-a, --attach', 'Attach to tmux session after starting')
   .option('-d, --detach', 'Do not attach to tmux session')
-  .action((options) => upCommand(options));
+  .action(wrapCommand((options) => upCommand(options)));
 
 program
   .command('down')
   .description('Stop session for current directory')
   .option('-c, --config <path>', 'Config file path')
   .option('--kill-tmux', 'Also terminate the tmux session')
-  .action((options) => downCommand(options));
+  .action(wrapCommand((options) => downCommand(options)));
 
 program
   .command('status')
   .description('Show daemon and session status')
   .option('-c, --config <path>', 'Config file path')
-  .action((options) => statusCommand(options));
+  .option('--json', 'Output as JSON')
+  .action(wrapCommand((options) => statusCommand(options)));
 
 program
   .command('list')
@@ -73,13 +75,14 @@ program
   .option('-c, --config <path>', 'Config file path')
   .option('-l, --long', 'Show detailed information')
   .option('--url', 'Show access URLs')
-  .action((options) => listCommand(options));
+  .option('--json', 'Output as JSON')
+  .action(wrapCommand((options) => listCommand(options)));
 
 program
   .command('attach [name]')
   .description('Attach to a tmux session directly')
   .option('-c, --config <path>', 'Config file path')
-  .action((name, options) => attachCommand(name, options));
+  .action(wrapCommand((name, options) => attachCommand(name, options)));
 
 // === Daemon control ===
 
@@ -90,7 +93,7 @@ program
   .option('-c, --config <path>', 'Config file path')
   .option('--sessions', 'Start all predefined sessions after daemon starts')
   .option('-s, --select', 'Interactively select sessions to start')
-  .action((options) => daemonCommand(options));
+  .action(wrapCommand((options) => daemonCommand(options)));
 
 program
   .command('stop')
@@ -99,19 +102,19 @@ program
   .option('-c, --config <path>', 'Config file path')
   .option('-s, --stop-sessions', 'Stop all sessions before shutting down')
   .option('--kill-tmux', 'Also terminate tmux sessions (requires -s)')
-  .action((options) => shutdownCommand(options));
+  .action(wrapCommand((options) => shutdownCommand(options)));
 
 program
   .command('reload')
   .description('Reload configuration without restart')
   .option('-c, --config <path>', 'Config file path')
-  .action((options) => reloadCommand(options));
+  .action(wrapCommand((options) => reloadCommand(options)));
 
 program
   .command('restart')
   .description('Restart the daemon (apply code updates)')
   .option('-c, --config <path>', 'Config file path')
-  .action((options) => restartCommand(options));
+  .action(wrapCommand((options) => restartCommand(options)));
 
 // === Utilities ===
 
@@ -119,7 +122,8 @@ program
   .command('doctor')
   .description('Check dependencies and configuration')
   .option('-c, --config <path>', 'Config file path')
-  .action((options) => doctorCommand(options));
+  .option('--json', 'Output as JSON')
+  .action(wrapCommand((options) => doctorCommand(options)));
 
 program
   .command('deploy')
@@ -127,7 +131,7 @@ program
   .option('--hostname <hostname>', 'Server hostname (or set in config.yaml)')
   .option('-o, --output <dir>', 'Output directory')
   .option('-c, --config <path>', 'Config file path')
-  .action((options) => deployCommand(options));
+  .action(wrapCommand((options) => deployCommand(options)));
 
 // === Caddy integration ===
 
@@ -137,7 +141,7 @@ caddy
   .command('snippet')
   .description('Show Caddyfile snippet for copy-paste')
   .option('-c, --config <path>', 'Config file path')
-  .action((options) => caddySnippetCommand(options));
+  .action(wrapCommand((options) => caddySnippetCommand(options)));
 
 caddy
   .command('setup')
@@ -145,7 +149,7 @@ caddy
   .option('--hostname <hostname>', 'Server hostname (or set in config.yaml)')
   .option('--admin-api <url>', 'Caddy Admin API URL')
   .option('-c, --config <path>', 'Config file path')
-  .action((options) => caddySetupCommand(options));
+  .action(wrapCommand((options) => caddySetupCommand(options)));
 
 caddy
   .command('remove')
@@ -153,7 +157,7 @@ caddy
   .option('--hostname <hostname>', 'Server hostname (or set in config.yaml)')
   .option('--admin-api <url>', 'Caddy Admin API URL')
   .option('-c, --config <path>', 'Config file path')
-  .action((options) => caddyRemoveCommand(options));
+  .action(wrapCommand((options) => caddyRemoveCommand(options)));
 
 caddy
   .command('sync')
@@ -161,14 +165,14 @@ caddy
   .option('--hostname <hostname>', 'Server hostname (or set in config.yaml)')
   .option('--admin-api <url>', 'Caddy Admin API URL')
   .option('-c, --config <path>', 'Config file path')
-  .action((options) => caddySyncCommand(options));
+  .action(wrapCommand((options) => caddySyncCommand(options)));
 
 caddy
   .command('status')
   .description('Show bunterm routes in Caddy')
   .option('--admin-api <url>', 'Caddy Admin API URL')
   .option('-c, --config <path>', 'Config file path')
-  .action((options) => caddyStatusCommand(options));
+  .action(wrapCommand((options) => caddyStatusCommand(options)));
 
 // === Session sharing ===
 
@@ -178,19 +182,19 @@ share
   .command('create <session>')
   .description('Create a read-only share link for a session')
   .option('-e, --expires <duration>', 'Expiration time (e.g., 1h, 30m, 7d)', '1h')
-  .action((session, options) => shareCommand(session, { expires: options.expires }));
+  .action(wrapCommand((session, options) => shareCommand(session, { expires: options.expires })));
 
 share
   .command('list')
   .alias('ls')
   .description('List active share links')
   .option('--json', 'Output as JSON')
-  .action((options) => shareListCommand(options));
+  .action(wrapCommand((options) => shareListCommand(options)));
 
 share
   .command('revoke <token>')
   .description('Revoke a share link')
-  .action((token, options) => shareRevokeCommand(token, options));
+  .action(wrapCommand((token, options) => shareRevokeCommand(token, options)));
 
 // Parse arguments
 program.parse();
