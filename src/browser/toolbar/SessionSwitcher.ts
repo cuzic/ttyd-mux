@@ -15,8 +15,10 @@ import {
   bindBackdropClose,
   bindClickScoped,
   escapeHtml,
-  getSessionNameFromURL
+  getSessionName,
+  renderEmptyState
 } from '@/browser/shared/utils.js';
+import { fetchJSON } from './ApiClient.js';
 
 /** Session data from API */
 interface SessionInfo {
@@ -49,7 +51,7 @@ export class SessionSwitcher implements Mountable {
 
   constructor(config: TerminalUiConfig) {
     this.config = config;
-    const sessionName = getSessionNameFromURL(config.base_path);
+    const sessionName = getSessionName(config);
     this.currentSessionName = sessionName || null;
   }
 
@@ -285,48 +287,37 @@ export class SessionSwitcher implements Mountable {
    * Connect to a tmux session by creating a bunterm session that attaches to it
    */
   private async connectToTmuxSession(tmuxSession: TmuxSessionInfo): Promise<void> {
-    try {
-      // Check if there's an existing bunterm session for this tmux session
-      const sessionsRes = await fetch(`${this.config.base_path}/api/sessions`);
-      const sessions = (await sessionsRes.json()) as Array<{ name: string; tmuxSession?: string }>;
-      const existing = sessions.find((s) => s.tmuxSession === tmuxSession.name);
+    // Check if there's an existing bunterm session for this tmux session
+    const sessions = await fetchJSON<Array<{ name: string; tmuxSession?: string }>>(
+      `${this.config.base_path}/api/sessions`
+    );
+    const existing = sessions?.find((s) => s.tmuxSession === tmuxSession.name);
 
-      if (existing) {
-        // Open existing session
-        const fullPath = `${this.config.base_path}/${encodeURIComponent(existing.name)}/`;
-        window.open(fullPath, '_blank');
-        this.hide();
-        return;
-      }
-
-      // Use the same name as tmux session
-      const sessionName = tmuxSession.name;
-
-      const response = await fetch(`${this.config.base_path}/api/sessions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: sessionName,
-          dir: '.',
-          tmuxSession: tmuxSession.name
-        })
-      });
-
-      if (!response.ok) {
-        // Failed to connect - user will see the modal still open
-        return;
-      }
-
-      // Parse response to get the actual session name (may be different for existing sessions)
-      const data = (await response.json()) as { name: string };
-
-      // Open in new tab
-      const fullPath = `${this.config.base_path}/${encodeURIComponent(data.name)}/`;
+    if (existing) {
+      // Open existing session
+      const fullPath = `${this.config.base_path}/${encodeURIComponent(existing.name)}/`;
       window.open(fullPath, '_blank');
       this.hide();
-    } catch (_error) {
-      // Failed to connect - user will see the modal still open
+      return;
     }
+
+    // Use the same name as tmux session
+    const sessionName = tmuxSession.name;
+
+    const data = await fetchJSON<{ name: string }>(`${this.config.base_path}/api/sessions`, {
+      method: 'POST',
+      body: { name: sessionName, dir: '.', tmuxSession: tmuxSession.name }
+    });
+
+    if (!data) {
+      // Failed to connect - user will see the modal still open
+      return;
+    }
+
+    // Open in new tab
+    const fullPath = `${this.config.base_path}/${encodeURIComponent(data.name)}/`;
+    window.open(fullPath, '_blank');
+    this.hide();
   }
 
   /**
@@ -493,8 +484,9 @@ export class SessionSwitcher implements Mountable {
     const hasTmuxSessions = this.tmuxInstalled && this.filteredTmuxSessions.length > 0;
 
     if (!hasBuntermSessions && !hasTmuxSessions) {
-      this.elements.sessionList.innerHTML =
-        '<div id="tui-session-empty">セッションが見つかりません</div>';
+      renderEmptyState(this.elements.sessionList, 'セッションが見つかりません', {
+        id: 'tui-session-empty'
+      });
       return;
     }
 
