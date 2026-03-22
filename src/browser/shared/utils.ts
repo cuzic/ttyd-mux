@@ -32,6 +32,36 @@ export function getSessionNameFromURL(basePath: string): string {
 }
 
 /**
+ * Get session name from config or URL
+ * Prefers config.sessionName if available, otherwise extracts from URL
+ */
+export function getSessionName(config: { sessionName?: string; base_path: string }): string {
+  return config.sessionName || getSessionNameFromURL(config.base_path);
+}
+
+/**
+ * Render an empty state message into a container
+ * @param container - The container element to render into
+ * @param message - The message to display
+ * @param options - Optional configuration
+ */
+export function renderEmptyState(
+  container: HTMLElement,
+  message: string,
+  options?: { id?: string; className?: string }
+): HTMLElement {
+  const div = document.createElement('div');
+  div.className = options?.className ?? 'tui-empty-state';
+  if (options?.id) {
+    div.id = options.id;
+  }
+  div.textContent = message;
+  container.innerHTML = '';
+  container.appendChild(div);
+  return div;
+}
+
+/**
  * Bind a click event handler to an element with automatic cleanup via Scope.
  * @param scope - Scope for automatic cleanup
  * @param element - The element to bind to (null-safe)

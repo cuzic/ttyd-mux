@@ -41,9 +41,9 @@ export interface SearchableListConfig<T> {
  */
 export class SearchableList<T> implements Mountable {
   private config: SearchableListConfig<T>;
-  private filteredItems: T[] = [];
-  private selectedIndex = 0;
-  private query = '';
+  private _filteredItems: T[] = [];
+  private _selectedIndex = 0;
+  private _query = '';
 
   constructor(config: SearchableListConfig<T>) {
     this.config = config;
@@ -57,8 +57,8 @@ export class SearchableList<T> implements Mountable {
 
     // Search input event
     scope.on(searchInput, 'input', () => {
-      this.query = searchInput.value.toLowerCase().trim();
-      this.selectedIndex = 0;
+      this._query = searchInput.value.toLowerCase().trim();
+      this._selectedIndex = 0;
       this.refresh();
     });
 
@@ -81,8 +81,8 @@ export class SearchableList<T> implements Mountable {
       }
 
       const index = Number.parseInt(indexStr, 10);
-      if (!Number.isNaN(index) && index >= 0 && index < this.filteredItems.length) {
-        this.config.onSelect(this.filteredItems[index], index);
+      if (!Number.isNaN(index) && index >= 0 && index < this._filteredItems.length) {
+        this.config.onSelect(this._filteredItems[index], index);
       }
     });
   }
@@ -114,21 +114,21 @@ export class SearchableList<T> implements Mountable {
    * Select next item
    */
   private selectNext(): void {
-    if (this.filteredItems.length === 0) {
+    if (this._filteredItems.length === 0) {
       return;
     }
 
     const wrap = this.config.wrapNavigation ?? false;
-    const newIndex = this.selectedIndex + 1;
+    const newIndex = this._selectedIndex + 1;
 
-    if (newIndex >= this.filteredItems.length) {
-      this.selectedIndex = wrap ? 0 : this.filteredItems.length - 1;
+    if (newIndex >= this._filteredItems.length) {
+      this._selectedIndex = wrap ? 0 : this._filteredItems.length - 1;
     } else {
-      this.selectedIndex = newIndex;
+      this._selectedIndex = newIndex;
     }
 
     this.render();
-    this.config.onSelectionChange?.(this.selectedIndex);
+    this.config.onSelectionChange?.(this._selectedIndex);
     this.scrollToSelected();
   }
 
@@ -136,21 +136,21 @@ export class SearchableList<T> implements Mountable {
    * Select previous item
    */
   private selectPrevious(): void {
-    if (this.filteredItems.length === 0) {
+    if (this._filteredItems.length === 0) {
       return;
     }
 
     const wrap = this.config.wrapNavigation ?? false;
-    const newIndex = this.selectedIndex - 1;
+    const newIndex = this._selectedIndex - 1;
 
     if (newIndex < 0) {
-      this.selectedIndex = wrap ? this.filteredItems.length - 1 : 0;
+      this._selectedIndex = wrap ? this._filteredItems.length - 1 : 0;
     } else {
-      this.selectedIndex = newIndex;
+      this._selectedIndex = newIndex;
     }
 
     this.render();
-    this.config.onSelectionChange?.(this.selectedIndex);
+    this.config.onSelectionChange?.(this._selectedIndex);
     this.scrollToSelected();
   }
 
@@ -158,8 +158,8 @@ export class SearchableList<T> implements Mountable {
    * Select current item
    */
   private selectCurrent(): void {
-    if (this.filteredItems.length > 0 && this.selectedIndex < this.filteredItems.length) {
-      this.config.onSelect(this.filteredItems[this.selectedIndex], this.selectedIndex);
+    if (this._filteredItems.length > 0 && this._selectedIndex < this._filteredItems.length) {
+      this.config.onSelect(this._filteredItems[this._selectedIndex], this._selectedIndex);
     }
   }
 
@@ -169,7 +169,7 @@ export class SearchableList<T> implements Mountable {
   private scrollToSelected(): void {
     const itemSelector = this.config.itemSelector ?? '[data-index]';
     const selectedEl = this.config.listContainer.querySelector(
-      `${itemSelector}[data-index="${this.selectedIndex}"]`
+      `${itemSelector}[data-index="${this._selectedIndex}"]`
     );
     if (selectedEl) {
       selectedEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -189,15 +189,15 @@ export class SearchableList<T> implements Mountable {
    */
   private filter(): void {
     const allItems = this.config.getItems();
-    if (this.query) {
-      this.filteredItems = allItems.filter((item) => this.config.filter(item, this.query));
+    if (this._query) {
+      this._filteredItems = allItems.filter((item) => this.config.filter(item, this._query));
     } else {
-      this.filteredItems = [...allItems];
+      this._filteredItems = [...allItems];
     }
 
     // Clamp selected index
-    if (this.selectedIndex >= this.filteredItems.length) {
-      this.selectedIndex = Math.max(0, this.filteredItems.length - 1);
+    if (this._selectedIndex >= this._filteredItems.length) {
+      this._selectedIndex = Math.max(0, this._filteredItems.length - 1);
     }
   }
 
@@ -205,15 +205,15 @@ export class SearchableList<T> implements Mountable {
    * Render the filtered list
    */
   private render(): void {
-    this.config.render(this.filteredItems, this.selectedIndex, this.config.listContainer);
+    this.config.render(this._filteredItems, this._selectedIndex, this.config.listContainer);
   }
 
   /**
    * Reset search state
    */
   reset(): void {
-    this.query = '';
-    this.selectedIndex = 0;
+    this._query = '';
+    this._selectedIndex = 0;
     this.config.searchInput.value = '';
     this.refresh();
   }
@@ -221,32 +221,32 @@ export class SearchableList<T> implements Mountable {
   /**
    * Get filtered items
    */
-  getFilteredItems(): T[] {
-    return [...this.filteredItems];
+  get filteredItems(): T[] {
+    return [...this._filteredItems];
   }
 
   /**
    * Get selected index
    */
-  getSelectedIndex(): number {
-    return this.selectedIndex;
+  get selectedIndex(): number {
+    return this._selectedIndex;
   }
 
   /**
    * Set selected index
    */
-  setSelectedIndex(index: number): void {
-    if (index >= 0 && index < this.filteredItems.length) {
-      this.selectedIndex = index;
+  set selectedIndex(index: number) {
+    if (index >= 0 && index < this._filteredItems.length) {
+      this._selectedIndex = index;
       this.render();
-      this.config.onSelectionChange?.(this.selectedIndex);
+      this.config.onSelectionChange?.(this._selectedIndex);
     }
   }
 
   /**
    * Get current query
    */
-  getQuery(): string {
-    return this.query;
+  get query(): string {
+    return this._query;
   }
 }
