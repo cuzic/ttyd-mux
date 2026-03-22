@@ -373,7 +373,7 @@ export class TerminalClient implements Disposable {
         this.blockRenderer?.addBlock(block);
         // Update filter counts when a new block starts
         this.blockRenderer?.updateFilterState(
-          this.blockManager?.getFilter() ?? 'all',
+          this.blockManager?.filter ?? 'all',
           this.blockManager?.getCounts() ?? { all: 0, success: 0, error: 0, running: 0 }
         );
       },
@@ -381,7 +381,7 @@ export class TerminalClient implements Disposable {
         this.blockRenderer?.updateBlock(block);
         // Update filter counts when a block ends
         this.blockRenderer?.updateFilterState(
-          this.blockManager?.getFilter() ?? 'all',
+          this.blockManager?.filter ?? 'all',
           this.blockManager?.getCounts() ?? { all: 0, success: 0, error: 0, running: 0 }
         );
       },
@@ -389,7 +389,7 @@ export class TerminalClient implements Disposable {
         this.blockRenderer?.renderBlocks(blocks);
         // Update filter counts after loading blocks
         this.blockRenderer?.updateFilterState(
-          this.blockManager?.getFilter() ?? 'all',
+          this.blockManager?.filter ?? 'all',
           this.blockManager?.getCounts() ?? { all: 0, success: 0, error: 0, running: 0 }
         );
       },
@@ -1236,14 +1236,14 @@ export class TerminalClient implements Disposable {
    * Get all blocks
    */
   getBlocks(): Block[] {
-    return this.blockManager?.getAllBlocks() ?? [];
+    return this.blockManager?.allBlocks ?? [];
   }
 
   /**
    * Get the active (running) block
    */
   getActiveBlock(): Block | null {
-    return this.blockManager?.getActiveBlock() ?? null;
+    return this.blockManager?.activeBlock ?? null;
   }
 
   /**

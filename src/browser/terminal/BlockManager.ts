@@ -103,7 +103,7 @@ export class BlockManager {
   private handlers: BlockEventHandlers = {};
 
   // Selection state
-  private selectedBlockIds: Set<string> = new Set();
+  private selectedIdSet: Set<string> = new Set();
   private lastSelectedId: string | null = null;
 
   // Filter state
@@ -200,7 +200,7 @@ export class BlockManager {
   /**
    * Get the active (running) block
    */
-  getActiveBlock(): Block | null {
+  get activeBlock(): Block | null {
     if (!this.activeBlockId) {
       return null;
     }
@@ -210,7 +210,7 @@ export class BlockManager {
   /**
    * Get all blocks in order
    */
-  getAllBlocks(): Block[] {
+  get allBlocks(): Block[] {
     return this.blockOrder.map((id) => this.blocks.get(id)!).filter(Boolean);
   }
 
@@ -278,10 +278,10 @@ export class BlockManager {
       return;
     }
 
-    this.selectedBlockIds.clear();
-    this.selectedBlockIds.add(blockId);
+    this.selectedIdSet.clear();
+    this.selectedIdSet.add(blockId);
     this.lastSelectedId = blockId;
-    this.handlers.onSelectionChange?.([...this.selectedBlockIds]);
+    this.handlers.onSelectionChange?.([...this.selectedIdSet]);
   }
 
   /**
@@ -292,13 +292,13 @@ export class BlockManager {
       return;
     }
 
-    if (this.selectedBlockIds.has(blockId)) {
-      this.selectedBlockIds.delete(blockId);
+    if (this.selectedIdSet.has(blockId)) {
+      this.selectedIdSet.delete(blockId);
     } else {
-      this.selectedBlockIds.add(blockId);
+      this.selectedIdSet.add(blockId);
     }
     this.lastSelectedId = blockId;
-    this.handlers.onSelectionChange?.([...this.selectedBlockIds]);
+    this.handlers.onSelectionChange?.([...this.selectedIdSet]);
   }
 
   /**
@@ -328,18 +328,18 @@ export class BlockManager {
     for (let i = minIdx; i <= maxIdx; i++) {
       const id = this.blockOrder[i];
       if (id) {
-        this.selectedBlockIds.add(id);
+        this.selectedIdSet.add(id);
       }
     }
 
-    this.handlers.onSelectionChange?.([...this.selectedBlockIds]);
+    this.handlers.onSelectionChange?.([...this.selectedIdSet]);
   }
 
   /**
    * Clear all selection
    */
   clearSelection(): void {
-    this.selectedBlockIds.clear();
+    this.selectedIdSet.clear();
     this.lastSelectedId = null;
     this.handlers.onSelectionChange?.([]);
   }
@@ -348,30 +348,30 @@ export class BlockManager {
    * Select all blocks
    */
   selectAll(): void {
-    this.selectedBlockIds = new Set(this.blockOrder);
-    this.handlers.onSelectionChange?.([...this.selectedBlockIds]);
+    this.selectedIdSet = new Set(this.blockOrder);
+    this.handlers.onSelectionChange?.([...this.selectedIdSet]);
   }
 
   /**
    * Check if a block is selected
    */
   isSelected(blockId: string): boolean {
-    return this.selectedBlockIds.has(blockId);
+    return this.selectedIdSet.has(blockId);
   }
 
   /**
    * Get all selected block IDs
    */
-  getSelectedBlockIds(): string[] {
+  get selectedBlockIds(): string[] {
     // Return in order
-    return this.blockOrder.filter((id) => this.selectedBlockIds.has(id));
+    return this.blockOrder.filter((id) => this.selectedIdSet.has(id));
   }
 
   /**
    * Get all selected blocks
    */
-  getSelectedBlocks(): Block[] {
-    return this.getSelectedBlockIds()
+  get selectedBlocks(): Block[] {
+    return this.selectedBlockIds
       .map((id) => this.blocks.get(id)!)
       .filter(Boolean);
   }
@@ -380,14 +380,14 @@ export class BlockManager {
    * Get the number of selected blocks
    */
   get selectionCount(): number {
-    return this.selectedBlockIds.size;
+    return this.selectedIdSet.size;
   }
 
   /**
    * Copy selected blocks to clipboard
    */
   async copySelection(format: CopyFormat = 'plain', includeOutput = true): Promise<string> {
-    const selectedBlocks = this.getSelectedBlocks();
+    const selectedBlocks = this.selectedBlocks;
     if (selectedBlocks.length === 0) {
       return '';
     }
@@ -426,7 +426,7 @@ export class BlockManager {
    * Copy only commands from selected blocks
    */
   async copyCommands(): Promise<string> {
-    const selectedBlocks = this.getSelectedBlocks();
+    const selectedBlocks = this.selectedBlocks;
     if (selectedBlocks.length === 0) {
       return '';
     }
@@ -440,7 +440,7 @@ export class BlockManager {
    * Copy only output from selected blocks
    */
   async copyOutput(): Promise<string> {
-    const selectedBlocks = this.getSelectedBlocks();
+    const selectedBlocks = this.selectedBlocks;
     if (selectedBlocks.length === 0) {
       return '';
     }
@@ -473,16 +473,13 @@ export class BlockManager {
   // === Filter Methods ===
 
   /**
-   * Get the current filter
+   * Get/set the current filter
    */
-  getFilter(): BlockFilter {
+  get filter(): BlockFilter {
     return this.currentFilter;
   }
 
-  /**
-   * Set the filter and notify listeners
-   */
-  setFilter(filter: BlockFilter): void {
+  set filter(filter: BlockFilter) {
     this.currentFilter = filter;
     this.handlers.onFilterChange?.(filter, this.getCounts());
   }
@@ -492,9 +489,9 @@ export class BlockManager {
    */
   toggleErrorsOnly(): void {
     if (this.currentFilter === 'error') {
-      this.setFilter('all');
+      this.filter = 'all';
     } else {
-      this.setFilter('error');
+      this.filter = 'error';
     }
   }
 
@@ -547,9 +544,9 @@ export class BlockManager {
   /**
    * Get all blocks that pass the current filter
    */
-  getFilteredBlocks(): Block[] {
+  get filteredBlocks(): Block[] {
     if (this.currentFilter === 'all') {
-      return this.getAllBlocks();
+      return this.allBlocks;
     }
 
     return this.blockOrder
@@ -560,7 +557,7 @@ export class BlockManager {
   /**
    * Get filtered block IDs
    */
-  getFilteredBlockIds(): string[] {
+  get filteredBlockIds(): string[] {
     if (this.currentFilter === 'all') {
       return [...this.blockOrder];
     }
@@ -576,7 +573,7 @@ export class BlockManager {
   /**
    * Get the currently focused block ID
    */
-  getFocusedBlockId(): string | null {
+  get focusedBlock(): string | null {
     return this.focusedBlockId;
   }
 
@@ -603,7 +600,7 @@ export class BlockManager {
    * Navigate to the previous block (respects current filter)
    */
   focusPreviousBlock(): void {
-    const filteredIds = this.getFilteredBlockIds();
+    const filteredIds = this.filteredBlockIds;
     if (filteredIds.length === 0) {
       return;
     }
@@ -629,7 +626,7 @@ export class BlockManager {
    * Navigate to the next block (respects current filter)
    */
   focusNextBlock(): void {
-    const filteredIds = this.getFilteredBlockIds();
+    const filteredIds = this.filteredBlockIds;
     if (filteredIds.length === 0) {
       return;
     }
@@ -655,7 +652,7 @@ export class BlockManager {
    * Navigate to the first block (respects current filter)
    */
   focusFirstBlock(): void {
-    const filteredIds = this.getFilteredBlockIds();
+    const filteredIds = this.filteredBlockIds;
     if (filteredIds.length > 0) {
       this.focusBlock(filteredIds[0] ?? null);
     }
@@ -665,7 +662,7 @@ export class BlockManager {
    * Navigate to the last block (respects current filter)
    */
   focusLastBlock(): void {
-    const filteredIds = this.getFilteredBlockIds();
+    const filteredIds = this.filteredBlockIds;
     if (filteredIds.length > 0) {
       this.focusBlock(filteredIds[filteredIds.length - 1] ?? null);
     }
@@ -809,7 +806,7 @@ export class BlockManager {
   /**
    * Get all blocks that have search matches
    */
-  getBlocksMatchingSearch(): Block[] {
+  get blocksMatchingSearch(): Block[] {
     const matchingBlockIds = new Set(this.searchResults.map((r) => r.blockId));
     return this.blockOrder
       .filter((id) => matchingBlockIds.has(id))
@@ -873,15 +870,15 @@ export class BlockManager {
   /**
    * Get all bookmarked block IDs in order
    */
-  getBookmarkedBlockIds(): string[] {
+  get bookmarkedBlockIds(): string[] {
     return this.blockOrder.filter((id) => this.bookmarks.has(id));
   }
 
   /**
    * Get all bookmarked blocks in order
    */
-  getBookmarkedBlocks(): Block[] {
-    return this.getBookmarkedBlockIds()
+  get bookmarkedBlocks(): Block[] {
+    return this.bookmarkedBlockIds
       .map((id) => this.blocks.get(id)!)
       .filter(Boolean);
   }
@@ -904,7 +901,7 @@ export class BlockManager {
    * Navigate to the next bookmarked block (wraps around)
    */
   focusNextBookmark(): void {
-    const bookmarkedIds = this.getBookmarkedBlockIds();
+    const bookmarkedIds = this.bookmarkedBlockIds;
     if (bookmarkedIds.length === 0) {
       return;
     }
@@ -935,7 +932,7 @@ export class BlockManager {
    * Navigate to the previous bookmarked block (wraps around)
    */
   focusPreviousBookmark(): void {
-    const bookmarkedIds = this.getBookmarkedBlockIds();
+    const bookmarkedIds = this.bookmarkedBlockIds;
     if (bookmarkedIds.length === 0) {
       return;
     }
@@ -1178,7 +1175,7 @@ export class BlockManager {
    * Export selected blocks to markdown format
    */
   exportSelectedBlocksToMarkdown(options: ExportOptions = {}): string {
-    const selectedIds = Array.from(this.selectedBlockIds);
+    const selectedIds = Array.from(this.selectedIdSet);
     return this.exportBlocksToMarkdown(selectedIds, options);
   }
 
@@ -1215,14 +1212,14 @@ export class BlockManager {
   /**
    * Get the current long-running threshold
    */
-  getLongRunningThreshold(): number {
+  get longRunningThresholdMs(): number {
     return this.longRunningThreshold;
   }
 
   /**
    * Get blocks that have been running longer than the threshold
    */
-  getLongRunningBlocks(): Block[] {
+  get longRunningBlocks(): Block[] {
     const longRunning: Block[] = [];
     const now = Date.now();
 
@@ -1246,7 +1243,7 @@ export class BlockManager {
   /**
    * Get all currently running blocks
    */
-  getRunningBlocks(): Block[] {
+  get runningBlocks(): Block[] {
     return Array.from(this.blocks.values()).filter(
       (block) => block.status === 'running' && !block.endedAt
     );
