@@ -4,17 +4,7 @@ import type {
   StartSessionRequest,
   StatusResponse
 } from '@/core/config/types.js';
-import { getDaemonClientDeps } from './daemon-client.js';
-
-/**
- * Get daemon URL from state or config
- */
-function getDaemonUrl(config: Config): string {
-  const deps = getDaemonClientDeps();
-  const daemon = deps.stateStore.getDaemonState();
-  const port = daemon?.port ?? config.daemon_port;
-  return `http://localhost:${port}`;
-}
+import { buildApiUrl } from './daemon-url.js';
 
 /**
  * Make an API request to the daemon
@@ -25,7 +15,7 @@ export async function apiRequest<T>(
   path: string,
   body?: unknown
 ): Promise<T> {
-  const url = `${getDaemonUrl(config)}${config.base_path}${path}`;
+  const url = buildApiUrl(config, path);
 
   const response = await fetch(url, {
     method,
