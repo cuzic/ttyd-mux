@@ -29,16 +29,12 @@ interface ListData {
   tmuxInstalled: boolean;
 }
 
-// === Data Fetching ===
+// === Types ===
 
 type BuntermSession = Awaited<ReturnType<typeof getSessions>>[0];
 type TmuxData = Awaited<ReturnType<typeof getTmuxSessions>>;
 
-async function fetchSessionData(config: Config) {
-  return Promise.all([getSessions(config), getTmuxSessions(config)]);
-}
-
-// === Data Transformation ===
+// === Transformation ===
 
 function buildSessionList(
   buntermSessions: BuntermSession[],
@@ -87,11 +83,7 @@ function buildSessionList(
   return { sessions, tmuxInstalled: tmuxData.installed };
 }
 
-// === Output Formatting ===
-
-function outputJson(data: ListData): void {
-  console.log(JSON.stringify({ sessions: data.sessions, daemon: true, tmuxInstalled: data.tmuxInstalled }));
-}
+// === Output ===
 
 function outputText(data: ListData, options: Pick<ListOptions, 'long' | 'url'>): void {
   if (data.sessions.length === 0) {
@@ -129,15 +121,22 @@ export async function listCommand(options: ListOptions): Promise<void> {
   }
 
   try {
-    // Fetch
-    const [buntermSessions, tmuxData] = await fetchSessionData(config);
+    // Fetch data
+    const [buntermSessions, tmuxData] = await Promise.all([
+      getSessions(config),
+      getTmuxSessions(config)
+    ]);
 
-    // Transform
+    // Transform to list
     const data = buildSessionList(buntermSessions, tmuxData, config);
 
-    // Output
+    // Output (JSON or text)
     if (options.json) {
-      outputJson(data);
+      console.log(JSON.stringify({
+        sessions: data.sessions,
+        daemon: true,
+        tmuxInstalled: data.tmuxInstalled
+      }));
     } else {
       outputText(data, options);
     }
