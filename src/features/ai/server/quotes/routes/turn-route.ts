@@ -6,8 +6,9 @@
 
 import {
   type QuoteRouteContext,
-  jsonResponse,
-  errorResponse,
+  successResponse,
+  failureResponse,
+  handleError,
   resolveSession
 } from './types.js';
 import {
@@ -17,6 +18,9 @@ import {
 
 /**
  * Handle /turn/:uuid route
+ *
+ * Success: ClaudeTurn object
+ * Error: { error: string } with appropriate status code
  */
 export async function handleTurnRoute(
   ctx: QuoteRouteContext,
@@ -30,31 +34,31 @@ export async function handleTurnRoute(
     try {
       const turn = await getClaudeTurnByUuidFromSession(projectPath, claudeSessionId, uuid);
       return turn
-        ? jsonResponse(turn, ctx.headers)
-        : errorResponse('Turn not found', ctx.headers, 404);
+        ? successResponse(turn, ctx.headers)
+        : failureResponse('Turn not found', ctx.headers, 404);
     } catch (error) {
-      return errorResponse(String(error), ctx.headers, 500);
+      return handleError(error, ctx.headers);
     }
   }
 
   // Fallback: legacy approach using bunterm session name
   const sessionResult = resolveSession(ctx);
-  if ('error' in sessionResult) {
-    if (sessionResult.status === 400) {
-      return errorResponse(
-        'Either (claudeSessionId + projectPath) or session parameter is required',
-        ctx.headers
-      );
-    }
-    return errorResponse(sessionResult.error, ctx.headers, sessionResult.status);
+  if (!sessionResult.ok) {
+    return failureResponse(
+      sessionResult.status === 400
+        ? 'Either (claudeSessionId + projectPath) or session parameter is required'
+        : sessionResult.error,
+      ctx.headers,
+      sessionResult.status
+    );
   }
 
   try {
     const turn = await getClaudeTurnByUuid(sessionResult.cwd, uuid);
     return turn
-      ? jsonResponse(turn, ctx.headers)
-      : errorResponse('Turn not found', ctx.headers, 404);
+      ? successResponse(turn, ctx.headers)
+      : failureResponse('Turn not found', ctx.headers, 404);
   } catch (error) {
-    return errorResponse(String(error), ctx.headers, 500);
+    return handleError(error, ctx.headers);
   }
 }

@@ -7,8 +7,9 @@
 
 import {
   type QuoteRouteContext,
-  jsonResponse,
-  errorResponse,
+  successResponse,
+  failureResponse,
+  handleError,
   resolveSession
 } from './types.js';
 import {
@@ -19,14 +20,17 @@ import {
 
 /**
  * Handle /recent-markdown route
+ *
+ * Success: { files: MdFileInfo[] }
+ * Error: { error: string } with appropriate status code
  */
 export async function handleRecentMarkdownRoute(ctx: QuoteRouteContext): Promise<Response> {
   const count = Math.min(Number.parseInt(ctx.params.get('count') ?? '20', 10), 50);
   const hours = Math.min(Number.parseInt(ctx.params.get('hours') ?? '24', 10), 168);
 
   const sessionResult = resolveSession(ctx);
-  if ('error' in sessionResult) {
-    return jsonResponse({ error: sessionResult.error, files: [] }, ctx.headers);
+  if (!sessionResult.ok) {
+    return failureResponse(sessionResult.error, ctx.headers, sessionResult.status);
   }
 
   try {
@@ -39,14 +43,17 @@ export async function handleRecentMarkdownRoute(ctx: QuoteRouteContext): Promise
       .filter((f) => new Date(f.modifiedAt).getTime() > cutoffTime)
       .sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime())
       .slice(0, count);
-    return jsonResponse({ files }, ctx.headers);
+    return successResponse({ files }, ctx.headers);
   } catch (error) {
-    return errorResponse(String(error), ctx.headers, 500);
+    return handleError(error, ctx.headers);
   }
 }
 
 /**
  * Handle /recent route (Claude turns)
+ *
+ * Success: { turns: ClaudeTurn[] }
+ * Error: { error: string } with appropriate status code
  */
 export async function handleRecentRoute(ctx: QuoteRouteContext): Promise<Response> {
   const claudeSessionId = ctx.params.get('claudeSessionId');
@@ -57,28 +64,28 @@ export async function handleRecentRoute(ctx: QuoteRouteContext): Promise<Respons
   if (claudeSessionId && projectPath) {
     try {
       const turns = await getRecentClaudeTurnsFromSession(projectPath, claudeSessionId, count);
-      return jsonResponse({ turns }, ctx.headers);
+      return successResponse({ turns }, ctx.headers);
     } catch (error) {
-      return errorResponse(String(error), ctx.headers, 500);
+      return handleError(error, ctx.headers);
     }
   }
 
   // Fallback: legacy approach using bunterm session name
   const sessionResult = resolveSession(ctx);
-  if ('error' in sessionResult) {
-    if (sessionResult.status === 404) {
-      return jsonResponse({ error: sessionResult.error, turns: [] }, ctx.headers);
-    }
-    return errorResponse(
-      'Either (claudeSessionId + projectPath) or session parameter is required',
-      ctx.headers
+  if (!sessionResult.ok) {
+    return failureResponse(
+      sessionResult.status === 400
+        ? 'Either (claudeSessionId + projectPath) or session parameter is required'
+        : sessionResult.error,
+      ctx.headers,
+      sessionResult.status
     );
   }
 
   try {
     const turns = await getRecentClaudeTurns(sessionResult.cwd, count);
-    return jsonResponse({ turns }, ctx.headers);
+    return successResponse({ turns }, ctx.headers);
   } catch (error) {
-    return errorResponse(String(error), ctx.headers, 500);
+    return handleError(error, ctx.headers);
   }
 }

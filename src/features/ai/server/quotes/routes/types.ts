@@ -5,6 +5,15 @@
  */
 
 import type { NativeSessionManager } from '@/core/server/session-manager.js';
+import {
+  successResponse,
+  failureResponse,
+  handleError,
+  type SessionResult
+} from './response.js';
+
+// Re-export response helpers for convenience
+export { successResponse, failureResponse, handleError, type SessionResult };
 
 /**
  * Context passed to quote route handlers
@@ -15,36 +24,30 @@ export interface QuoteRouteContext {
   sessionManager: NativeSessionManager;
 }
 
-/** JSON response helper */
-export const jsonResponse = (
-  data: unknown,
-  headers: Record<string, string>,
-  status = 200
-): Response => new Response(JSON.stringify(data), { status, headers });
+/**
+ * @deprecated Use successResponse instead
+ */
+export const jsonResponse = successResponse;
 
-/** Error response helper */
-export const errorResponse = (
-  error: string,
-  headers: Record<string, string>,
-  status = 400
-): Response => new Response(JSON.stringify({ error }), { status, headers });
+/**
+ * @deprecated Use failureResponse instead
+ */
+export const errorResponse = failureResponse;
 
 /**
  * Resolve session from context
- * Returns session cwd or null if not found
+ * Returns discriminated union with ok field for type-safe handling
  */
-export function resolveSession(
-  ctx: QuoteRouteContext
-): { cwd: string } | { error: string; status: number } {
+export function resolveSession(ctx: QuoteRouteContext): SessionResult {
   const sessionName = ctx.params.get('session');
   if (!sessionName) {
-    return { error: 'session parameter required', status: 400 };
+    return { ok: false, error: 'session parameter required', status: 400 };
   }
 
   const session = ctx.sessionManager.getSession(sessionName);
   if (!session) {
-    return { error: 'Session not found', status: 404 };
+    return { ok: false, error: 'Session not found', status: 404 };
   }
 
-  return { cwd: session.cwd };
+  return { ok: true, cwd: session.cwd };
 }

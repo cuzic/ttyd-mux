@@ -7,47 +7,54 @@
 
 import {
   type QuoteRouteContext,
-  jsonResponse,
-  errorResponse,
+  successResponse,
+  failureResponse,
+  handleError,
   resolveSession
 } from './types.js';
 import { getGitDiff, getFileDiff } from '../quotes-service.js';
 
 /**
  * Handle /git-diff route
+ *
+ * Success: GitDiff object
+ * Error: { error: string } with appropriate status code
  */
 export async function handleGitDiffRoute(ctx: QuoteRouteContext): Promise<Response> {
   const sessionResult = resolveSession(ctx);
-  if ('error' in sessionResult) {
-    return errorResponse(sessionResult.error, ctx.headers, sessionResult.status);
+  if (!sessionResult.ok) {
+    return failureResponse(sessionResult.error, ctx.headers, sessionResult.status);
   }
 
   try {
-    return jsonResponse(await getGitDiff(sessionResult.cwd), ctx.headers);
+    return successResponse(await getGitDiff(sessionResult.cwd), ctx.headers);
   } catch (error) {
-    return errorResponse(String(error), ctx.headers, 500);
+    return handleError(error, ctx.headers);
   }
 }
 
 /**
  * Handle /git-diff-file route
+ *
+ * Success: { path: string, diff: string }
+ * Error: { error: string } with appropriate status code
  */
 export async function handleGitDiffFileRoute(ctx: QuoteRouteContext): Promise<Response> {
   const filePath = ctx.params.get('path');
 
   if (!filePath) {
-    return errorResponse('session and path parameters required', ctx.headers);
+    return failureResponse('session and path parameters required', ctx.headers, 400);
   }
 
   const sessionResult = resolveSession(ctx);
-  if ('error' in sessionResult) {
-    return errorResponse(sessionResult.error, ctx.headers, sessionResult.status);
+  if (!sessionResult.ok) {
+    return failureResponse(sessionResult.error, ctx.headers, sessionResult.status);
   }
 
   try {
     const diff = await getFileDiff(sessionResult.cwd, filePath);
-    return jsonResponse({ path: filePath, diff }, ctx.headers);
+    return successResponse({ path: filePath, diff }, ctx.headers);
   } catch (error) {
-    return errorResponse(String(error), ctx.headers, 500);
+    return handleError(error, ctx.headers);
   }
 }
