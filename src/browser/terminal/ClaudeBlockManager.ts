@@ -256,7 +256,7 @@ export class ClaudeBlockManager {
   /**
    * Get all turns
    */
-  getAllTurns(): ClaudeTurn[] {
+  get allTurns(): ClaudeTurn[] {
     return this.turnOrder.map((id) => this.turns.get(id)!).filter(Boolean);
   }
 
@@ -270,14 +270,14 @@ export class ClaudeBlockManager {
   /**
    * Get current (active) turn
    */
-  getCurrentTurn(): ClaudeTurn | null {
+  get currentTurn(): ClaudeTurn | null {
     return this.currentTurnId ? (this.turns.get(this.currentTurnId) ?? null) : null;
   }
 
   /**
    * Get current session ID
    */
-  getSessionId(): string | null {
+  get sessionId(): string | null {
     return this.currentSessionId;
   }
 
