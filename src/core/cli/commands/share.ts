@@ -13,6 +13,7 @@ import {
 import { CliError } from '@/utils/errors.js';
 
 export interface ShareOptions {
+  config?: string;
   expires?: string;
   readonly?: boolean;
 }
@@ -27,19 +28,19 @@ export type ShareRevokeOptions = Record<string, never>;
  * Create a share link for a session
  */
 export async function shareCommand(sessionName: string, options: ShareOptions): Promise<void> {
-  const config = loadConfig();
+  const config = loadConfig(options.config);
 
   // Ensure daemon is running
-  await ensureDaemon(undefined, config.daemon_manager);
+  await ensureDaemon(options.config, config.daemon_manager);
 
   const result = createShare(sessionName, config, options.expires ?? '1h');
 
-  if ('error' in result) {
+  if (!result.ok) {
     throw new CliError(result.error);
   }
 
   console.log(`Share created for session '${sessionName}':`);
-  console.log(result.url);
+  console.log(result.value.url);
 }
 
 /**
