@@ -13,17 +13,58 @@
  * - GET /api/claude-quotes/file-content - Get file content
  * - GET /api/claude-quotes/git-diff - Get git diff
  * - GET /api/claude-quotes/git-diff-file - Get single file diff
+ *
+ * ## Design Policy for Route Development
+ *
+ * ### Adding New Routes
+ *
+ * 1. **Write directly first** - Don't abstract until a pattern repeats 3+ times
+ * 2. **Use the standard route skeleton**:
+ *    - Step 1: Validate path params (if any)
+ *    - Step 2: Parse search params with parseSearchParams()
+ *    - Step 3: Resolve locator with parseLocator()
+ *    - Step 4: Resolve context (workspace or claude)
+ *    - Step 5: Execute service logic
+ * 3. **Self-review with the 10-item checklist** (see below)
+ *
+ * ### Avoid These Patterns
+ *
+ * - `V2` / `legacy` / `compat` suffixes - redesign instead of layering
+ * - `mode` parameters that change behavior significantly - make separate routes
+ * - Helper functions used by only 1 route - inline the logic
+ * - Generic "utility" modules that grow unbounded
+ *
+ * ### 10-Item Self-Review Checklist
+ *
+ * Before merging a new route, verify:
+ * 1. Does the schema reflect the actual API contract?
+ * 2. Are locator fields (session, claudeSessionId, projectPath) optional?
+ * 3. Is validation done at the route entry (not deep in service code)?
+ * 4. Is the error response shape consistent ({ error: string })?
+ * 5. Are response helper imports from response.ts (not types.ts)?
+ * 6. Does the route follow the 5-step skeleton?
+ * 7. Are there no ad-hoc { error: string } union types (use Result instead)?
+ * 8. Is there no "future-proofing" code that isn't used yet?
+ * 9. Are comments explaining "why" not "what"?
+ * 10. Would a new developer understand this route in under 5 minutes?
+ *
+ * ### File Responsibilities
+ *
+ * - `params.ts` - Zod schemas for parameter validation only
+ * - `types.ts` - Context and locator types + resolution functions only
+ * - `response.ts` - Response helpers only (success, failure, handleError)
+ * - `*-route.ts` - Route logic (parse → resolve → service → response)
  */
 
 import type { NativeSessionManager } from '@/core/server/session-manager.js';
-import type { QuoteRouteContext } from './routes/types.js';
-import { handleSessionsRoute } from './routes/sessions-route.js';
-import { handleRecentRoute, handleRecentMarkdownRoute } from './routes/recent-route.js';
-import { handleTurnRoute } from './routes/turn-route.js';
+import { handleFileContentRoute } from './routes/file-content-route.js';
+import { handleGitDiffFileRoute, handleGitDiffRoute } from './routes/git-diff-route.js';
 import { handleMarkdownRoute } from './routes/markdown-route.js';
 import { handlePlansRoute } from './routes/plans-route.js';
-import { handleFileContentRoute } from './routes/file-content-route.js';
-import { handleGitDiffRoute, handleGitDiffFileRoute } from './routes/git-diff-route.js';
+import { handleRecentMarkdownRoute, handleRecentRoute } from './routes/recent-route.js';
+import { handleSessionsRoute } from './routes/sessions-route.js';
+import { handleTurnRoute } from './routes/turn-route.js';
+import type { QuoteRouteContext } from './routes/types.js';
 
 // === Route Definition Types ===
 
