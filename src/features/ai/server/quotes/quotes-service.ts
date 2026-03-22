@@ -238,3 +238,88 @@ export function readFileContent(
     totalLines: lines.length
   };
 }
+
+// === Repomix Operations ===
+
+/**
+ * Repomix result
+ */
+export interface RepomixResult {
+  content: string;
+  fileCount: number;
+  tokenCount: number;
+  directory: string;
+}
+
+/**
+ * Run repomix on a directory and return the packed content
+ * @param baseDir - Base directory (project root)
+ * @param targetPath - Relative path to pack (e.g., "src/components")
+ * @returns Packed content or error
+ */
+export async function runRepomix(
+  baseDir: string,
+  targetPath: string
+): Promise<RepomixResult | { error: string }> {
+  const pathResult = validateSecurePath(baseDir, targetPath);
+  if (!pathResult.valid) {
+    return { error: pathResult.error ?? 'Invalid path' };
+  }
+
+  const targetDir = pathResult.targetPath;
+  if (!existsSync(targetDir)) {
+    return { error: 'Directory not found' };
+  }
+
+  const stat = statSync(targetDir);
+  if (!stat.isDirectory()) {
+    return { error: 'Path is not a directory' };
+  }
+
+  try {
+    // Run repomix with --stdout to get output directly
+    const proc = Bun.spawn(
+      [
+        'npx',
+        '-y',
+        'repomix',
+        '--stdout',
+        '--style',
+        'xml',
+        '--output-show-line-numbers',
+        '--include',
+        `${targetPath}/**/*`
+      ],
+      {
+        cwd: baseDir,
+        stdout: 'pipe',
+        stderr: 'pipe'
+      }
+    );
+
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text()
+    ]);
+
+    const exitCode = await proc.exited;
+
+    if (exitCode !== 0) {
+      return { error: `repomix failed: ${stderr || 'Unknown error'}` };
+    }
+
+    // Parse file count and token count from content
+    // Look for patterns in the XML output
+    const fileCountMatch = stdout.match(/(\d+)\s+files?/i);
+    const tokenCountMatch = stdout.match(/(\d+)\s+tokens?/i);
+
+    return {
+      content: stdout,
+      fileCount: fileCountMatch?.[1] ? Number.parseInt(fileCountMatch[1], 10) : 0,
+      tokenCount: tokenCountMatch?.[1] ? Number.parseInt(tokenCountMatch[1], 10) : 0,
+      directory: targetPath
+    };
+  } catch (error) {
+    return { error: `Failed to run repomix: ${String(error)}` };
+  }
+}

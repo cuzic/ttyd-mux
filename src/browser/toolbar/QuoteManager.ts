@@ -24,7 +24,14 @@ import type {
 } from '@/features/ai/server/quotes/types.js';
 
 // Types
-type QuoteTab = 'turns' | 'projectMd' | 'plans' | 'gitDiff';
+type QuoteTab = 'turns' | 'projectMd' | 'plans' | 'gitDiff' | 'repomix';
+
+interface RepomixResult {
+  content: string;
+  fileCount: number;
+  tokenCount: number;
+  directory: string;
+}
 
 interface QuoteElements {
   modal: HTMLElement;
@@ -59,6 +66,12 @@ export class QuoteManager implements Mountable {
   private selectedFilePaths = new Set<string>();
   private selectedGitFiles = new Set<string>();
   private selectFullDiff = false;
+
+  // Repomix
+  private repomixPath = '';
+  private repomixResult: RepomixResult | null = null;
+  private repomixLoading = false;
+  private repomixError: string | null = null;
 
   // Tooltip
   private tooltipElement: HTMLElement | null = null;
@@ -399,6 +412,9 @@ export class QuoteManager implements Mountable {
       case 'gitDiff':
         this.renderGitDiff(list);
         break;
+      case 'repomix':
+        this.renderRepomix(list);
+        break;
     }
 
     this.updateSelectionInfo();
@@ -726,6 +742,141 @@ export class QuoteManager implements Mountable {
       item.appendChild(content);
       container.appendChild(item);
     });
+  }
+
+  /**
+   * Render repomix tab
+   */
+  private renderRepomix(container: HTMLElement): void {
+    // Directory input
+    const inputGroup = document.createElement('div');
+    inputGroup.className = 'tui-repomix-input-group';
+    inputGroup.innerHTML = `
+      <label class="tui-repomix-label">ディレクトリパス:</label>
+      <div class="tui-repomix-input-row">
+        <input type="text" class="tui-repomix-input" placeholder="例: src/components" value="${escapeHtml(this.repomixPath)}">
+        <button class="tui-repomix-run">Pack</button>
+      </div>
+    `;
+
+    const input = inputGroup.querySelector('.tui-repomix-input') as HTMLInputElement;
+    const runBtn = inputGroup.querySelector('.tui-repomix-run') as HTMLButtonElement;
+
+    // Input event to update state
+    input.addEventListener('input', () => {
+      this.repomixPath = input.value;
+    });
+
+    // Run button
+    runBtn.addEventListener('click', async () => {
+      if (!this.repomixPath.trim()) {
+        this.repomixError = 'ディレクトリパスを入力してください';
+        this.renderList();
+        return;
+      }
+      await this.runRepomix();
+    });
+
+    // Allow Enter key to run
+    input.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter' && this.repomixPath.trim()) {
+        await this.runRepomix();
+      }
+    });
+
+    container.appendChild(inputGroup);
+
+    // Loading state
+    if (this.repomixLoading) {
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'tui-repomix-loading';
+      loadingDiv.innerHTML = '⏳ Repomix を実行中...';
+      container.appendChild(loadingDiv);
+      return;
+    }
+
+    // Error state
+    if (this.repomixError) {
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'tui-repomix-error';
+      errorDiv.textContent = this.repomixError;
+      container.appendChild(errorDiv);
+    }
+
+    // Result
+    if (this.repomixResult) {
+      const resultDiv = document.createElement('div');
+      resultDiv.className = 'tui-repomix-result';
+
+      const stats = document.createElement('div');
+      stats.className = 'tui-repomix-stats';
+      stats.innerHTML = `
+        <span>📁 ${this.repomixResult.directory}</span>
+        <span>📄 ${this.repomixResult.fileCount} files</span>
+        <span>🔢 ${this.repomixResult.tokenCount.toLocaleString()} tokens</span>
+      `;
+
+      const preview = document.createElement('pre');
+      preview.className = 'tui-repomix-preview';
+      // Show first 500 chars as preview
+      const previewText =
+        this.repomixResult.content.length > 500
+          ? `${this.repomixResult.content.slice(0, 500)}...`
+          : this.repomixResult.content;
+      preview.textContent = previewText;
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'tui-repomix-copy';
+      copyBtn.textContent = '📋 クリップボードにコピー';
+      copyBtn.addEventListener('click', async () => {
+        if (this.repomixResult) {
+          try {
+            await navigator.clipboard.writeText(this.repomixResult.content);
+            copyBtn.textContent = '✅ コピーしました!';
+            setTimeout(() => {
+              copyBtn.textContent = '📋 クリップボードにコピー';
+            }, 2000);
+          } catch {
+            copyBtn.textContent = '❌ コピー失敗';
+          }
+        }
+      });
+
+      resultDiv.appendChild(stats);
+      resultDiv.appendChild(preview);
+      resultDiv.appendChild(copyBtn);
+      container.appendChild(resultDiv);
+    }
+  }
+
+  /**
+   * Run repomix on the specified directory
+   */
+  private async runRepomix(): Promise<void> {
+    const basePath = this.config.base_path;
+    const sessionName = getSessionName(this.config);
+
+    this.repomixLoading = true;
+    this.repomixError = null;
+    this.repomixResult = null;
+    this.renderList();
+
+    try {
+      const data = await fetchJSON<RepomixResult | { error: string }>(
+        `${basePath}/api/claude-quotes/repomix?session=${encodeURIComponent(sessionName)}&path=${encodeURIComponent(this.repomixPath)}`
+      );
+
+      if (data && 'error' in data) {
+        this.repomixError = data.error;
+      } else if (data) {
+        this.repomixResult = data;
+      }
+    } catch (error) {
+      this.repomixError = `エラー: ${String(error)}`;
+    } finally {
+      this.repomixLoading = false;
+      this.renderList();
+    }
   }
 
   /**

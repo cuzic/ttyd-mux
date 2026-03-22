@@ -5,7 +5,7 @@
  * It exports the Terminal class and addon instances for use by terminal-client.js.
  */
 
-import { BrowserClipboardProvider, ClipboardAddon } from '@xterm/addon-clipboard';
+import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
 import { SerializeAddon } from '@xterm/addon-serialize';
@@ -15,6 +15,7 @@ import { Terminal } from '@xterm/xterm';
 
 import type { IDisposable } from '@xterm/xterm';
 
+import { DeferredClipboardProvider } from './DeferredClipboardProvider.js';
 import { registerMultiLineLinkProvider } from './MultiLineLinkProvider.js';
 
 export {
@@ -132,7 +133,21 @@ export function createTerminal(options?: {
   const unicode11Addon = new Unicode11Addon();
   const serializeAddon = new SerializeAddon();
   const searchAddon = new SearchAddon();
-  const clipboardAddon = new ClipboardAddon(undefined, new BrowserClipboardProvider());
+
+  // Create deferred clipboard provider for OSC 52 support
+  // Browser security blocks clipboard writes without user gestures,
+  // so we defer writes until the next user interaction
+  const clipboardProvider = new DeferredClipboardProvider({
+    onDeferred: (text) => {
+      // Show notification that text is ready to copy
+      showClipboardNotification(text, 'Click to copy to clipboard');
+    },
+    onCopied: (text) => {
+      // Show brief success feedback
+      showClipboardNotification(text, 'Copied!', 1500);
+    }
+  });
+  const clipboardAddon = new ClipboardAddon(undefined, clipboardProvider);
 
   terminal.loadAddon(fitAddon);
   terminal.loadAddon(webLinksAddon);
@@ -289,4 +304,124 @@ export function setupSelectionHighlight(terminal: Terminal, searchAddon: SearchA
       clearHighlight();
     }
   };
+}
+
+// === OSC 52 Clipboard Notification ===
+
+let notificationElement: HTMLDivElement | null = null;
+let notificationTimeout: ReturnType<typeof setTimeout> | null = null;
+let pendingClipboardText: string | null = null;
+
+/**
+ * Show a notification for clipboard operations (OSC 52)
+ * @param text - The text that was/should be copied
+ * @param message - Message to display
+ * @param duration - How long to show (0 = until clicked, default: 0)
+ */
+function showClipboardNotification(text: string, message: string, duration = 0): void {
+  // Clear any existing notification
+  hideClipboardNotification();
+
+  pendingClipboardText = text;
+
+  // Create notification element
+  notificationElement = document.createElement('div');
+  notificationElement.className = 'tui-clipboard-notification';
+  notificationElement.innerHTML = `
+    <span class="tui-clipboard-icon">📋</span>
+    <span class="tui-clipboard-message">${escapeHtml(message)}</span>
+    <span class="tui-clipboard-preview">${escapeHtml(truncateText(text, 30))}</span>
+  `;
+
+  // Style the notification
+  Object.assign(notificationElement.style, {
+    position: 'fixed',
+    bottom: '80px',
+    right: '20px',
+    padding: '12px 16px',
+    background: 'rgba(30, 30, 30, 0.95)',
+    border: '1px solid #444',
+    borderRadius: '8px',
+    color: '#fff',
+    fontSize: '13px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    zIndex: '10000',
+    cursor: duration === 0 ? 'pointer' : 'default',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+    transition: 'opacity 0.2s ease',
+    maxWidth: '300px'
+  });
+
+  document.body.appendChild(notificationElement);
+
+  // Click to copy (for deferred writes)
+  if (duration === 0) {
+    notificationElement.addEventListener('click', async () => {
+      if (pendingClipboardText) {
+        try {
+          await navigator.clipboard.writeText(pendingClipboardText);
+          // Update to success state
+          if (notificationElement) {
+            const msgEl = notificationElement.querySelector('.tui-clipboard-message');
+            if (msgEl) {
+              msgEl.textContent = 'Copied!';
+            }
+          }
+          // Hide after brief success display
+          setTimeout(hideClipboardNotification, 1000);
+        } catch {
+          // Still blocked - show error
+          if (notificationElement) {
+            const msgEl = notificationElement.querySelector('.tui-clipboard-message');
+            if (msgEl) {
+              msgEl.textContent = 'Copy failed';
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Auto-hide after duration
+  if (duration > 0) {
+    notificationTimeout = setTimeout(hideClipboardNotification, duration);
+  }
+}
+
+/**
+ * Hide the clipboard notification
+ */
+function hideClipboardNotification(): void {
+  if (notificationTimeout) {
+    clearTimeout(notificationTimeout);
+    notificationTimeout = null;
+  }
+  if (notificationElement) {
+    notificationElement.remove();
+    notificationElement = null;
+  }
+  pendingClipboardText = null;
+}
+
+/**
+ * Escape HTML characters
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Truncate text with ellipsis
+ */
+function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, maxLength - 3)}...`;
 }

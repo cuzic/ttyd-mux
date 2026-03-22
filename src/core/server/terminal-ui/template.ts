@@ -205,6 +205,7 @@ export const terminalUiHtml = `
       <button class="tui-quote-tab" data-tab="projectMd">*.md</button>
       <button class="tui-quote-tab" data-tab="plans">Plans</button>
       <button class="tui-quote-tab" data-tab="gitDiff">Git Diff</button>
+      <button class="tui-quote-tab" data-tab="repomix">Repomix</button>
     </div>
     <div id="tui-quote-controls">
       <button id="tui-quote-select-all">全選択</button>

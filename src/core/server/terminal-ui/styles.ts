@@ -3680,4 +3680,117 @@ body.preview-open.file-ops-open .xterm {
     padding: 10px 24px;
   }
 }
+
+/* =============================================================================
+   Repomix Tab Styles
+   ============================================================================= */
+
+.tui-repomix-input-group {
+  padding: 16px;
+  border-bottom: 1px solid #333;
+}
+
+.tui-repomix-label {
+  display: block;
+  font-size: 13px;
+  color: #aaa;
+  margin-bottom: 8px;
+}
+
+.tui-repomix-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.tui-repomix-input {
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 13px;
+  background: #1e1e1e;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #fff;
+}
+
+.tui-repomix-input:focus {
+  outline: none;
+  border-color: #1976d2;
+}
+
+.tui-repomix-run {
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  background: #1976d2;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.tui-repomix-run:hover {
+  background: #1565c0;
+}
+
+.tui-repomix-loading {
+  padding: 40px 20px;
+  text-align: center;
+  color: #888;
+  font-size: 14px;
+}
+
+.tui-repomix-error {
+  padding: 16px;
+  margin: 16px;
+  background: rgba(244, 67, 54, 0.1);
+  border-left: 3px solid #f44336;
+  border-radius: 4px;
+  color: #f44336;
+  font-size: 13px;
+}
+
+.tui-repomix-result {
+  padding: 16px;
+}
+
+.tui-repomix-stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: #888;
+}
+
+.tui-repomix-preview {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #aaa;
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin-bottom: 12px;
+}
+
+.tui-repomix-copy {
+  width: 100%;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  background: #4caf50;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.tui-repomix-copy:hover {
+  background: #43a047;
+}
 `;
