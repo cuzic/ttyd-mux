@@ -5,6 +5,19 @@
  * Provides unified error handling and request management.
  */
 
+import { z } from 'zod';
+import {
+  type FileInfo,
+  FileInfoSchema,
+  ListFilesResponseSchema,
+  type ShareLink,
+  ShareLinkSchema,
+  SubscribeResponseSchema,
+  UploadFileResponseSchema,
+  UploadImagesResponseSchema,
+  VapidKeyResponseSchema
+} from './api-schemas.js';
+
 /**
  * Options for fetchJSON
  */
@@ -102,24 +115,8 @@ export interface ImageData {
   name: string;
 }
 
-/**
- * File information
- */
-export interface FileInfo {
-  name: string;
-  size: number;
-  isDirectory: boolean;
-  modifiedAt: string;
-}
-
-/**
- * Share link information
- */
-export interface ShareLink {
-  token: string;
-  sessionName: string;
-  expiresAt: string;
-}
+// Re-export types from api-schemas
+export type { FileInfo, ShareLink } from './api-schemas.js';
 
 /**
  * Push notification subscription data
@@ -216,28 +213,41 @@ export function createApiClient(config: ApiClientConfig): ToolbarApiClient {
   };
 
   /**
-   * Make a JSON API request
+   * Make a JSON API request with schema validation
    */
-  const requestJson = async <T>(url: string, init?: RequestInit): Promise<T> => {
+  const requestJson = async <T>(
+    url: string,
+    init: RequestInit | undefined,
+    schema: z.ZodSchema<T>
+  ): Promise<T> => {
     const response = await request<Response>(url, init);
-    return response.json() as Promise<T>;
+    const data: unknown = await response.json();
+    const result = schema.safeParse(data);
+    if (result.success) {
+      return result.data;
+    }
+    throw new ApiError(`Invalid response: ${result.error.issues[0]?.message ?? 'validation failed'}`, 0);
   };
 
   // Clipboard
   const uploadImages = async (session: string, images: ImageData[]): Promise<string[]> => {
     const url = `${basePath}/api/clipboard-image?session=${encodeURIComponent(session)}`;
-    const result = await requestJson<{ success: boolean; paths: string[]; error?: string }>(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ images })
-    });
+    const result = await requestJson(
+      url,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images })
+      },
+      UploadImagesResponseSchema
+    );
     return result.paths;
   };
 
   // File Transfer
   const listFiles = async (session: string, path: string): Promise<FileInfo[]> => {
     const url = `${basePath}/api/files/list?session=${encodeURIComponent(session)}&path=${encodeURIComponent(path)}`;
-    const result = await requestJson<{ files: FileInfo[] }>(url);
+    const result = await requestJson(url, undefined, ListFilesResponseSchema);
     return result.files;
   };
 
@@ -252,27 +262,35 @@ export function createApiClient(config: ApiClientConfig): ToolbarApiClient {
     const formData = new FormData();
     formData.append('file', file);
 
-    const result = await requestJson<{ success: boolean; path: string }>(url, {
-      method: 'POST',
-      body: formData
-    });
+    const result = await requestJson(
+      url,
+      {
+        method: 'POST',
+        body: formData
+      },
+      UploadFileResponseSchema
+    );
     return result.path;
   };
 
   // Notifications
   const getVapidKey = async (): Promise<string> => {
     const url = `${basePath}/api/notifications/vapid-key`;
-    const result = await requestJson<{ publicKey: string }>(url);
+    const result = await requestJson(url, undefined, VapidKeyResponseSchema);
     return result.publicKey;
   };
 
   const subscribe = async (subscription: SubscriptionData): Promise<string> => {
     const url = `${basePath}/api/notifications/subscribe`;
-    const result = await requestJson<{ id: string }>(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(subscription)
-    });
+    const result = await requestJson(
+      url,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(subscription)
+      },
+      SubscribeResponseSchema
+    );
     return result.id;
   };
 
@@ -282,13 +300,17 @@ export function createApiClient(config: ApiClientConfig): ToolbarApiClient {
   };
 
   // Share
-  const createShare = (sessionName: string, expiresIn: string): Promise<ShareLink> => {
+  const createShare = async (sessionName: string, expiresIn: string): Promise<ShareLink> => {
     const url = `${basePath}/api/shares`;
-    return requestJson<ShareLink>(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionName, expiresIn })
-    });
+    return requestJson(
+      url,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionName, expiresIn })
+      },
+      ShareLinkSchema
+    );
   };
 
   return {
