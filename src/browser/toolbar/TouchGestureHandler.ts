@@ -76,7 +76,7 @@ export class TouchGestureHandler implements Mountable {
     this.terminal = terminal;
     this.input = input;
     this.modifiers = modifiers;
-    this.pinchStartFontSize = terminal.getDefaultFontSize();
+    this.pinchStartFontSize = terminal.defaultFontSize;
   }
 
   /**
@@ -182,7 +182,7 @@ export class TouchGestureHandler implements Mountable {
             return;
           }
 
-          if (this.modifiers.isShiftActive() && !me.shiftKey) {
+          if (this.modifiers.isShiftActive && !me.shiftKey) {
             const newEvent = new MouseEvent(me.type, {
               bubbles: me.bubbles,
               cancelable: me.cancelable,
@@ -259,7 +259,7 @@ export class TouchGestureHandler implements Mountable {
           te.preventDefault();
         }
         // Single finger touch with Shift active -> convert to mouse event for selection
-        else if (te.touches.length === 1 && this.modifiers.isShiftActive()) {
+        else if (te.touches.length === 1 && this.modifiers.isShiftActive) {
           const touch = te.touches[0];
           this.touchStartPos = { x: touch.clientX, y: touch.clientY };
           this.shiftTouchActive = true;
@@ -279,7 +279,7 @@ export class TouchGestureHandler implements Mountable {
         // Track non-Shift/Scroll single touch for hint
         else if (
           te.touches.length === 1 &&
-          !this.modifiers.isShiftActive() &&
+          !this.modifiers.isShiftActive &&
           !this.scrollActive
         ) {
           const touch = te.touches[0];
@@ -363,7 +363,7 @@ export class TouchGestureHandler implements Mountable {
         const te = e as TouchEvent;
         if (te.touches.length === 2) {
           this.pinchStartDistance = this.getTouchDistance(te.touches);
-          this.pinchStartFontSize = this.terminal.getCurrentFontSize();
+          this.pinchStartFontSize = this.terminal.currentFontSize;
         }
       },
       { passive: true }
@@ -384,7 +384,7 @@ export class TouchGestureHandler implements Mountable {
             Math.min(this.config.font_size_max, newSize)
           );
 
-          const currentSize = this.terminal.getCurrentFontSize();
+          const currentSize = this.terminal.currentFontSize;
           if (currentSize !== clampedSize) {
             this.terminal.setFontSize(clampedSize);
           }
@@ -400,7 +400,7 @@ export class TouchGestureHandler implements Mountable {
         const te = e as TouchEvent;
         if (te.touches.length < 2 && this.pinchStartDistance > 0) {
           // Pinch gesture completed - emit font change event
-          toolbarEvents.emit('font:change', this.terminal.getCurrentFontSize());
+          toolbarEvents.emit('font:change', this.terminal.currentFontSize);
           this.pinchStartDistance = 0;
         }
       },
@@ -432,7 +432,7 @@ export class TouchGestureHandler implements Mountable {
           // deltaY > 0: zoom out, deltaY < 0: zoom in
           const delta = we.deltaY > 0 ? -2 : 2;
           if (this.terminal.zoomTerminal(delta)) {
-            toolbarEvents.emit('font:change', this.terminal.getCurrentFontSize());
+            toolbarEvents.emit('font:change', this.terminal.currentFontSize);
           }
         }
       },
@@ -453,7 +453,7 @@ export class TouchGestureHandler implements Mountable {
       return;
     }
 
-    let gestureStartFontSize = this.terminal.getCurrentFontSize();
+    let gestureStartFontSize = this.terminal.currentFontSize;
 
     scope.on(document, 'gesturestart', (e: Event) => {
       const target = e.target as HTMLElement;
@@ -465,7 +465,7 @@ export class TouchGestureHandler implements Mountable {
         return;
       }
       e.preventDefault();
-      gestureStartFontSize = this.terminal.getCurrentFontSize();
+      gestureStartFontSize = this.terminal.currentFontSize;
     });
 
     scope.on(document, 'gesturechange', (e: Event) => {
@@ -488,7 +488,7 @@ export class TouchGestureHandler implements Mountable {
         Math.min(this.config.font_size_max, newSize)
       );
 
-      const currentSize = this.terminal.getCurrentFontSize();
+      const currentSize = this.terminal.currentFontSize;
       if (currentSize !== clampedSize) {
         this.terminal.setFontSize(clampedSize);
       }
@@ -504,7 +504,7 @@ export class TouchGestureHandler implements Mountable {
         return;
       }
       e.preventDefault();
-      toolbarEvents.emit('font:change', this.terminal.getCurrentFontSize());
+      toolbarEvents.emit('font:change', this.terminal.currentFontSize);
     });
   }
 
@@ -638,12 +638,12 @@ export class TouchGestureHandler implements Mountable {
 
         // Single finger touch with Alt or Ctrl active -> enable scroll mode
         if (te.touches.length === 1) {
-          if (this.modifiers.isAltActive()) {
+          if (this.modifiers.isAltActive) {
             this.modifierScrollActive = true;
             this.modifierScrollLastY = te.touches[0].clientY;
             this.modifierScrollMode = 'alt';
             te.preventDefault();
-          } else if (this.modifiers.isCtrlActive()) {
+          } else if (this.modifiers.isCtrlActive) {
             this.modifierScrollActive = true;
             this.modifierScrollLastY = te.touches[0].clientY;
             this.modifierScrollMode = 'ctrl';
@@ -735,9 +735,9 @@ export class TouchGestureHandler implements Mountable {
 
         // Don't trigger if modifier key is already active
         if (
-          this.modifiers.isShiftActive() ||
-          this.modifiers.isCtrlActive() ||
-          this.modifiers.isAltActive()
+          this.modifiers.isShiftActive ||
+          this.modifiers.isCtrlActive ||
+          this.modifiers.isAltActive
         ) {
           return;
         }
