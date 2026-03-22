@@ -1,0 +1,417 @@
+/**
+ * Domain Error Types
+ *
+ * Standardized error types for expected errors that are part of business logic.
+ * All domain errors have a `code` field for programmatic handling.
+ *
+ * Use these with Result<T, DomainError> return types.
+ */
+
+// === Base Error Interface ===
+
+/**
+ * Base interface for all domain errors
+ */
+export interface DomainError {
+  readonly code: string;
+  readonly message: string;
+}
+
+// === Session Errors ===
+
+export interface SessionNotFoundError {
+  readonly code: 'SESSION_NOT_FOUND';
+  readonly message: string;
+  readonly sessionName: string;
+}
+
+export interface SessionAlreadyExistsError {
+  readonly code: 'SESSION_ALREADY_EXISTS';
+  readonly message: string;
+  readonly sessionName: string;
+}
+
+export interface SessionInvalidNameError {
+  readonly code: 'SESSION_INVALID_NAME';
+  readonly message: string;
+  readonly name: string;
+  readonly reason: string;
+}
+
+export type SessionError = SessionNotFoundError | SessionAlreadyExistsError | SessionInvalidNameError;
+
+// === Daemon Errors ===
+
+export interface DaemonNotRunningError {
+  readonly code: 'DAEMON_NOT_RUNNING';
+  readonly message: string;
+}
+
+export interface DaemonAlreadyRunningError {
+  readonly code: 'DAEMON_ALREADY_RUNNING';
+  readonly message: string;
+}
+
+export interface DaemonStartFailedError {
+  readonly code: 'DAEMON_START_FAILED';
+  readonly message: string;
+  readonly reason: string;
+}
+
+export interface DaemonUnavailableError {
+  readonly code: 'DAEMON_UNAVAILABLE';
+  readonly message: string;
+  readonly reason: string;
+}
+
+export type DaemonError =
+  | DaemonNotRunningError
+  | DaemonAlreadyRunningError
+  | DaemonStartFailedError
+  | DaemonUnavailableError;
+
+// === Config Errors ===
+
+export interface ConfigNotFoundError {
+  readonly code: 'CONFIG_NOT_FOUND';
+  readonly message: string;
+  readonly path: string;
+}
+
+export interface ConfigInvalidYamlError {
+  readonly code: 'CONFIG_INVALID_YAML';
+  readonly message: string;
+  readonly path: string;
+  readonly parseError: string;
+}
+
+export interface ConfigValidationError {
+  readonly code: 'CONFIG_VALIDATION_FAILED';
+  readonly message: string;
+  readonly field: string;
+  readonly reason: string;
+}
+
+export type ConfigError = ConfigNotFoundError | ConfigInvalidYamlError | ConfigValidationError;
+
+// === File Errors ===
+
+export interface FileNotFoundError {
+  readonly code: 'FILE_NOT_FOUND';
+  readonly message: string;
+  readonly path: string;
+}
+
+export interface PathTraversalError {
+  readonly code: 'PATH_TRAVERSAL';
+  readonly message: string;
+  readonly path: string;
+}
+
+export interface FileReadError {
+  readonly code: 'FILE_READ_ERROR';
+  readonly message: string;
+  readonly path: string;
+  readonly reason: string;
+}
+
+export type FileError = FileNotFoundError | PathTraversalError | FileReadError;
+
+// === External Tool Errors ===
+
+export interface TmuxNotInstalledError {
+  readonly code: 'TMUX_NOT_INSTALLED';
+  readonly message: string;
+}
+
+export interface TmuxSessionNotFoundError {
+  readonly code: 'TMUX_SESSION_NOT_FOUND';
+  readonly message: string;
+  readonly sessionName: string;
+}
+
+export type TmuxError = TmuxNotInstalledError | TmuxSessionNotFoundError;
+
+// === Union of All Domain Errors ===
+
+export type AnyDomainError =
+  | SessionError
+  | DaemonError
+  | ConfigError
+  | FileError
+  | TmuxError;
+
+// === Error Constructors ===
+
+export const sessionNotFound = (sessionName: string): SessionNotFoundError => ({
+  code: 'SESSION_NOT_FOUND',
+  message: `Session '${sessionName}' not found`,
+  sessionName
+});
+
+export const sessionAlreadyExists = (sessionName: string): SessionAlreadyExistsError => ({
+  code: 'SESSION_ALREADY_EXISTS',
+  message: `Session '${sessionName}' already exists`,
+  sessionName
+});
+
+export const sessionInvalidName = (name: string, reason: string): SessionInvalidNameError => ({
+  code: 'SESSION_INVALID_NAME',
+  message: `Invalid session name '${name}': ${reason}`,
+  name,
+  reason
+});
+
+export const daemonNotRunning = (): DaemonNotRunningError => ({
+  code: 'DAEMON_NOT_RUNNING',
+  message: 'Daemon is not running'
+});
+
+export const daemonAlreadyRunning = (): DaemonAlreadyRunningError => ({
+  code: 'DAEMON_ALREADY_RUNNING',
+  message: 'Daemon is already running'
+});
+
+export const daemonStartFailed = (reason: string): DaemonStartFailedError => ({
+  code: 'DAEMON_START_FAILED',
+  message: `Failed to start daemon: ${reason}`,
+  reason
+});
+
+export const daemonUnavailable = (reason: string): DaemonUnavailableError => ({
+  code: 'DAEMON_UNAVAILABLE',
+  message: `Daemon unavailable: ${reason}`,
+  reason
+});
+
+export const configNotFound = (path: string): ConfigNotFoundError => ({
+  code: 'CONFIG_NOT_FOUND',
+  message: `Config file not found: ${path}`,
+  path
+});
+
+export const configInvalidYaml = (path: string, parseError: string): ConfigInvalidYamlError => ({
+  code: 'CONFIG_INVALID_YAML',
+  message: `Invalid YAML in ${path}: ${parseError}`,
+  path,
+  parseError
+});
+
+export const configValidationFailed = (field: string, reason: string): ConfigValidationError => ({
+  code: 'CONFIG_VALIDATION_FAILED',
+  message: `Config validation failed for ${field}: ${reason}`,
+  field,
+  reason
+});
+
+export const fileNotFound = (path: string): FileNotFoundError => ({
+  code: 'FILE_NOT_FOUND',
+  message: `File not found: ${path}`,
+  path
+});
+
+export const pathTraversal = (path: string): PathTraversalError => ({
+  code: 'PATH_TRAVERSAL',
+  message: `Path traversal attempt: ${path}`,
+  path
+});
+
+export const fileReadError = (path: string, reason: string): FileReadError => ({
+  code: 'FILE_READ_ERROR',
+  message: `Failed to read file ${path}: ${reason}`,
+  path,
+  reason
+});
+
+export const tmuxNotInstalled = (): TmuxNotInstalledError => ({
+  code: 'TMUX_NOT_INSTALLED',
+  message: 'tmux is not installed'
+});
+
+export const tmuxSessionNotFound = (sessionName: string): TmuxSessionNotFoundError => ({
+  code: 'TMUX_SESSION_NOT_FOUND',
+  message: `tmux session '${sessionName}' not found`,
+  sessionName
+});
+
+// === Error Code Type Guard ===
+
+/**
+ * Check if an error has a specific code
+ */
+export function hasErrorCode<T extends DomainError>(
+  error: DomainError,
+  code: T['code']
+): error is T {
+  return error.code === code;
+}
+
+// === CLI Exit Code Mapping ===
+
+/**
+ * Map domain error codes to CLI exit codes.
+ *
+ * Exit code conventions:
+ *   1 - General error
+ *   2 - Misuse (invalid arguments, bad input)
+ *   3 - External dependency unavailable
+ *   4 - Resource not found
+ *   5 - Permission/access denied
+ */
+export function toCliExitCode(error: AnyDomainError): number {
+  switch (error.code) {
+    // Not found → 4
+    case 'SESSION_NOT_FOUND':
+    case 'FILE_NOT_FOUND':
+    case 'TMUX_SESSION_NOT_FOUND':
+    case 'CONFIG_NOT_FOUND':
+      return 4;
+
+    // Bad input → 2
+    case 'SESSION_INVALID_NAME':
+    case 'CONFIG_INVALID_YAML':
+    case 'CONFIG_VALIDATION_FAILED':
+      return 2;
+
+    // Permission denied → 5
+    case 'PATH_TRAVERSAL':
+      return 5;
+
+    // External dependency unavailable → 3
+    case 'DAEMON_NOT_RUNNING':
+    case 'DAEMON_UNAVAILABLE':
+    case 'DAEMON_START_FAILED':
+    case 'TMUX_NOT_INSTALLED':
+      return 3;
+
+    // Already exists (conflict) → 1
+    case 'SESSION_ALREADY_EXISTS':
+    case 'DAEMON_ALREADY_RUNNING':
+      return 1;
+
+    // I/O error → 1
+    case 'FILE_READ_ERROR':
+      return 1;
+
+    default:
+      return 1;
+  }
+}
+
+// === CLI Error Rendering ===
+
+export interface RenderedCliError {
+  readonly message: string;
+  readonly hint?: string;
+}
+
+/**
+ * Render a domain error for CLI output.
+ * Returns error message with optional hint for recovery.
+ */
+export function renderCliError(error: AnyDomainError): RenderedCliError {
+  switch (error.code) {
+    case 'DAEMON_NOT_RUNNING':
+      return {
+        message: error.message,
+        hint: 'Run "bunterm up" to start a session.'
+      };
+
+    case 'DAEMON_START_FAILED':
+      return {
+        message: error.message,
+        hint: 'Run "bunterm doctor" to check for issues.'
+      };
+
+    case 'SESSION_NOT_FOUND':
+      return {
+        message: error.message,
+        hint: 'Run "bunterm list" to see available sessions.'
+      };
+
+    case 'TMUX_NOT_INSTALLED':
+      return {
+        message: error.message,
+        hint: 'Install tmux to use this feature, or use native terminal mode.'
+      };
+
+    case 'TMUX_SESSION_NOT_FOUND':
+      return {
+        message: error.message,
+        hint: 'Run "tmux list-sessions" to see available tmux sessions.'
+      };
+
+    case 'CONFIG_NOT_FOUND':
+      return {
+        message: error.message,
+        hint: 'Create a config.yaml file or use default settings.'
+      };
+
+    case 'CONFIG_INVALID_YAML':
+    case 'CONFIG_VALIDATION_FAILED':
+      return {
+        message: error.message,
+        hint: 'Check config.yaml syntax and field values.'
+      };
+
+    case 'PATH_TRAVERSAL':
+      return {
+        message: 'Access denied: path traversal attempt detected.',
+        hint: undefined
+      };
+
+    default:
+      return {
+        message: error.message,
+        hint: undefined
+      };
+  }
+}
+
+/**
+ * Format error for CLI output with optional hint.
+ */
+export function formatCliError(error: AnyDomainError): string {
+  const rendered = renderCliError(error);
+  if (rendered.hint) {
+    return `${rendered.message}\n${rendered.hint}`;
+  }
+  return rendered.message;
+}
+
+// === HTTP Status Code Mapping ===
+
+/**
+ * Map domain error codes to HTTP status codes
+ */
+export function toHttpStatus(error: AnyDomainError): number {
+  switch (error.code) {
+    case 'SESSION_NOT_FOUND':
+    case 'FILE_NOT_FOUND':
+    case 'TMUX_SESSION_NOT_FOUND':
+    case 'CONFIG_NOT_FOUND':
+      return 404;
+
+    case 'SESSION_ALREADY_EXISTS':
+    case 'DAEMON_ALREADY_RUNNING':
+      return 409;
+
+    case 'SESSION_INVALID_NAME':
+    case 'CONFIG_INVALID_YAML':
+    case 'CONFIG_VALIDATION_FAILED':
+      return 400;
+
+    case 'PATH_TRAVERSAL':
+      return 403;
+
+    case 'DAEMON_NOT_RUNNING':
+    case 'DAEMON_UNAVAILABLE':
+    case 'DAEMON_START_FAILED':
+    case 'TMUX_NOT_INSTALLED':
+    case 'FILE_READ_ERROR':
+      return 503;
+
+    default:
+      return 500;
+  }
+}
