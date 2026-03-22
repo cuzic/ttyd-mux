@@ -83,9 +83,14 @@ export async function deployCommand(options: DeployOptions): Promise<void> {
   const scriptPath = join(deployDir, 'deploy.sh');
   writeFileSync(scriptPath, deployScript, { mode: 0o755 });
 
+  console.log(`Deploy artifacts generated in: ${deployDir}`);
+  console.log(`  - ${portalPath}`);
+  console.log(`  - ${caddyfilePath}`);
+  console.log(`  - ${caddyJsonPath}`);
+  console.log(`  - ${scriptPath}`);
   if (sessions.length > 0) {
-    for (const _session of sessions) {
-    }
+    console.log(`Sessions included: ${sessions.map((s) => s.name).join(', ')}`);
   } else {
+    console.log('No active sessions.');
   }
 }

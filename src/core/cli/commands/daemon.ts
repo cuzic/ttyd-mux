@@ -73,7 +73,8 @@ async function selectAndStartSessions(config: Config): Promise<void> {
 export async function daemonCommand(options: DaemonOptions): Promise<void> {
   // Check if already running
   if (await isDaemonRunning()) {
-    process.exit(1);
+    console.log('Daemon is already running.');
+    return;
   }
 
   const config = loadConfig(options.config);
@@ -81,6 +82,7 @@ export async function daemonCommand(options: DaemonOptions): Promise<void> {
   if (options.foreground) {
     // Run in foreground (sessions not supported in foreground mode)
     if (options.sessions || options.select) {
+      console.log('Note: --sessions and --select are ignored in foreground mode.');
     }
     await startDaemon({
       configPath: options.config,

@@ -12,7 +12,7 @@ import {
 } from '@/caddy/route-builder.js';
 import { loadConfig } from '@/core/config/config.js';
 import type { Config } from '@/core/config/types.js';
-import { handleCliError, requireHostname } from '@/utils/errors.js';
+import { CliError, requireHostname } from '@/utils/errors.js';
 
 export interface CaddyOptions {
   hostname?: string;
@@ -60,17 +60,19 @@ export async function caddySetupCommand(options: CaddyOptions): Promise<void> {
 
     if (serverInfo) {
       if (routeExists(serverInfo.server, hostname, basePath)) {
+        console.log(`Route already exists for ${hostname}${basePath}`);
         return;
       }
 
       const existingRoutes = serverInfo.server.routes ?? [];
       await client.updateServerRoutes(serverInfo.name, [buntermRoute, ...existingRoutes]);
+      console.log(`Added route: ${hostname}${basePath} -> localhost:${daemonPort}`);
     } else {
       await createNewServer(client, hostname, [buntermRoute]);
+      console.log(`Created server with route: ${hostname}${basePath} -> localhost:${daemonPort}`);
     }
   } catch (error) {
-    handleCliError('Error', error);
-    process.exit(1);
+    throw CliError.from(error, 'Caddy setup failed');
   }
 }
 
@@ -130,22 +132,26 @@ export async function caddyRemoveCommand(options: CaddyOptions): Promise<void> {
     }
 
     if (removed) {
+      console.log(`Removed bunterm routes for ${hostname}${basePath}`);
     } else {
+      console.log('No bunterm routes found to remove.');
     }
   } catch (error) {
-    handleCliError('Error', error);
-    process.exit(1);
+    throw CliError.from(error, 'Caddy remove failed');
   }
 }
 
 // Sync command is no longer needed (native terminal uses proxy mode)
-export function caddySyncCommand(_options: CaddyOptions): void {}
+export function caddySyncCommand(_options: CaddyOptions): void {
+  console.log('Note: "caddy sync" is deprecated and no longer needed.');
+  console.log('Native terminal uses proxy mode; routes are managed via "caddy setup/remove".');
+}
 
 async function connectToCaddyOrExit(adminApi: string): Promise<CaddyClient> {
   try {
     return await connectToCaddy(adminApi);
-  } catch {
-    process.exit(1);
+  } catch (error) {
+    throw CliError.from(error, 'Failed to connect to Caddy Admin API');
   }
 }
 
@@ -159,15 +165,22 @@ export async function caddyStatusCommand(options: CaddyOptions): Promise<void> {
   const servers = await client.getServers();
 
   if (Object.keys(servers).length === 0) {
+    console.log('No Caddy servers configured.');
     return;
   }
 
   const routes = findTtydMuxRoutes(servers, basePath);
 
   if (routes.length === 0) {
+    console.log(`No bunterm routes found for base path "${basePath}".`);
+    console.log('Run "bunterm caddy setup" to configure Caddy routing.');
     return;
   }
 
-  for (const _route of routes) {
+  console.log('Bunterm routes in Caddy:');
+  for (const route of routes) {
+    const hostStr = route.hosts.length > 0 ? route.hosts.join(', ') : '*';
+    const pathStr = route.paths.length > 0 ? route.paths.join(', ') : basePath;
+    console.log(`  ${hostStr}${pathStr} -> ${route.upstream}`);
   }
 }
