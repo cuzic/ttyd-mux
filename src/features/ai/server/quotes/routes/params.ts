@@ -68,7 +68,7 @@ const filePathSchema = z.string().min(1, 'path is required');
  *
  * Optional: count (default: 20), hours (default: 24)
  *
- * Note: Locator validation is done by parseLocator(), not this schema.
+ * Session/locator fields are validated by resolveWorkspaceFromParams().
  */
 export const RecentMarkdownParamsSchema = z.object({
   session: sessionNameSchema.optional(),
@@ -88,7 +88,7 @@ export type RecentMarkdownParams = z.infer<typeof RecentMarkdownParamsSchema>;
  *
  * Optional: count (default: 20)
  *
- * Note: Locator validation is done by parseLocator(), not this schema.
+ * Session/locator fields are validated by resolveWorkspaceFromParams().
  */
 export const RecentParamsSchema = z.object({
   session: sessionNameSchema.optional(),
@@ -105,7 +105,7 @@ export type RecentParams = z.infer<typeof RecentParamsSchema>;
  * - bunterm: session
  * - Claude: claudeSessionId + projectPath
  *
- * Note: Locator validation is done by parseLocator(), not this schema.
+ * Session/locator fields are validated by resolveWorkspaceFromParams().
  */
 export const TurnParamsSchema = z.object({
   session: sessionNameSchema.optional(),
@@ -123,7 +123,7 @@ export type TurnParams = z.infer<typeof TurnParamsSchema>;
  *
  * Optional: count (default: 10)
  *
- * Note: Locator validation is done by parseLocator(), not this schema.
+ * Session/locator fields are validated by resolveWorkspaceFromParams().
  */
 export const ProjectMarkdownParamsSchema = z.object({
   session: sessionNameSchema.optional(),
@@ -140,7 +140,7 @@ export type ProjectMarkdownParams = z.infer<typeof ProjectMarkdownParamsSchema>;
  * - bunterm: session
  * - Claude: claudeSessionId + projectPath
  *
- * Note: Locator validation is done by parseLocator(), not this schema.
+ * Session/locator fields are validated by resolveWorkspaceFromParams().
  */
 export const GitDiffParamsSchema = z.object({
   session: sessionNameSchema.optional(),
@@ -158,7 +158,7 @@ export type GitDiffParams = z.infer<typeof GitDiffParamsSchema>;
  *
  * Requires: path
  *
- * Note: Locator validation is done by parseLocator(), not this schema.
+ * Session/locator fields are validated by resolveWorkspaceFromParams().
  */
 export const GitDiffFileParamsSchema = z.object({
   session: sessionNameSchema.optional(),
@@ -201,7 +201,7 @@ export type PlansParams = z.infer<typeof PlansParamsSchema>;
  *
  * Optional: preview (default: false)
  *
- * Note: Locator validation is done by parseLocator() in the route, not this schema.
+ * Session/locator fields are validated by resolveWorkspaceFromParams() (for source='project').
  */
 export const FileContentParamsSchema = z.object({
   source: z.enum(['project', 'plans'], {
@@ -225,7 +225,7 @@ import { type Result, err, ok } from '@/utils/result.js';
  * Parse URLSearchParams with a Zod schema (field-level validation)
  *
  * Validates individual field types: count, hours, path, source, etc.
- * Does NOT validate locator discriminated union (use parseLocator() for that).
+ * Does NOT validate session/locator (use resolveWorkspaceFromParams() for that).
  *
  * @returns Result<T, string> for type-safe error handling
  */

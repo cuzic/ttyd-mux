@@ -22,9 +22,8 @@
  * 2. **Use the standard route skeleton**:
  *    - Step 1: Validate path params (if any)
  *    - Step 2: Parse search params with parseSearchParams()
- *    - Step 3: Resolve locator with parseLocator()
- *    - Step 4: Resolve context (workspace or claude)
- *    - Step 5: Execute service logic
+ *    - Step 3: Resolve context with resolveWorkspaceFromParams() or resolveClaudeFromParams()
+ *    - Step 4: Execute service logic
  * 3. **Self-review with the 10-item checklist** (see below)
  *
  * ### Avoid These Patterns

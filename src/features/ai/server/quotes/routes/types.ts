@@ -1,12 +1,11 @@
 /**
- * Claude Quotes Route Context and Locator
+ * Claude Quotes Route Types
  *
- * This file defines:
+ * Exports:
  * - QuoteRouteContext: context passed to route handlers
- * - Locator/ClaudeContext: types for input resolution
- * - resolveWorkspaceFromParams/resolveClaudeFromParams: one-step resolution helpers
- *
- * Response helpers (successResponse, failureResponse, handleError) are in response.ts.
+ * - ClaudeContext: resolved Claude session context
+ * - resolveWorkspaceFromParams(): resolve cwd from params
+ * - resolveClaudeFromParams(): resolve cwd + session ID from params
  */
 
 import type { NativeSessionManager } from '@/core/server/session-manager.js';
@@ -46,9 +45,9 @@ export interface QuoteRouteContext {
 // 2. Claude locator: claudeSessionId + projectPath -> uses projectPath as cwd
 
 /**
- * HTTP input locator - identifies the request source
+ * HTTP input locator - identifies the request source (internal)
  */
-export type Locator =
+type Locator =
   | { kind: 'bunterm'; sessionName: string }
   | { kind: 'claude'; projectPath: string; claudeSessionId: string };
 
@@ -64,9 +63,9 @@ export interface ClaudeContext {
 }
 
 /**
- * Route error with HTTP status
+ * Route error with HTTP status (internal)
  */
-export interface RouteError {
+interface RouteError {
   error: string;
   status: 400 | 404;
 }
