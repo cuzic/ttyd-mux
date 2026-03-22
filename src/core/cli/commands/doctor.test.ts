@@ -1,107 +1,213 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
+import { resetDaemonClientDeps, setDaemonClientDeps } from '@/core/client/daemon-client.js';
+import { createInMemoryStateStore } from '@/core/config/state-store.js';
+import { createMockSocketClient } from '@/utils/socket-client.js';
+import {
+  BunCheck,
+  ConfigCheck,
+  DaemonCheck,
+  formatCheckResult,
+  hasFailures,
+  runChecks,
+  TmuxCheck,
+  type CheckResult,
+  type DoctorCheck
+} from '@/core/cli/services/doctor-service.js';
+import { doctorCommand } from './doctor.js';
 
-// Top-level regex for version matching
-const BUN_VERSION_REGEX = /^\d+\.\d+/;
-
-// Test that the doctor module exports the expected function
 describe('doctor command', () => {
-  test('exports doctorCommand function', async () => {
-    const module = await import('./doctor.js');
-    expect(typeof module.doctorCommand).toBe('function');
+  let consoleLogSpy: ReturnType<typeof spyOn>;
+  let logs: string[];
+
+  beforeEach(() => {
+    logs = [];
+    consoleLogSpy = spyOn(console, 'log').mockImplementation((msg: string) => {
+      logs.push(msg);
+    });
   });
 
-  test('DoctorOptions interface accepts config option', () => {
-    // Type check: this should compile without errors
-    const options: import('./doctor.js').DoctorOptions = { config: '/path/to/config' };
-    expect(options.config).toBe('/path/to/config');
+  afterEach(() => {
+    consoleLogSpy.mockRestore();
+    resetDaemonClientDeps();
+  });
+
+  test('outputs check results in text mode', async () => {
+    const stateStore = createInMemoryStateStore();
+    const socketClient = createMockSocketClient({ exists: () => false });
+    setDaemonClientDeps({ stateStore, socketClient });
+
+    await doctorCommand({});
+
+    // Should output check results
+    expect(logs.some((log) => log.includes('bun'))).toBe(true);
+    expect(logs.some((log) => log.includes('All checks passed') || log.includes('✓'))).toBe(true);
+  });
+
+  test('outputs JSON in json mode', async () => {
+    const stateStore = createInMemoryStateStore();
+    const socketClient = createMockSocketClient({ exists: () => false });
+    setDaemonClientDeps({ stateStore, socketClient });
+
+    await doctorCommand({ json: true });
+
+    expect(logs.length).toBe(1);
+    const json = JSON.parse(logs[0]!);
+    expect(json).toHaveProperty('passed');
+    expect(json).toHaveProperty('checks');
+    expect(Array.isArray(json.checks)).toBe(true);
+  });
+
+  test('json output includes check details', async () => {
+    const stateStore = createInMemoryStateStore();
+    const socketClient = createMockSocketClient({ exists: () => false });
+    setDaemonClientDeps({ stateStore, socketClient });
+
+    await doctorCommand({ json: true });
+
+    const json = JSON.parse(logs[0]!);
+    expect(json.checks.length).toBeGreaterThan(0);
+
+    const bunCheck = json.checks.find((c: { name: string }) => c.name === 'bun');
+    expect(bunCheck).toBeDefined();
+    expect(bunCheck.ok).toBe(true);
+    expect(bunCheck.message).toContain('Bun');
   });
 });
 
-// Integration-style tests (these actually run commands)
 describe('doctor checks', () => {
-  test('tmux command check works', async () => {
-    const { execSync } = await import('node:child_process');
-    try {
-      const output = execSync('tmux -V', {
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
-      expect(output).toContain('tmux');
-    } catch {
-      // tmux not installed, which is fine for the test
-      expect(true).toBe(true);
+  test('BunCheck returns ok when bun is installed', () => {
+    const check = new BunCheck();
+    const result = check.run();
+
+    expect(result.ok).toBe(true);
+    expect(result.name).toBe('bun');
+    expect(result.message).toMatch(/Bun \d+\.\d+/);
+  });
+
+  test('TmuxCheck returns result based on tmux availability', () => {
+    const check = new TmuxCheck();
+    const result = check.run();
+
+    expect(result.name).toBe('tmux');
+    // tmux may or may not be installed
+    if (result.ok) {
+      expect(result.message).toContain('tmux');
+    } else {
+      expect(result.hint).toContain('Install tmux');
     }
   });
 
-  test('bun command check works', async () => {
-    const { execSync } = await import('node:child_process');
-    const output = execSync('bun --version', {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-    // Bun should always be available since we're running tests with it
-    expect(output).toMatch(BUN_VERSION_REGEX);
+  test('ConfigCheck returns ok with default config', () => {
+    const check = new ConfigCheck();
+    const result = check.run({});
+
+    expect(result.name).toBe('config');
+    expect(result.ok).toBe(true);
   });
 
-  test('config check handles missing file gracefully', async () => {
-    const { findConfigPath } = await import('@/core/config/config.js');
-    // findConfigPath returns null if no config file found, or the path if found
-    const path = findConfigPath();
-    expect(path === null || typeof path === 'string').toBe(true);
-  });
+  test('DaemonCheck returns ok regardless of daemon state', async () => {
+    const stateStore = createInMemoryStateStore();
+    const socketClient = createMockSocketClient({ exists: () => false });
+    setDaemonClientDeps({ stateStore, socketClient });
 
-  test('config check validates existing config', async () => {
-    const { loadConfig } = await import('@/core/config/config.js');
-    // Default config should load without errors
-    const config = loadConfig();
-    expect(config).toBeDefined();
-    expect(config.daemon_port).toBeDefined();
-  });
+    const check = new DaemonCheck();
+    const result = await check.run();
 
-  test('config includes listen_sockets field', async () => {
-    const { loadConfig } = await import('@/core/config/config.js');
-    const config = loadConfig();
-    expect(Array.isArray(config.listen_sockets)).toBe(true);
+    expect(result.name).toBe('daemon');
+    expect(result.ok).toBe(true); // Daemon check is informational
+    expect(result.message).toBe('daemon not running');
   });
 });
 
-describe('doctor output format', () => {
-  test('exports CheckResult type with required fields', () => {
-    // CheckResult should have name, status, message, and optional hint
-    type CheckResult = {
-      name: string;
-      status: 'ok' | 'error' | 'warn';
-      message: string;
-      hint?: string;
+describe('runChecks', () => {
+  test('runs all provided checks', async () => {
+    const mockCheck1: DoctorCheck = {
+      name: 'test1',
+      run: () => ({ name: 'test1', ok: true, message: 'ok' })
+    };
+    const mockCheck2: DoctorCheck = {
+      name: 'test2',
+      run: () => ({ name: 'test2', ok: false, message: 'fail', hint: 'fix it' })
     };
 
-    const result: CheckResult = {
-      name: 'test',
-      status: 'ok',
-      message: 'Test passed'
-    };
+    const results = await runChecks([mockCheck1, mockCheck2], {});
 
-    expect(result.name).toBe('test');
-    expect(result.status).toBe('ok');
-    expect(result.message).toBe('Test passed');
-    expect(result.hint).toBeUndefined();
+    expect(results.length).toBe(2);
+    expect(results[0]!.name).toBe('test1');
+    expect(results[1]!.name).toBe('test2');
   });
 
-  test('CheckResult can have a hint', () => {
-    type CheckResult = {
-      name: string;
-      status: 'ok' | 'error' | 'warn';
-      message: string;
-      hint?: string;
+  test('skips port check when config is invalid', async () => {
+    const portCheck: DoctorCheck = {
+      name: 'port',
+      run: () => ({ name: 'port', ok: true, message: 'ok' })
     };
 
-    const result: CheckResult = {
-      name: 'test',
-      status: 'error',
-      message: 'Test failed',
-      hint: 'Try reinstalling'
-    };
+    const results = await runChecks([portCheck], { config: undefined });
 
-    expect(result.hint).toBe('Try reinstalling');
+    expect(results.length).toBe(0);
+  });
+});
+
+describe('formatCheckResult', () => {
+  test('formats successful check with green checkmark', () => {
+    const result: CheckResult = { name: 'test', ok: true, message: 'passed' };
+    const formatted = formatCheckResult(result);
+
+    expect(formatted).toContain('✓');
+    expect(formatted).toContain('test');
+    expect(formatted).toContain('passed');
+  });
+
+  test('formats failed check with red X', () => {
+    const result: CheckResult = { name: 'test', ok: false, message: 'failed' };
+    const formatted = formatCheckResult(result);
+
+    expect(formatted).toContain('✗');
+    expect(formatted).toContain('test');
+    expect(formatted).toContain('failed');
+  });
+
+  test('includes hint for failed checks', () => {
+    const result: CheckResult = { name: 'test', ok: false, message: 'failed', hint: 'try this' };
+    const formatted = formatCheckResult(result);
+
+    expect(formatted).toContain('Hint: try this');
+  });
+
+  test('does not include hint for successful checks', () => {
+    const result: CheckResult = { name: 'test', ok: true, message: 'ok', hint: 'not shown' };
+    const formatted = formatCheckResult(result);
+
+    expect(formatted).not.toContain('Hint:');
+  });
+});
+
+describe('hasFailures', () => {
+  test('returns false when all checks pass', () => {
+    const results: CheckResult[] = [
+      { name: 'test1', ok: true, message: 'ok' },
+      { name: 'test2', ok: true, message: 'ok' }
+    ];
+
+    expect(hasFailures(results)).toBe(false);
+  });
+
+  test('returns true when a check fails', () => {
+    const results: CheckResult[] = [
+      { name: 'test1', ok: true, message: 'ok' },
+      { name: 'test2', ok: false, message: 'fail' }
+    ];
+
+    expect(hasFailures(results)).toBe(true);
+  });
+
+  test('ignores daemon check failures', () => {
+    const results: CheckResult[] = [
+      { name: 'test1', ok: true, message: 'ok' },
+      { name: 'daemon', ok: false, message: 'not running' }
+    ];
+
+    expect(hasFailures(results)).toBe(false);
   });
 });
