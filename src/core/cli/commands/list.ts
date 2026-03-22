@@ -1,18 +1,33 @@
-import { getSessions, getTmuxSessions, isDaemonRunning } from '@/core/client/index.js';
-import { getFullPath, loadConfig } from '@/core/config/config.js';
-import { handleCliError } from '@/utils/errors.js';
+import { getSessions, getTmuxSessions } from '@/core/client/index.js';
+import { loadConfig } from '@/core/config/config.js';
+import { buildSessionUrl } from '@/core/cli/helpers/url-builder.js';
+import { guardDaemon } from '@/core/cli/helpers/daemon-guard.js';
+import { CliError } from '@/utils/errors.js';
 
 export interface ListOptions {
   config?: string;
   long?: boolean;
   url?: boolean;
+  json?: boolean;
+}
+
+interface SessionListItem {
+  name: string;
+  dir: string;
+  path: string;
+  url: string;
+  attached: boolean;
+  tmux?: {
+    windows: number;
+    cwd?: string;
+  };
 }
 
 export async function listCommand(options: ListOptions): Promise<void> {
   const config = loadConfig(options.config);
 
-  if (!(await isDaemonRunning())) {
-    // No sessions (daemon not running)
+  const guard = await guardDaemon({ json: options.json });
+  if (!guard.running) {
     return;
   }
 
@@ -31,6 +46,42 @@ export async function listCommand(options: ListOptions): Promise<void> {
       }
     }
 
+    // JSON output mode
+    if (options.json) {
+      const sessions: SessionListItem[] = [];
+
+      if (tmuxData.installed && tmuxData.sessions.length > 0) {
+        for (const tmuxSession of tmuxData.sessions) {
+          const attached = attachedMap.get(tmuxSession.name);
+          sessions.push({
+            name: tmuxSession.name,
+            dir: tmuxSession.cwd ?? '',
+            path: attached?.path ?? '',
+            url: attached ? buildSessionUrl(config, attached.path) : '',
+            attached: !!attached,
+            tmux: {
+              windows: tmuxSession.windows,
+              cwd: tmuxSession.cwd
+            }
+          });
+        }
+      } else {
+        for (const session of buntermSessions) {
+          sessions.push({
+            name: session.name,
+            dir: session.dir,
+            path: session.path,
+            url: buildSessionUrl(config, session.path),
+            attached: true
+          });
+        }
+      }
+
+      console.log(JSON.stringify({ sessions, daemon: true, tmuxInstalled: tmuxData.installed }));
+      return;
+    }
+
+    // Text output mode
     if (tmuxData.installed && tmuxData.sessions.length > 0) {
       // tmux is installed: show tmux sessions with attached status
       for (const tmuxSession of tmuxData.sessions) {
@@ -38,8 +89,7 @@ export async function listCommand(options: ListOptions): Promise<void> {
         const status = attached ? ' (attached)' : '';
 
         if (options.url && attached) {
-          const fullPath = getFullPath(config, attached.path);
-          const url = `http://localhost:${config.daemon_port}${fullPath}/`;
+          const url = buildSessionUrl(config, attached.path);
           console.log(url);
         } else if (options.long) {
           const cwd = tmuxSession.cwd ?? '';
@@ -52,13 +102,13 @@ export async function listCommand(options: ListOptions): Promise<void> {
       // tmux not installed or no tmux sessions: show bunterm sessions directly
       if (buntermSessions.length === 0) {
         console.log('No active sessions.');
+        console.log('Run "bunterm up" to start a session.');
         return;
       }
 
       for (const session of buntermSessions) {
         if (options.url) {
-          const fullPath = getFullPath(config, session.path);
-          const url = `http://localhost:${config.daemon_port}${fullPath}/`;
+          const url = buildSessionUrl(config, session.path);
           console.log(url);
         } else if (options.long) {
           console.log(`${session.name}\t${session.dir}\t${session.path}`);
@@ -68,7 +118,6 @@ export async function listCommand(options: ListOptions): Promise<void> {
       }
     }
   } catch (error) {
-    handleCliError('Failed to list sessions', error);
-    process.exit(1);
+    throw CliError.from(error, 'Failed to list sessions');
   }
 }
