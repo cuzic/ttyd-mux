@@ -10,7 +10,7 @@ import { BaseCLIRunner } from './base-cli-runner.js';
 export class GeminiRunner extends BaseCLIRunner {
   readonly name: RunnerName = 'gemini';
   protected readonly cliCommand = 'gemini';
-  protected readonly versionFlag = '--version';
+  protected override readonly authEnvVars = ['GOOGLE_API_KEY', 'GEMINI_API_KEY'];
 
   capabilities(): RunnerCapabilities {
     return {
@@ -19,29 +19,6 @@ export class GeminiRunner extends BaseCLIRunner {
       maxContextLength: 1000000, // Gemini 1.5 Pro context window
       supportedFeatures: ['code-analysis', 'error-explanation', 'command-suggestion']
     };
-  }
-
-  /**
-   * Check if Gemini CLI is authenticated
-   */
-  protected override async checkAuthentication(): Promise<boolean> {
-    try {
-      // Check if GOOGLE_API_KEY or GEMINI_API_KEY is set
-      if (process.env['GOOGLE_API_KEY'] || process.env['GEMINI_API_KEY']) {
-        return true;
-      }
-
-      // Try running help command
-      const proc = Bun.spawn(['gemini', '--help'], {
-        stdout: 'pipe',
-        stderr: 'pipe'
-      });
-
-      const exitCode = await proc.exited;
-      return exitCode === 0;
-    } catch {
-      return false;
-    }
   }
 
   /**

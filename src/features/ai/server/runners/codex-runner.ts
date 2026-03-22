@@ -10,7 +10,7 @@ import { BaseCLIRunner } from './base-cli-runner.js';
 export class CodexRunner extends BaseCLIRunner {
   readonly name: RunnerName = 'codex';
   protected readonly cliCommand = 'codex';
-  protected readonly versionFlag = '--version';
+  protected override readonly authEnvVars = ['OPENAI_API_KEY'];
 
   capabilities(): RunnerCapabilities {
     return {
@@ -19,29 +19,6 @@ export class CodexRunner extends BaseCLIRunner {
       maxContextLength: 128000, // GPT-4 context window
       supportedFeatures: ['code-analysis', 'error-explanation', 'command-suggestion']
     };
-  }
-
-  /**
-   * Check if Codex CLI is authenticated
-   */
-  protected override async checkAuthentication(): Promise<boolean> {
-    try {
-      // Check if OPENAI_API_KEY is set
-      if (process.env['OPENAI_API_KEY']) {
-        return true;
-      }
-
-      // Try running help command
-      const proc = Bun.spawn(['codex', '--help'], {
-        stdout: 'pipe',
-        stderr: 'pipe'
-      });
-
-      const exitCode = await proc.exited;
-      return exitCode === 0;
-    } catch {
-      return false;
-    }
   }
 
   /**

@@ -10,7 +10,7 @@ import { BaseCLIRunner } from './base-cli-runner.js';
 export class ClaudeRunner extends BaseCLIRunner {
   readonly name: RunnerName = 'claude';
   protected readonly cliCommand = 'claude';
-  protected readonly versionFlag = '--version';
+  // Uses default versionFlag and checkAuthentication from BaseCLIRunner
 
   capabilities(): RunnerCapabilities {
     return {
@@ -19,23 +19,6 @@ export class ClaudeRunner extends BaseCLIRunner {
       maxContextLength: 200000, // Claude 3.5 context window
       supportedFeatures: ['code-analysis', 'error-explanation', 'command-suggestion']
     };
-  }
-
-  /**
-   * Check if Claude CLI is authenticated
-   */
-  protected override async checkAuthentication(): Promise<boolean> {
-    try {
-      const proc = Bun.spawn(['claude', '--help'], {
-        stdout: 'pipe',
-        stderr: 'pipe'
-      });
-
-      const exitCode = await proc.exited;
-      return exitCode === 0;
-    } catch {
-      return false;
-    }
   }
 
   /**

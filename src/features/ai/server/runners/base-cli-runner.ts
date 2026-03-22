@@ -26,9 +26,41 @@ export interface CLIRunnerConfig {
 export abstract class BaseCLIRunner extends CLIRunner {
   protected readonly config: CLIRunnerConfig;
 
+  /** Version flag for the CLI (default: --version) */
+  protected readonly versionFlag: string = '--version';
+
+  /** Environment variables that indicate authentication (checked before --help) */
+  protected readonly authEnvVars: string[] = [];
+
   constructor(config: CLIRunnerConfig = {}) {
     super();
     this.config = config;
+  }
+
+  /**
+   * Check if the CLI is authenticated
+   * Default implementation checks authEnvVars, then spawns --help
+   */
+  protected override async checkAuthentication(): Promise<boolean> {
+    // Check if any auth env vars are set
+    for (const envVar of this.authEnvVars) {
+      if (process.env[envVar]) {
+        return true;
+      }
+    }
+
+    // Try running help command
+    try {
+      const proc = Bun.spawn([this.cliCommand, '--help'], {
+        stdout: 'pipe',
+        stderr: 'pipe'
+      });
+
+      const exitCode = await proc.exited;
+      return exitCode === 0;
+    } catch {
+      return false;
+    }
   }
 
   /**
