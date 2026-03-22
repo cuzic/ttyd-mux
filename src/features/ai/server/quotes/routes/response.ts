@@ -1,8 +1,7 @@
 /**
- * Route Response Contract
+ * Route Response Helpers
  *
- * Unified response helpers for quotes API routes.
- * Ensures consistent success/failure response shapes.
+ * Simple response helpers for quotes API routes.
  *
  * ## Response Patterns
  *
@@ -15,11 +14,13 @@
  * - 404 Not Found: Resource not found (session, turn, file)
  *
  * ### Server Errors
- * - 500 Internal Server Error: Unexpected errors
+ * - 500 Internal Server Error: Unexpected errors (generic message, details logged)
  *
  * ### Error Response Shape
  * All errors return: { error: string }
  */
+
+// === Response Helpers ===
 
 /**
  * API success response with typed data
@@ -52,18 +53,38 @@ export function failureResponse(
 
 /**
  * Handle common error cases and convert to appropriate response
+ *
+ * ## Error Handling Policy
+ * - Known file errors (ENOENT, EACCES): Return appropriate status with safe message
+ * - Unknown errors: Log internally, return generic 500 message
+ *
+ * This prevents exposing internal implementation details while still
+ * providing useful errors for known error conditions.
  */
-export function handleError(
-  error: unknown,
-  headers: Record<string, string>
-): Response {
-  const message = error instanceof Error ? error.message : String(error);
-  return failureResponse(message, headers, 500);
+export function handleError(error: unknown, headers: Record<string, string>): Response {
+  // Handle common Node.js file system errors
+  if (isNodeError(error)) {
+    switch (error.code) {
+      case 'ENOENT':
+        return failureResponse('Resource not found', headers, 404);
+      case 'EACCES':
+      case 'EPERM':
+        return failureResponse('Access denied', headers, 400);
+    }
+  }
+
+  // Log unexpected errors for debugging (don't expose to client)
+  const internalMessage = error instanceof Error ? error.message : String(error);
+  // biome-ignore lint/suspicious/noConsole: Intentional error logging for debugging
+  console.error('[quotes-api] Unexpected error:', internalMessage);
+
+  // Return generic message for unknown errors
+  return failureResponse('Internal server error', headers, 500);
 }
 
 /**
- * Session resolution result type
+ * Type guard for Node.js system errors
  */
-export type SessionResult =
-  | { ok: true; cwd: string }
-  | { ok: false; error: string; status: 400 | 404 };
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error;
+}
