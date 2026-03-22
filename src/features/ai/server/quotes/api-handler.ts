@@ -1,10 +1,12 @@
 /**
  * Claude Quotes API Handler
  *
- * Handles API routes for the Quote to Clipboard feature.
+ * Dispatches Claude Quotes API requests to specific route handlers.
+ *
  * Routes:
  * - GET /api/claude-quotes/sessions - List recent Claude sessions
  * - GET /api/claude-quotes/recent - Get recent turns
+ * - GET /api/claude-quotes/recent-markdown - Get recent markdown files
  * - GET /api/claude-quotes/turn/:uuid - Get full turn content
  * - GET /api/claude-quotes/project-markdown - Get project *.md files
  * - GET /api/claude-quotes/plans - Get plan files
@@ -13,29 +15,108 @@
  * - GET /api/claude-quotes/git-diff-file - Get single file diff
  */
 
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import type { NativeSessionManager } from '@/core/server/session-manager.js';
-import {
-  collectMdFiles,
-  getClaudeTurnByUuid,
-  getClaudeTurnByUuidFromSession,
-  getFileDiff,
-  getGitDiff,
-  getPlanFiles,
-  getRecentClaudeSessions,
-  getRecentClaudeTurns,
-  getRecentClaudeTurnsFromSession,
-  readFileContent
-} from './quotes-service.js';
+import type { QuoteRouteContext } from './routes/types.js';
+import { handleSessionsRoute } from './routes/sessions-route.js';
+import { handleRecentRoute, handleRecentMarkdownRoute } from './routes/recent-route.js';
+import { handleTurnRoute } from './routes/turn-route.js';
+import { handleMarkdownRoute } from './routes/markdown-route.js';
+import { handlePlansRoute } from './routes/plans-route.js';
+import { handleFileContentRoute } from './routes/file-content-route.js';
+import { handleGitDiffRoute, handleGitDiffFileRoute } from './routes/git-diff-route.js';
 
-/** JSON response helper */
-const jsonResponse = (data: unknown, headers: Record<string, string>, status = 200) =>
-  new Response(JSON.stringify(data), { status, headers });
+/**
+ * Route definition for table-driven routing
+ */
+interface RouteDefinition {
+  /** Exact path match (takes precedence over pattern and prefix) */
+  exact?: string;
+  /** Regex pattern for dynamic routes */
+  pattern?: RegExp;
+  /** Prefix match (used only if exact and pattern are not set) */
+  prefix?: string;
+  /** Handler function */
+  handler: (ctx: QuoteRouteContext, match?: RegExpMatchArray) => Response | Promise<Response>;
+}
 
-/** Error response helper */
-const errorResponse = (error: string, headers: Record<string, string>, status = 400) =>
-  new Response(JSON.stringify({ error }), { status, headers });
+/**
+ * Route table for Claude Quotes API
+ *
+ * Routes are matched in order:
+ * 1. Exact matches first
+ * 2. Pattern (regex) matches
+ * 3. Prefix matches (longer prefixes first)
+ */
+const ROUTE_TABLE: RouteDefinition[] = [
+  // Exact matches
+  {
+    exact: '/claude-quotes/sessions',
+    handler: handleSessionsRoute
+  },
+  // Pattern matches (dynamic routes)
+  {
+    pattern: /^\/claude-quotes\/turn\/([^/]+)$/,
+    handler: (ctx, match) => {
+      const uuid = decodeURIComponent(match![1]!);
+      return handleTurnRoute(ctx, uuid);
+    }
+  },
+  // Prefix matches (ordered by specificity - longer prefixes first)
+  {
+    prefix: '/claude-quotes/recent-markdown',
+    handler: handleRecentMarkdownRoute
+  },
+  {
+    prefix: '/claude-quotes/recent',
+    handler: handleRecentRoute
+  },
+  {
+    prefix: '/claude-quotes/project-markdown',
+    handler: handleMarkdownRoute
+  },
+  {
+    prefix: '/claude-quotes/plans',
+    handler: handlePlansRoute
+  },
+  {
+    prefix: '/claude-quotes/file-content',
+    handler: handleFileContentRoute
+  },
+  {
+    prefix: '/claude-quotes/git-diff-file',
+    handler: handleGitDiffFileRoute
+  },
+  {
+    prefix: '/claude-quotes/git-diff',
+    handler: handleGitDiffRoute
+  }
+];
+
+/**
+ * Find matching route from route table
+ */
+function findRoute(
+  apiPath: string
+): { route: RouteDefinition; match?: RegExpMatchArray } | null {
+  for (const route of ROUTE_TABLE) {
+    // Exact match
+    if (route.exact && apiPath === route.exact) {
+      return { route };
+    }
+    // Pattern match
+    if (route.pattern) {
+      const match = apiPath.match(route.pattern);
+      if (match) {
+        return { route, match };
+      }
+    }
+    // Prefix match
+    if (route.prefix && apiPath.startsWith(route.prefix)) {
+      return { route };
+    }
+  }
+  return null;
+}
 
 /**
  * Handle Claude Quotes API request
@@ -48,246 +129,21 @@ export async function handleClaudeQuotesApi(
   headers: Record<string, string>,
   sessionManager: NativeSessionManager
 ): Promise<Response | null> {
+  // Only handle GET requests to /claude-quotes/*
+  if (method !== 'GET' || !apiPath.startsWith('/claude-quotes/')) {
+    return null;
+  }
+
+  const found = findRoute(apiPath);
+  if (!found) {
+    return null;
+  }
+
   const params = new URL(req.url).searchParams;
+  const ctx: QuoteRouteContext = { params, headers, sessionManager };
 
-  // GET /api/claude-quotes/sessions
-  if (apiPath === '/claude-quotes/sessions' && method === 'GET') {
-    const limit = Math.min(Number.parseInt(params.get('limit') ?? '10', 10), 20);
-    try {
-      return jsonResponse({ sessions: getRecentClaudeSessions(limit) }, headers);
-    } catch (error) {
-      return errorResponse(String(error), headers, 500);
-    }
-  }
-
-  // GET /api/claude-quotes/recent-markdown (must be before /recent to avoid prefix match)
-  if (apiPath.startsWith('/claude-quotes/recent-markdown') && method === 'GET') {
-    const sessionName = params.get('session');
-    const count = Math.min(Number.parseInt(params.get('count') ?? '20', 10), 50);
-    const hours = Math.min(Number.parseInt(params.get('hours') ?? '24', 10), 168); // max 1 week
-
-    if (!sessionName) {
-      return errorResponse('session parameter required', headers);
-    }
-
-    const session = sessionManager.getSession(sessionName);
-    if (!session) {
-      return jsonResponse({ error: 'Session not found', files: [] }, headers);
-    }
-
-    try {
-      const cutoffTime = Date.now() - hours * 60 * 60 * 1000;
-      const allFiles = collectMdFiles(session.cwd, session.cwd, {
-        excludeDirs: ['node_modules', '.git', 'dist', 'build', 'coverage', '.next', '__pycache__'],
-        maxDepth: 10 // Deeper search for recent files
-      });
-      const files = allFiles
-        .filter((f) => new Date(f.modifiedAt).getTime() > cutoffTime)
-        .sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime())
-        .slice(0, count);
-      return jsonResponse({ files }, headers);
-    } catch (error) {
-      return errorResponse(String(error), headers, 500);
-    }
-  }
-
-  // GET /api/claude-quotes/recent
-  if (apiPath.startsWith('/claude-quotes/recent') && method === 'GET') {
-    const claudeSessionId = params.get('claudeSessionId');
-    const projectPath = params.get('projectPath');
-    const count = Math.min(Number.parseInt(params.get('count') ?? '20', 10), 50);
-
-    // Use claudeSessionId + projectPath if provided
-    if (claudeSessionId && projectPath) {
-      try {
-        const turns = await getRecentClaudeTurnsFromSession(projectPath, claudeSessionId, count);
-        return jsonResponse({ turns }, headers);
-      } catch (error) {
-        return errorResponse(String(error), headers, 500);
-      }
-    }
-
-    // Fallback: legacy approach using bunterm session name
-    const sessionName = params.get('session');
-    if (!sessionName) {
-      return errorResponse(
-        'Either (claudeSessionId + projectPath) or session parameter is required',
-        headers
-      );
-    }
-
-    const session = sessionManager.getSession(sessionName);
-    if (!session) {
-      return jsonResponse({ error: 'Session not found', turns: [] }, headers);
-    }
-
-    try {
-      const turns = await getRecentClaudeTurns(session.cwd, count);
-      return jsonResponse({ turns }, headers);
-    } catch (error) {
-      return errorResponse(String(error), headers, 500);
-    }
-  }
-
-  // GET /api/claude-quotes/turn/:uuid
-  const turnMatch = apiPath.match(/^\/claude-quotes\/turn\/([^/]+)$/);
-  if (turnMatch?.[1] && method === 'GET') {
-    const uuid = decodeURIComponent(turnMatch[1]);
-    const claudeSessionId = params.get('claudeSessionId');
-    const projectPath = params.get('projectPath');
-
-    // Use claudeSessionId + projectPath if provided
-    if (claudeSessionId && projectPath) {
-      try {
-        const turn = await getClaudeTurnByUuidFromSession(projectPath, claudeSessionId, uuid);
-        return turn ? jsonResponse(turn, headers) : errorResponse('Turn not found', headers, 404);
-      } catch (error) {
-        return errorResponse(String(error), headers, 500);
-      }
-    }
-
-    // Fallback: legacy approach
-    const sessionName = params.get('session');
-    if (!sessionName) {
-      return errorResponse(
-        'Either (claudeSessionId + projectPath) or session parameter is required',
-        headers
-      );
-    }
-
-    const session = sessionManager.getSession(sessionName);
-    if (!session) {
-      return errorResponse('Session not found', headers, 404);
-    }
-
-    try {
-      const turn = await getClaudeTurnByUuid(session.cwd, uuid);
-      return turn ? jsonResponse(turn, headers) : errorResponse('Turn not found', headers, 404);
-    } catch (error) {
-      return errorResponse(String(error), headers, 500);
-    }
-  }
-
-  // GET /api/claude-quotes/project-markdown
-  if (apiPath.startsWith('/claude-quotes/project-markdown') && method === 'GET') {
-    const sessionName = params.get('session');
-    const count = Math.min(Number.parseInt(params.get('count') ?? '10', 10), 50);
-
-    if (!sessionName) {
-      return errorResponse('session parameter required', headers);
-    }
-
-    const session = sessionManager.getSession(sessionName);
-    if (!session) {
-      return jsonResponse({ error: 'Session not found', files: [] }, headers);
-    }
-
-    try {
-      const allFiles = collectMdFiles(session.cwd, session.cwd, {
-        excludeDirs: ['node_modules', '.git', 'dist', 'build', 'coverage'],
-        maxDepth: 3
-      });
-      const files = allFiles
-        .sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime())
-        .slice(0, count);
-      return jsonResponse({ files }, headers);
-    } catch (error) {
-      return errorResponse(String(error), headers, 500);
-    }
-  }
-
-  // GET /api/claude-quotes/plans
-  if (apiPath.startsWith('/claude-quotes/plans') && method === 'GET') {
-    const count = Math.min(Number.parseInt(params.get('count') ?? '10', 10), 50);
-
-    try {
-      const files = getPlanFiles(count);
-      return jsonResponse({ files }, headers);
-    } catch (error) {
-      return errorResponse(String(error), headers, 500);
-    }
-  }
-
-  // GET /api/claude-quotes/file-content
-  if (apiPath.startsWith('/claude-quotes/file-content') && method === 'GET') {
-    const source = params.get('source');
-    const filePath = params.get('path');
-    const sessionName = params.get('session');
-    const isPreview = params.get('preview') === 'true';
-
-    if (!source || !filePath) {
-      return errorResponse('source and path parameters required', headers);
-    }
-
-    let baseDir: string;
-    if (source === 'plans') {
-      baseDir = join(homedir(), '.claude', 'plans');
-    } else if (source === 'project') {
-      if (!sessionName) {
-        return errorResponse('session parameter required for project source', headers);
-      }
-      const session = sessionManager.getSession(sessionName);
-      if (!session) {
-        return errorResponse('Session not found', headers, 404);
-      }
-      baseDir = session.cwd;
-    } else {
-      return errorResponse('source must be "project" or "plans"', headers);
-    }
-
-    const result = readFileContent(baseDir, filePath, isPreview);
-    if ('error' in result) {
-      return errorResponse(result.error, headers, result.error === 'File not found' ? 404 : 400);
-    }
-
-    return jsonResponse(result, headers);
-  }
-
-  // GET /api/claude-quotes/git-diff
-  if (
-    apiPath.startsWith('/claude-quotes/git-diff') &&
-    method === 'GET' &&
-    !apiPath.includes('/git-diff-file')
-  ) {
-    const sessionName = params.get('session');
-    if (!sessionName) {
-      return errorResponse('session parameter required', headers);
-    }
-
-    const session = sessionManager.getSession(sessionName);
-    if (!session) {
-      return errorResponse('Session not found', headers, 404);
-    }
-
-    try {
-      return jsonResponse(await getGitDiff(session.cwd), headers);
-    } catch (error) {
-      return errorResponse(String(error), headers, 500);
-    }
-  }
-
-  // GET /api/claude-quotes/git-diff-file
-  if (apiPath.startsWith('/claude-quotes/git-diff-file') && method === 'GET') {
-    const sessionName = params.get('session');
-    const filePath = params.get('path');
-
-    if (!sessionName || !filePath) {
-      return errorResponse('session and path parameters required', headers);
-    }
-
-    const session = sessionManager.getSession(sessionName);
-    if (!session) {
-      return errorResponse('Session not found', headers, 404);
-    }
-
-    try {
-      const diff = await getFileDiff(session.cwd, filePath);
-      return jsonResponse({ path: filePath, diff }, headers);
-    } catch (error) {
-      return errorResponse(String(error), headers, 500);
-    }
-  }
-
-  // Not a claude-quotes route
-  return null;
+  return found.route.handler(ctx, found.match);
 }
+
+// Export for testing
+export { ROUTE_TABLE, findRoute };
