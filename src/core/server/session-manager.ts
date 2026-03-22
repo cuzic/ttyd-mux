@@ -210,7 +210,7 @@ export class NativeSessionManager {
    */
   listSessions(): NativeSessionState[] {
     return Array.from(this.sessions.values()).map((session) => {
-      const info = session.getInfo();
+      const info = session.info;
       return {
         name: info.name,
         dir: info.cwd,
@@ -227,7 +227,7 @@ export class NativeSessionManager {
    * Get session info
    */
   getSessionInfo(name: string): TerminalSessionInfo | undefined {
-    return this.sessions.get(name)?.getInfo();
+    return this.sessions.get(name)?.info;
   }
 
   /**

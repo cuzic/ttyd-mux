@@ -8,10 +8,10 @@
 // === Priority Types ===
 
 export interface DynamicQoS {
-  /** Get terminal stream priority (0-100) */
-  getTerminalPriority(): number;
-  /** Get AI stream priority (0-100) */
-  getAIPriority(): number;
+  /** Terminal stream priority (0-100) */
+  readonly terminalPriority: number;
+  /** AI stream priority (0-100) */
+  readonly aiPriority: number;
 }
 
 // === Adaptive QoS Implementation ===
@@ -51,15 +51,15 @@ export class AdaptiveQoS implements DynamicQoS {
   /**
    * Check if AI run is active
    */
-  isAIRunActive(): boolean {
+  get isAIRunActive(): boolean {
     return this.aiRunActive;
   }
 
-  getTerminalPriority(): number {
+  get terminalPriority(): number {
     return this.aiRunActive ? this.terminalActivePriority : this.terminalIdlePriority;
   }
 
-  getAIPriority(): number {
+  get aiPriority(): number {
     return this.aiRunActive ? this.aiActivePriority : this.aiIdlePriority;
   }
 }
