@@ -181,8 +181,13 @@ const share = program.command('share').description('Session sharing (read-only)'
 share
   .command('create <session>')
   .description('Create a read-only share link for a session')
+  .option('-c, --config <path>', 'Config file path')
   .option('-e, --expires <duration>', 'Expiration time (e.g., 1h, 30m, 7d)', '1h')
-  .action(wrapCommand((session, options) => shareCommand(session, { expires: options.expires })));
+  .action(
+    wrapCommand((session, options) =>
+      shareCommand(session, { config: options.config, expires: options.expires })
+    )
+  );
 
 share
   .command('list')
