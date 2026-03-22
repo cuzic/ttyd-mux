@@ -6,44 +6,49 @@
  */
 
 import {
-  type QuoteRouteContext,
-  successResponse,
-  failureResponse,
-  handleError,
-  resolveSession,
-  resolveSessionV2
-} from './types.js';
-import {
-  collectMdFiles,
+  collectRecentMarkdown,
   getRecentClaudeTurns,
   getRecentClaudeTurnsFromSession
 } from '../quotes-service.js';
+import { RecentMarkdownParamsSchema, RecentParamsSchema, parseSearchParams } from './params.js';
+import { failureResponse, handleError, successResponse } from './response.js';
+import {
+  type QuoteRouteContext,
+  parseLocator,
+  resolveClaudeContext,
+  resolveWorkspace
+} from './types.js';
 
 /**
  * Handle /recent-markdown route
  *
+ * Workspace-only route (file system access).
+ * Accepts either bunterm session or Claude locator.
+ *
  * Success: { files: MdFileInfo[] }
  * Error: { error: string } with appropriate status code
  */
-export async function handleRecentMarkdownRoute(ctx: QuoteRouteContext): Promise<Response> {
-  const count = Math.min(Number.parseInt(ctx.params.get('count') ?? '20', 10), 50);
-  const hours = Math.min(Number.parseInt(ctx.params.get('hours') ?? '24', 10), 168);
+export function handleRecentMarkdownRoute(ctx: QuoteRouteContext): Response {
+  // Parse parameters
+  const parsed = parseSearchParams(ctx.params, RecentMarkdownParamsSchema);
+  if (!parsed.ok) {
+    return failureResponse(parsed.error, ctx.headers, 400);
+  }
+  const { count, hours } = parsed.value;
 
-  const sessionResult = resolveSession(ctx);
-  if (!sessionResult.ok) {
-    return failureResponse(sessionResult.error, ctx.headers, sessionResult.status);
+  // Resolve workspace
+  const locator = parseLocator(ctx.params);
+  if (!locator.ok) {
+    return failureResponse(locator.error.error, ctx.headers, locator.error.status);
+  }
+  const workspace = resolveWorkspace(locator.value, ctx.sessionManager);
+  if (!workspace.ok) {
+    return failureResponse(workspace.error.error, ctx.headers, workspace.error.status);
   }
 
+  // Collect recent markdown files
   try {
-    const cutoffTime = Date.now() - hours * 60 * 60 * 1000;
-    const allFiles = collectMdFiles(sessionResult.cwd, sessionResult.cwd, {
-      excludeDirs: ['node_modules', '.git', 'dist', 'build', 'coverage', '.next', '__pycache__'],
-      maxDepth: 10
-    });
-    const files = allFiles
-      .filter((f) => new Date(f.modifiedAt).getTime() > cutoffTime)
-      .sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime())
-      .slice(0, count);
+    const files = collectRecentMarkdown(workspace.value.cwd, hours, count);
     return successResponse({ files }, ctx.headers);
   } catch (error) {
     return handleError(error, ctx.headers);
@@ -53,25 +58,35 @@ export async function handleRecentMarkdownRoute(ctx: QuoteRouteContext): Promise
 /**
  * Handle /recent route (Claude turns)
  *
+ * Accepts either bunterm session or Claude (claudeSessionId + projectPath).
+ * Uses different query methods based on context availability.
+ *
  * Success: { turns: ClaudeTurn[] }
  * Error: { error: string } with appropriate status code
  */
 export async function handleRecentRoute(ctx: QuoteRouteContext): Promise<Response> {
-  const claudeSessionId = ctx.params.get('claudeSessionId');
-  const count = Math.min(Number.parseInt(ctx.params.get('count') ?? '20', 10), 50);
+  // Parse parameters
+  const parsed = parseSearchParams(ctx.params, RecentParamsSchema);
+  if (!parsed.ok) {
+    return failureResponse(parsed.error, ctx.headers, 400);
+  }
+  const { count } = parsed.value;
 
-  // Use unified session resolver
-  const sessionResult = resolveSessionV2(ctx, 'prefer-claude');
-  if (!sessionResult.ok) {
-    return failureResponse(sessionResult.error.error, ctx.headers, sessionResult.error.status);
+  // Resolve Claude context
+  const locator = parseLocator(ctx.params);
+  if (!locator.ok) {
+    return failureResponse(locator.error.error, ctx.headers, locator.error.status);
+  }
+  const claude = resolveClaudeContext(locator.value, ctx.sessionManager);
+  if (!claude.ok) {
+    return failureResponse(claude.error.error, ctx.headers, claude.error.status);
   }
 
+  // Get Claude turns - explicit branching based on claudeSessionId
   try {
-    // Use different service methods based on resolution mode
-    const turns =
-      sessionResult.value.mode === 'claude'
-        ? await getRecentClaudeTurnsFromSession(sessionResult.value.cwd, claudeSessionId!, count)
-        : await getRecentClaudeTurns(sessionResult.value.cwd, count);
+    const turns = claude.value.claudeSessionId
+      ? await getRecentClaudeTurnsFromSession(claude.value.cwd, claude.value.claudeSessionId, count)
+      : await getRecentClaudeTurns(claude.value.cwd, count);
     return successResponse({ turns }, ctx.headers);
   } catch (error) {
     return handleError(error, ctx.headers);
