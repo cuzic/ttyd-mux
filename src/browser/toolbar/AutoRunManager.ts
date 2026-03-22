@@ -45,7 +45,7 @@ export class AutoRunManager {
   /**
    * Check if auto-run is active
    */
-  isActive(): boolean {
+  get isActive(): boolean {
     return this.active;
   }
 

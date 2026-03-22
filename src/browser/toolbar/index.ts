@@ -384,12 +384,12 @@ class ToolbarApp {
     // Zoom buttons
     bindClickScoped(scope, elements.zoomInBtn, () => {
       this.terminal.zoomTerminal(2);
-      toolbarEvents.emit('font:change', this.terminal.getCurrentFontSize());
+      toolbarEvents.emit('font:change', this.terminal.currentFontSize);
     });
 
     bindClickScoped(scope, elements.zoomOutBtn, () => {
       this.terminal.zoomTerminal(-2);
-      toolbarEvents.emit('font:change', this.terminal.getCurrentFontSize());
+      toolbarEvents.emit('font:change', this.terminal.currentFontSize);
     });
 
     // Reinitialize button - recreate xterm.js instance
@@ -679,7 +679,7 @@ class ToolbarApp {
         if (e.isComposing) {
           return false;
         }
-        if (e.key !== 'Escape' || !this.search.isVisible()) {
+        if (e.key !== 'Escape' || !this.search.isVisible) {
           return false;
         }
         e.preventDefault();
@@ -826,7 +826,7 @@ class ToolbarApp {
       this.adjustTextareaHeight();
 
       // Auto mode: send Enter after 1 second
-      if (this.autoRun.isActive()) {
+      if (this.autoRun.isActive) {
         setTimeout(() => this.input.sendEnter(), 1000);
       }
     }

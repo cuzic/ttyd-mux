@@ -27,7 +27,7 @@ export class WebSocketConnection {
   /**
    * Check if connection is open
    */
-  isConnected(): boolean {
+  get isConnected(): boolean {
     return window.__TERMINAL_CLIENT__?.isConnected ?? false;
   }
 

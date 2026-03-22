@@ -21,14 +21,14 @@ export class InputHandler {
    * Send a key with modifier handling
    */
   sendKey(key: string): void {
-    if (this.modifiers.isCtrlActive() && key.length === 1) {
+    if (this.modifiers.isCtrlActive && key.length === 1) {
       // Ctrl+key: send as control character (A=1, B=2, ..., Z=26)
       const code = key.toUpperCase().charCodeAt(0) - 64;
       if (code > 0 && code < 32) {
         this.ws.sendBytes([code]);
       }
       this.modifiers.resetCtrlAlt();
-    } else if (this.modifiers.isAltActive() && key.length === 1) {
+    } else if (this.modifiers.isAltActive && key.length === 1) {
       // Alt+key: send ESC + key
       const keyCode = key.charCodeAt(0);
       this.ws.sendBytes([0x1b, keyCode]);

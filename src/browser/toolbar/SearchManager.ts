@@ -275,7 +275,7 @@ export class SearchManager {
   /**
    * Check if search bar is visible
    */
-  isVisible(): boolean {
+  get isVisible(): boolean {
     return this.searchBar ? !this.searchBar.classList.contains('hidden') : false;
   }
 }
