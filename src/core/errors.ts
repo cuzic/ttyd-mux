@@ -132,6 +132,149 @@ export interface TmuxSessionNotFoundError {
 
 export type TmuxError = TmuxNotInstalledError | TmuxSessionNotFoundError;
 
+// === Block Errors ===
+
+export interface BlockNotFoundError {
+  readonly code: 'BLOCK_NOT_FOUND';
+  readonly message: string;
+  readonly blockId: string;
+}
+
+export interface BlockAlreadyRunningError {
+  readonly code: 'BLOCK_ALREADY_RUNNING';
+  readonly message: string;
+  readonly blockId: string;
+}
+
+export type BlockError = BlockNotFoundError | BlockAlreadyRunningError;
+
+// === Parse Errors (Boundary Validation) ===
+
+/**
+ * Source of the parse error
+ */
+export type ParseErrorSource = 'query' | 'body' | 'path' | 'json' | 'env' | 'file' | 'ws' | 'cli';
+
+/**
+ * Parse error codes
+ */
+export type ParseErrorCode =
+  | 'MISSING_FIELD'
+  | 'INVALID_TYPE'
+  | 'INVALID_FORMAT'
+  | 'OUT_OF_RANGE'
+  | 'INVALID_ENUM'
+  | 'TOO_LONG'
+  | 'TOO_SHORT'
+  | 'PARSE_FAILED';
+
+/**
+ * Parse error for boundary input validation.
+ * Used when external input fails schema validation.
+ */
+export interface ParseError {
+  readonly type: 'parse';
+  readonly code: ParseErrorCode;
+  readonly source: ParseErrorSource;
+  readonly field: string;
+  readonly message: string;
+  readonly expected?: string;
+  readonly received?: string;
+}
+
+/**
+ * Create a parse error
+ */
+export function parseError(
+  code: ParseErrorCode,
+  source: ParseErrorSource,
+  field: string,
+  message: string,
+  details?: { expected?: string; received?: string }
+): ParseError {
+  return {
+    type: 'parse',
+    code,
+    source,
+    field,
+    message,
+    ...details
+  };
+}
+
+/**
+ * Shorthand constructors for common parse errors
+ */
+export const missingField = (source: ParseErrorSource, field: string): ParseError =>
+  parseError('MISSING_FIELD', source, field, `Missing required field: ${field}`);
+
+export const invalidType = (
+  source: ParseErrorSource,
+  field: string,
+  expected: string,
+  received: string
+): ParseError =>
+  parseError('INVALID_TYPE', source, field, `Invalid type for ${field}: expected ${expected}, got ${received}`, {
+    expected,
+    received
+  });
+
+export const invalidFormat = (source: ParseErrorSource, field: string, format: string): ParseError =>
+  parseError('INVALID_FORMAT', source, field, `Invalid format for ${field}: expected ${format}`);
+
+export const outOfRange = (
+  source: ParseErrorSource,
+  field: string,
+  min?: number,
+  max?: number
+): ParseError => {
+  const range = min !== undefined && max !== undefined
+    ? `${min}-${max}`
+    : min !== undefined
+      ? `>= ${min}`
+      : `<= ${max}`;
+  return parseError('OUT_OF_RANGE', source, field, `${field} out of range: expected ${range}`);
+};
+
+export const invalidEnum = (
+  source: ParseErrorSource,
+  field: string,
+  allowed: string[]
+): ParseError =>
+  parseError('INVALID_ENUM', source, field, `Invalid value for ${field}: must be one of ${allowed.join(', ')}`);
+
+export const parseFailed = (source: ParseErrorSource, message: string): ParseError =>
+  parseError('PARSE_FAILED', source, '_root', message);
+
+// === Validation Errors ===
+
+export interface ValidationError {
+  readonly code: 'VALIDATION_FAILED';
+  readonly message: string;
+  readonly field: string;
+  readonly reason: string;
+}
+
+export interface UnauthorizedError {
+  readonly code: 'UNAUTHORIZED';
+  readonly message: string;
+}
+
+export interface MethodNotAllowedError {
+  readonly code: 'METHOD_NOT_ALLOWED';
+  readonly message: string;
+  readonly method: string;
+  readonly allowed: string[];
+}
+
+export interface NotFoundError {
+  readonly code: 'NOT_FOUND';
+  readonly message: string;
+  readonly path: string;
+}
+
+export type HttpError = ValidationError | UnauthorizedError | MethodNotAllowedError | NotFoundError;
+
 // === Union of All Domain Errors ===
 
 export type AnyDomainError =
@@ -139,7 +282,9 @@ export type AnyDomainError =
   | DaemonError
   | ConfigError
   | FileError
-  | TmuxError;
+  | TmuxError
+  | BlockError
+  | HttpError;
 
 // === Error Constructors ===
 
@@ -234,6 +379,43 @@ export const tmuxSessionNotFound = (sessionName: string): TmuxSessionNotFoundErr
   sessionName
 });
 
+export const blockNotFound = (blockId: string): BlockNotFoundError => ({
+  code: 'BLOCK_NOT_FOUND',
+  message: `Block '${blockId}' not found`,
+  blockId
+});
+
+export const blockAlreadyRunning = (blockId: string): BlockAlreadyRunningError => ({
+  code: 'BLOCK_ALREADY_RUNNING',
+  message: `Block '${blockId}' is already running`,
+  blockId
+});
+
+export const validationFailed = (field: string, reason: string): ValidationError => ({
+  code: 'VALIDATION_FAILED',
+  message: `Validation failed for '${field}': ${reason}`,
+  field,
+  reason
+});
+
+export const unauthorized = (message = 'Unauthorized'): UnauthorizedError => ({
+  code: 'UNAUTHORIZED',
+  message
+});
+
+export const methodNotAllowed = (method: string, allowed: string[]): MethodNotAllowedError => ({
+  code: 'METHOD_NOT_ALLOWED',
+  message: `Method ${method} not allowed. Allowed: ${allowed.join(', ')}`,
+  method,
+  allowed
+});
+
+export const notFound = (path: string): NotFoundError => ({
+  code: 'NOT_FOUND',
+  message: `Not found: ${path}`,
+  path
+});
+
 // === Error Code Type Guard ===
 
 /**
@@ -265,16 +447,21 @@ export function toCliExitCode(error: AnyDomainError): number {
     case 'FILE_NOT_FOUND':
     case 'TMUX_SESSION_NOT_FOUND':
     case 'CONFIG_NOT_FOUND':
+    case 'BLOCK_NOT_FOUND':
+    case 'NOT_FOUND':
       return 4;
 
     // Bad input → 2
     case 'SESSION_INVALID_NAME':
     case 'CONFIG_INVALID_YAML':
     case 'CONFIG_VALIDATION_FAILED':
+    case 'VALIDATION_FAILED':
+    case 'METHOD_NOT_ALLOWED':
       return 2;
 
     // Permission denied → 5
     case 'PATH_TRAVERSAL':
+    case 'UNAUTHORIZED':
       return 5;
 
     // External dependency unavailable → 3
@@ -287,6 +474,7 @@ export function toCliExitCode(error: AnyDomainError): number {
     // Already exists (conflict) → 1
     case 'SESSION_ALREADY_EXISTS':
     case 'DAEMON_ALREADY_RUNNING':
+    case 'BLOCK_ALREADY_RUNNING':
       return 1;
 
     // I/O error → 1
@@ -386,24 +574,41 @@ export function formatCliError(error: AnyDomainError): string {
  */
 export function toHttpStatus(error: AnyDomainError): number {
   switch (error.code) {
+    // Not Found → 404
     case 'SESSION_NOT_FOUND':
     case 'FILE_NOT_FOUND':
     case 'TMUX_SESSION_NOT_FOUND':
     case 'CONFIG_NOT_FOUND':
+    case 'BLOCK_NOT_FOUND':
+    case 'NOT_FOUND':
       return 404;
 
+    // Conflict → 409
     case 'SESSION_ALREADY_EXISTS':
     case 'DAEMON_ALREADY_RUNNING':
+    case 'BLOCK_ALREADY_RUNNING':
       return 409;
 
+    // Bad Request → 400
     case 'SESSION_INVALID_NAME':
     case 'CONFIG_INVALID_YAML':
     case 'CONFIG_VALIDATION_FAILED':
+    case 'VALIDATION_FAILED':
       return 400;
 
+    // Forbidden → 403
     case 'PATH_TRAVERSAL':
       return 403;
 
+    // Unauthorized → 401
+    case 'UNAUTHORIZED':
+      return 401;
+
+    // Method Not Allowed → 405
+    case 'METHOD_NOT_ALLOWED':
+      return 405;
+
+    // Service Unavailable → 503
     case 'DAEMON_NOT_RUNNING':
     case 'DAEMON_UNAVAILABLE':
     case 'DAEMON_START_FAILED':
