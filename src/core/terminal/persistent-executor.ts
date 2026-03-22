@@ -61,7 +61,7 @@ interface PendingCommand {
 export class PersistentExecutor {
   private readonly session: TerminalSession;
   private readonly blockStore: BlockStore;
-  private readonly sessionName: string;
+  private readonly _sessionName: string;
 
   private integrationStatus: IntegrationStatus | null = null;
   private commandQueue: QueuedCommand[] = [];
@@ -75,7 +75,7 @@ export class PersistentExecutor {
 
   constructor(session: TerminalSession, blockStore?: BlockStore) {
     this.session = session;
-    this.sessionName = session.name;
+    this._sessionName = session.name;
     this.blockStore = blockStore ?? createBlockStore();
   }
 
@@ -147,7 +147,7 @@ export class PersistentExecutor {
       // Poll output buffer for a short time
       const pollInterval = setInterval(() => {
         // Check session's output buffer
-        const buffer = this.session.getOutputBuffer();
+        const buffer = this.session.outputBuffer;
         for (const item of buffer) {
           try {
             const decoded = Buffer.from(item, 'base64').toString('utf-8');
@@ -233,7 +233,7 @@ export class PersistentExecutor {
     const effectiveCwd = this.session.cwd;
 
     // Create block
-    const block = this.blockStore.createBlock(this.sessionName, request.command, {
+    const block = this.blockStore.createBlock(this._sessionName, request.command, {
       mode: 'persistent',
       submittedVia: 'api',
       requestedCwd: request.cwd,
@@ -489,7 +489,7 @@ export class PersistentExecutor {
    * Get all blocks for this session
    */
   getBlocks(): ExtendedBlock[] {
-    return this.blockStore.getSessionBlocks(this.sessionName);
+    return this.blockStore.getSessionBlocks(this._sessionName);
   }
 
   /**
@@ -505,29 +505,29 @@ export class PersistentExecutor {
   /**
    * Check if a command is running
    */
-  isRunning(): boolean {
+  get isRunning(): boolean {
     return this.pendingCommand !== null;
   }
 
   /**
    * Get the current block ID
    */
-  getCurrentBlockId(): string | null {
+  get currentBlock(): string | null {
     return this.currentBlockId;
   }
 
   /**
    * Get the block store
    */
-  getBlockStore(): BlockStore {
+  get store(): BlockStore {
     return this.blockStore;
   }
 
   /**
    * Get the session name
    */
-  getSessionName(): string {
-    return this.sessionName;
+  get sessionName(): string {
+    return this._sessionName;
   }
 }
 

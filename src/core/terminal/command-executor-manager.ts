@@ -160,7 +160,7 @@ export class CommandExecutorManager {
     }
 
     // Try persistent
-    if (executors.persistent?.getCurrentBlockId() === blockId) {
+    if (executors.persistent?.currentBlock === blockId) {
       const success = executors.persistent.cancelCommand(signal);
       const status = executors.persistent.getIntegrationStatus();
       if (success) {
