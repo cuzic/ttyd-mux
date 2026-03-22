@@ -3,6 +3,7 @@
  */
 
 import { sendCommand } from '@/core/client/daemon-client.js';
+import { CliError } from '@/utils/errors.js';
 
 export interface ReloadOptions {
   config?: string;
@@ -15,15 +16,17 @@ export interface ReloadResult {
   error?: string;
 }
 
-function printDaemonNotRunning(): never {
-  process.exit(1);
+function throwDaemonNotRunning(): never {
+  throw new CliError('Daemon is not running');
 }
 
 function printReloadedSettings(reloaded: string[]): void {
   if (reloaded.length === 0) {
     return;
   }
-  for (const _setting of reloaded) {
+  console.log('Reloaded settings:');
+  for (const setting of reloaded) {
+    console.log(`  - ${setting}`);
   }
 }
 
@@ -31,8 +34,11 @@ function printRestartRequired(requiresRestart: string[]): void {
   if (requiresRestart.length === 0) {
     return;
   }
-  for (const _setting of requiresRestart) {
+  console.log('Settings requiring daemon restart:');
+  for (const setting of requiresRestart) {
+    console.log(`  - ${setting}`);
   }
+  console.log('Run "bunterm restart" to apply these changes.');
 }
 
 export async function reloadCommand(_options: ReloadOptions): Promise<void> {
@@ -40,25 +46,29 @@ export async function reloadCommand(_options: ReloadOptions): Promise<void> {
     const response = await sendCommand('reload');
 
     if (!response) {
-      printDaemonNotRunning();
+      throwDaemonNotRunning();
     }
 
     const result: ReloadResult = JSON.parse(response);
 
     if (!result.success) {
-      process.exit(1);
+      throw new CliError(result.error ?? 'Reload failed');
     }
 
     if (result.reloaded.length === 0 && result.requiresRestart.length === 0) {
+      console.log('Configuration unchanged.');
       return;
     }
 
     printReloadedSettings(result.reloaded);
     printRestartRequired(result.requiresRestart);
   } catch (error) {
-    if (error instanceof Error && error.message.includes('ENOENT')) {
-      printDaemonNotRunning();
+    if (error instanceof CliError) {
+      throw error;
     }
-    process.exit(1);
+    if (error instanceof Error && error.message.includes('ENOENT')) {
+      throwDaemonNotRunning();
+    }
+    throw CliError.from(error, 'Reload failed');
   }
 }
