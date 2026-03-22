@@ -6,6 +6,94 @@
  */
 
 /**
+ * Options for fetchJSON
+ */
+export interface FetchOptions extends Omit<RequestInit, 'body'> {
+  body?: unknown;
+}
+
+/**
+ * Fetch JSON with unified error handling.
+ * Returns the parsed JSON data or null if the request fails.
+ *
+ * @example
+ * const data = await fetchJSON<{ items: Item[] }>('/api/items');
+ * if (data) {
+ *   console.log(data.items);
+ * }
+ */
+export async function fetchJSON<T>(url: string, options?: FetchOptions): Promise<T | null> {
+  try {
+    const { body, ...rest } = options ?? {};
+    const init: RequestInit = {
+      ...rest,
+      headers: {
+        'Content-Type': 'application/json',
+        ...rest.headers
+      }
+    };
+    if (body !== undefined) {
+      init.body = JSON.stringify(body);
+    }
+    const response = await fetch(url, init);
+    if (!response.ok) {
+      return null;
+    }
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch JSON or throw an ApiError on failure.
+ *
+ * @example
+ * try {
+ *   const data = await fetchJSONOrThrow<{ items: Item[] }>('/api/items');
+ *   console.log(data.items);
+ * } catch (error) {
+ *   if (error instanceof ApiError) {
+ *     console.error(error.message, error.status);
+ *   }
+ * }
+ */
+export async function fetchJSONOrThrow<T>(url: string, options?: FetchOptions): Promise<T> {
+  try {
+    const { body, ...rest } = options ?? {};
+    const init: RequestInit = {
+      ...rest,
+      headers: {
+        'Content-Type': 'application/json',
+        ...rest.headers
+      }
+    };
+    if (body !== undefined) {
+      init.body = JSON.stringify(body);
+    }
+    const response = await fetch(url, init);
+    if (!response.ok) {
+      let message = `Request failed with status ${response.status}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          message = errorData.error;
+        }
+      } catch {
+        // Ignore JSON parse error
+      }
+      throw new ApiError(message, response.status);
+    }
+    return (await response.json()) as T;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(error instanceof Error ? error.message : 'Unknown error', 0);
+  }
+}
+
+/**
  * Image data for clipboard upload
  */
 export interface ImageData {
