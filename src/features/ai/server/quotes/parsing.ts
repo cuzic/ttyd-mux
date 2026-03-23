@@ -58,8 +58,11 @@ function parseAssistantContent(blocks: ClaudeAssistantContent[]): ParsedAssistan
  * @param count Maximum number of responses to return
  * @returns Array of assistant response summaries (newest first)
  */
-export function parseTurnsFromSessionFile(sessionFile: string, count: number): ClaudeTurnSummary[] {
-  const rawEntries = readJsonlFile<unknown>(sessionFile);
+export async function parseTurnsFromSessionFile(
+  sessionFile: string,
+  count: number
+): Promise<ClaudeTurnSummary[]> {
+  const rawEntries = await readJsonlFile<unknown>(sessionFile);
   const turns: ClaudeTurnSummary[] = [];
 
   for (const raw of rawEntries) {
@@ -97,11 +100,11 @@ export function parseTurnsFromSessionFile(sessionFile: string, count: number): C
  * @param uuid The assistant response UUID to find
  * @returns Full assistant content or null if not found
  */
-export function parseTurnByUuidFromSessionFile(
+export async function parseTurnByUuidFromSessionFile(
   sessionFile: string,
   uuid: string
-): ClaudeTurnFull | null {
-  const rawEntries = readJsonlFile<unknown>(sessionFile);
+): Promise<ClaudeTurnFull | null> {
+  const rawEntries = await readJsonlFile<unknown>(sessionFile);
 
   for (const raw of rawEntries) {
     // Validate raw entry against schema

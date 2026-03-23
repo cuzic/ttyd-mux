@@ -8,6 +8,7 @@
  * - Sequence gap detection and recovery
  */
 
+import { create } from 'zustand';
 import {
   getAllBlockContents,
   removeBlockContent
@@ -20,7 +21,6 @@ import type {
   RunnerName,
   RunnerStatus
 } from '@/features/ai/server/types.js';
-import { create } from 'zustand';
 
 /** File reference for context */
 export interface ContextFileRef {

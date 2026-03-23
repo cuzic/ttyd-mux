@@ -1,4 +1,4 @@
-import { z, type ZodSchema } from 'zod';
+import { type ZodSchema, z } from 'zod';
 import {
   type Config,
   type SessionResponse,

@@ -5,15 +5,15 @@
  * Handles Claude session discovery, turn retrieval, and file operations.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import { readJsonlFile } from '@/utils/jsonl.js';
 import {
   type CollectMdOptions,
-  type MarkdownFile,
   collectMdFiles,
-  getPlanFiles
+  getPlanFiles,
+  type MarkdownFile
 } from '@/utils/markdown-scanner.js';
 import { validateSecurePath } from '@/utils/path-security.js';
 import { parseTurnByUuidFromSessionFile, parseTurnsFromSessionFile } from './parsing.js';
@@ -21,7 +21,7 @@ import type { ClaudeSessionInfo, ClaudeTurnFull, ClaudeTurnSummary } from './typ
 
 // Re-export from centralized services for backward compatibility
 export { getFileDiff, getGitDiff } from '@/utils/git-service.js';
-export { collectMdFiles, getPlanFiles, type CollectMdOptions, type MarkdownFile };
+export { type CollectMdOptions, collectMdFiles, getPlanFiles, type MarkdownFile };
 
 // =============================================================================
 // Markdown Collection Domain Functions
@@ -132,13 +132,13 @@ export interface FileContentResult {
 /**
  * Get recent Claude sessions from ~/.claude/history.jsonl
  */
-export function getRecentClaudeSessions(limit = 10): ClaudeSessionInfo[] {
+export async function getRecentClaudeSessions(limit = 10): Promise<ClaudeSessionInfo[]> {
   const historyPath = join(homedir(), '.claude', 'history.jsonl');
   if (!existsSync(historyPath)) {
     return [];
   }
 
-  const entries = readJsonlFile<HistoryEntry>(historyPath);
+  const entries = await readJsonlFile<HistoryEntry>(historyPath);
 
   // Group by sessionId, keeping most recent entry per session
   const sessionMap = new Map<string, ClaudeSessionInfo>();
@@ -361,6 +361,7 @@ export function readFileContent(
   }
 
   // Read as buffer first for binary detection
+  // biome-ignore lint: sync read for binary detection before string conversion
   const buffer = readFileSync(pathResult.targetPath);
   if (isBinaryContent(buffer)) {
     return { error: 'Binary files not supported' };

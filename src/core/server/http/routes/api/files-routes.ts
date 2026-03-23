@@ -5,16 +5,16 @@
  */
 
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { ok, err } from '@/utils/result.js';
-import { sessionNotFound, notFound, validationFailed, pathTraversal } from '@/core/errors.js';
-import { validateSecurePath } from '@/utils/path-security.js';
+import { notFound, pathTraversal, sessionNotFound, validationFailed } from '@/core/errors.js';
+import type { RouteContext, RouteDef } from '@/core/server/http/route-types.js';
+import { securityHeaders } from '@/core/server/http/utils.js';
 import { createLogger } from '@/utils/logger.js';
-import type { RouteDef, RouteContext } from '../../route-types.js';
-import { securityHeaders } from '../../utils.js';
+import { validateSecurePath } from '@/utils/path-security.js';
+import { err, ok } from '@/utils/result.js';
 
 const log = createLogger('files-api');
 
@@ -35,13 +35,15 @@ const ClipboardImageQuerySchema = z.object({
 });
 
 const ClipboardImageBodySchema = z.object({
-  images: z.array(
-    z.object({
-      data: z.string().min(1),
-      mimeType: z.string().regex(/^image\//, 'mimeType must be image/*'),
-      name: z.string().optional()
-    })
-  ).min(1, 'images array is required')
+  images: z
+    .array(
+      z.object({
+        data: z.string().min(1),
+        mimeType: z.string().regex(/^image\//, 'mimeType must be image/*'),
+        name: z.string().optional()
+      })
+    )
+    .min(1, 'images array is required')
 });
 
 // === Response Types ===
@@ -74,7 +76,9 @@ export const filesRoutes: RouteDef[] = [
     description: 'List files in a directory',
     tags: ['files'],
     handler: async (ctx) => {
-      const { session: sessionName, path: filePath } = ctx.params as z.infer<typeof FileListQuerySchema>;
+      const { session: sessionName, path: filePath } = ctx.params as z.infer<
+        typeof FileListQuerySchema
+      >;
 
       const cwd = getSessionCwd(ctx, sessionName);
       if (!cwd) {
@@ -114,7 +118,9 @@ export const filesRoutes: RouteDef[] = [
     description: 'Upload a file',
     tags: ['files'],
     handler: async (ctx) => {
-      const { session: sessionName, path: filePath } = ctx.params as z.infer<typeof FileUploadQuerySchema>;
+      const { session: sessionName, path: filePath } = ctx.params as z.infer<
+        typeof FileUploadQuerySchema
+      >;
 
       const cwd = getSessionCwd(ctx, sessionName);
       if (!cwd) {
@@ -221,7 +227,7 @@ export async function handleFileDownload(ctx: RouteContext): Promise<Response | 
     return null;
   }
 
-  const content = readFileSync(targetPath);
+  const content = await Bun.file(targetPath).arrayBuffer();
   const filename = filePath.split('/').pop() || 'download';
 
   return new Response(content, {

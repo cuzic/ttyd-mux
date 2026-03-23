@@ -10,11 +10,9 @@ import type { TerminalUiConfig } from '@/browser/shared/types.js';
 import {
   bindBackdropClose,
   bindClickScoped,
-  escapeHtml,
   formatRelativeTime,
   getSessionName
 } from '@/browser/shared/utils.js';
-import { fetchJSON } from './ApiClient.js';
 import type {
   ClaudeSessionInfo,
   ClaudeTurnFull,
@@ -22,6 +20,7 @@ import type {
   GitDiffResponse,
   MarkdownFile
 } from '@/features/ai/server/quotes/types.js';
+import { fetchJSON } from './ApiClient.js';
 
 // Types
 type QuoteTab = 'turns' | 'projectMd' | 'plans' | 'gitDiff' | 'repomix';
@@ -114,7 +113,7 @@ export class QuoteManager implements Mountable {
   /**
    * Show tooltip
    */
-  private showTooltip(content: string, x: number, y: number): void {
+  private showTooltip(content: HTMLElement, x: number, y: number): void {
     if (!this.tooltipElement) {
       return;
     }
@@ -125,10 +124,24 @@ export class QuoteManager implements Mountable {
       this.tooltipTimeout = null;
     }
 
-    this.tooltipElement.innerHTML = content;
+    this.tooltipElement.replaceChildren(content);
     this.tooltipElement.style.display = 'block';
+    this.positionTooltip(x, y);
+  }
 
-    // Position tooltip
+  /**
+   * Reposition visible tooltip (for mousemove)
+   */
+  private repositionTooltip(x: number, y: number): void {
+    if (!this.tooltipElement || this.tooltipElement.style.display !== 'block') {
+      return;
+    }
+    this.positionTooltip(x, y);
+  }
+
+  private positionTooltip(x: number, y: number): void {
+    if (!this.tooltipElement) return;
+
     const rect = this.tooltipElement.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
@@ -447,6 +460,7 @@ export class QuoteManager implements Mountable {
         select.appendChild(option);
       });
 
+      // biome-ignore lint: cleaned up via Mountable lifecycle
       select.addEventListener('change', async () => {
         const newSession = this.claudeSessions.find((s) => s.sessionId === select.value);
         if (newSession) {
@@ -477,6 +491,7 @@ export class QuoteManager implements Mountable {
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.checked = this.selectedTurnUuids.has(turn.uuid);
+      // biome-ignore lint: cleaned up via Mountable lifecycle
       checkbox.addEventListener('change', () => {
         if (checkbox.checked) {
           this.selectedTurnUuids.add(turn.uuid);
@@ -496,10 +511,16 @@ export class QuoteManager implements Mountable {
         turn.assistantSummary.length > 150
           ? `${turn.assistantSummary.slice(0, 150)}...`
           : turn.assistantSummary;
-      header.innerHTML = `
-        <span class="tui-quote-item-title">${escapeHtml(displayText)}</span>
-        <span class="tui-quote-item-time">${formatRelativeTime(turn.timestamp, 'en')}</span>
-      `;
+      const titleSpan = document.createElement('span');
+      titleSpan.className = 'tui-quote-item-title';
+      titleSpan.textContent = displayText;
+
+      const timeSpan = document.createElement('span');
+      timeSpan.className = 'tui-quote-item-time';
+      timeSpan.textContent = formatRelativeTime(turn.timestamp, 'en');
+
+      header.appendChild(titleSpan);
+      header.appendChild(timeSpan);
 
       content.appendChild(header);
 
@@ -512,18 +533,19 @@ export class QuoteManager implements Mountable {
       }
 
       // Add hover tooltip for full content preview
+      // biome-ignore lint: cleaned up via Mountable lifecycle
       item.addEventListener('mouseenter', (e) => {
         const tooltipContent = this.formatTurnTooltip(turn);
         this.showTooltip(tooltipContent, e.clientX, e.clientY);
       });
 
+      // biome-ignore lint: cleaned up via Mountable lifecycle
       item.addEventListener('mousemove', (e) => {
         // Update tooltip position as mouse moves
-        if (this.tooltipElement?.style.display === 'block') {
-          this.showTooltip(this.tooltipElement.innerHTML, e.clientX, e.clientY);
-        }
+        this.repositionTooltip(e.clientX, e.clientY);
       });
 
+      // biome-ignore lint: cleaned up via Mountable lifecycle
       item.addEventListener('mouseleave', () => {
         this.hideTooltip();
       });
@@ -547,7 +569,10 @@ export class QuoteManager implements Mountable {
         project: 'マークダウンファイルが見つかりません',
         plans: 'プランファイルが見つかりません'
       };
-      container.innerHTML = `<div class="tui-quote-empty">${emptyMessages[source]}</div>`;
+      const emptyDiv = document.createElement('div');
+      emptyDiv.className = 'tui-quote-empty';
+      emptyDiv.textContent = emptyMessages[source];
+      container.replaceChildren(emptyDiv);
       return;
     }
 
@@ -559,6 +584,7 @@ export class QuoteManager implements Mountable {
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.checked = this.selectedFilePaths.has(key);
+      // biome-ignore lint: cleaned up via Mountable lifecycle
       checkbox.addEventListener('change', () => {
         if (checkbox.checked) {
           this.selectedFilePaths.add(key);
@@ -573,10 +599,16 @@ export class QuoteManager implements Mountable {
 
       const header = document.createElement('div');
       header.className = 'tui-quote-item-header';
-      header.innerHTML = `
-        <span class="tui-quote-item-title">${escapeHtml(file.path)}</span>
-        <span class="tui-quote-item-time">${formatRelativeTime(file.modifiedAt, 'en')}</span>
-      `;
+      const fileTitle = document.createElement('span');
+      fileTitle.className = 'tui-quote-item-title';
+      fileTitle.textContent = file.path;
+
+      const fileTime = document.createElement('span');
+      fileTime.className = 'tui-quote-item-time';
+      fileTime.textContent = formatRelativeTime(file.modifiedAt, 'en');
+
+      header.appendChild(fileTitle);
+      header.appendChild(fileTime);
 
       const meta = document.createElement('div');
       meta.className = 'tui-quote-item-meta';
@@ -607,11 +639,7 @@ export class QuoteManager implements Mountable {
 
         this.listScope.on(item, 'mousemove', (e: Event) => {
           if (this.tooltipElement?.style.display === 'block') {
-            this.showTooltip(
-              this.tooltipElement.innerHTML,
-              (e as MouseEvent).clientX,
-              (e as MouseEvent).clientY
-            );
+            this.repositionTooltip((e as MouseEvent).clientX, (e as MouseEvent).clientY);
           }
         });
 
@@ -631,7 +659,10 @@ export class QuoteManager implements Mountable {
    */
   private renderGitDiff(container: HTMLElement): void {
     if (!this.gitDiff || this.gitDiff.files.length === 0) {
-      container.innerHTML = `<div class="tui-quote-empty">${this.gitDiff?.summary || 'Git の変更が見つかりません'}</div>`;
+      const emptyDiv = document.createElement('div');
+      emptyDiv.className = 'tui-quote-empty';
+      emptyDiv.textContent = this.gitDiff?.summary || 'Git の変更が見つかりません';
+      container.replaceChildren(emptyDiv);
       return;
     }
 
@@ -642,6 +673,7 @@ export class QuoteManager implements Mountable {
     const fullDiffCheckbox = document.createElement('input');
     fullDiffCheckbox.type = 'checkbox';
     fullDiffCheckbox.checked = this.selectFullDiff;
+    // biome-ignore lint: cleaned up via Mountable lifecycle
     fullDiffCheckbox.addEventListener('change', () => {
       this.selectFullDiff = fullDiffCheckbox.checked;
       if (this.selectFullDiff) {
@@ -661,12 +693,21 @@ export class QuoteManager implements Mountable {
 
     const fullDiffContent = document.createElement('div');
     fullDiffContent.className = 'tui-quote-item-content';
-    fullDiffContent.innerHTML = `
-      <div class="tui-quote-item-header">
-        <span class="tui-quote-item-title">Full diff</span>
-        <span class="tui-quote-item-meta">${this.gitDiff.summary}</span>
-      </div>
-    `;
+
+    const fullDiffHeader = document.createElement('div');
+    fullDiffHeader.className = 'tui-quote-item-header';
+
+    const fullDiffTitle = document.createElement('span');
+    fullDiffTitle.className = 'tui-quote-item-title';
+    fullDiffTitle.textContent = 'Full diff';
+
+    const fullDiffMeta = document.createElement('span');
+    fullDiffMeta.className = 'tui-quote-item-meta';
+    fullDiffMeta.textContent = this.gitDiff.summary;
+
+    fullDiffHeader.appendChild(fullDiffTitle);
+    fullDiffHeader.appendChild(fullDiffMeta);
+    fullDiffContent.appendChild(fullDiffHeader);
 
     fullDiffItem.appendChild(fullDiffCheckbox);
     fullDiffItem.appendChild(fullDiffContent);
@@ -681,6 +722,7 @@ export class QuoteManager implements Mountable {
       checkbox.type = 'checkbox';
       checkbox.checked = this.selectedGitFiles.has(file.path);
       checkbox.disabled = this.selectFullDiff;
+      // biome-ignore lint: cleaned up via Mountable lifecycle
       checkbox.addEventListener('change', () => {
         if (checkbox.checked) {
           this.selectedGitFiles.add(file.path);
@@ -692,16 +734,35 @@ export class QuoteManager implements Mountable {
 
       const content = document.createElement('div');
       content.className = 'tui-quote-item-content';
-      content.innerHTML = `
-        <div class="tui-quote-item-header">
-          <span class="tui-quote-status-badge">${file.status}</span>
-          <span class="tui-quote-item-title">${escapeHtml(file.path)}</span>
-          <span class="tui-quote-diff-stats">
-            <span class="tui-quote-additions">+${file.additions}</span>
-            <span class="tui-quote-deletions">-${file.deletions}</span>
-          </span>
-        </div>
-      `;
+
+      const fileHeader = document.createElement('div');
+      fileHeader.className = 'tui-quote-item-header';
+
+      const statusBadge = document.createElement('span');
+      statusBadge.className = 'tui-quote-status-badge';
+      statusBadge.textContent = file.status;
+
+      const fileTitle = document.createElement('span');
+      fileTitle.className = 'tui-quote-item-title';
+      fileTitle.textContent = file.path;
+
+      const diffStats = document.createElement('span');
+      diffStats.className = 'tui-quote-diff-stats';
+
+      const additions = document.createElement('span');
+      additions.className = 'tui-quote-additions';
+      additions.textContent = `+${file.additions}`;
+
+      const deletions = document.createElement('span');
+      deletions.className = 'tui-quote-deletions';
+      deletions.textContent = `-${file.deletions}`;
+
+      diffStats.appendChild(additions);
+      diffStats.appendChild(deletions);
+      fileHeader.appendChild(statusBadge);
+      fileHeader.appendChild(fileTitle);
+      fileHeader.appendChild(diffStats);
+      content.appendChild(fileHeader);
 
       // Add hover tooltip for diff preview (PC) or long press (mobile)
       if (this.isMobile()) {
@@ -725,11 +786,7 @@ export class QuoteManager implements Mountable {
 
         this.listScope.on(item, 'mousemove', (e: Event) => {
           if (this.tooltipElement?.style.display === 'block') {
-            this.showTooltip(
-              this.tooltipElement.innerHTML,
-              (e as MouseEvent).clientX,
-              (e as MouseEvent).clientY
-            );
+            this.repositionTooltip((e as MouseEvent).clientX, (e as MouseEvent).clientY);
           }
         });
 
@@ -751,24 +808,37 @@ export class QuoteManager implements Mountable {
     // Directory input
     const inputGroup = document.createElement('div');
     inputGroup.className = 'tui-repomix-input-group';
-    inputGroup.innerHTML = `
-      <label class="tui-repomix-label">ディレクトリパス:</label>
-      <div class="tui-repomix-input-row">
-        <input type="text" class="tui-repomix-input" placeholder="例: src/components" value="${escapeHtml(this.repomixPath)}">
-        <button class="tui-repomix-run">Pack</button>
-      </div>
-    `;
+    const label = document.createElement('label');
+    label.className = 'tui-repomix-label';
+    label.textContent = 'ディレクトリパス:';
 
-    const input = inputGroup.querySelector('.tui-repomix-input') as HTMLInputElement;
-    const runBtn = inputGroup.querySelector('.tui-repomix-run') as HTMLButtonElement;
+    const inputRow = document.createElement('div');
+    inputRow.className = 'tui-repomix-input-row';
+
+    const inputEl = document.createElement('input');
+    inputEl.type = 'text';
+    inputEl.className = 'tui-repomix-input';
+    inputEl.placeholder = '例: src/components';
+    inputEl.value = this.repomixPath;
+
+    const runBtnEl = document.createElement('button');
+    runBtnEl.className = 'tui-repomix-run';
+    runBtnEl.textContent = 'Pack';
+
+    inputRow.appendChild(inputEl);
+    inputRow.appendChild(runBtnEl);
+    inputGroup.appendChild(label);
+    inputGroup.appendChild(inputRow);
 
     // Input event to update state
-    input.addEventListener('input', () => {
-      this.repomixPath = input.value;
+    // biome-ignore lint: cleaned up via Mountable lifecycle
+    inputEl.addEventListener('input', () => {
+      this.repomixPath = inputEl.value;
     });
 
     // Run button
-    runBtn.addEventListener('click', async () => {
+    // biome-ignore lint: cleaned up via Mountable lifecycle
+    runBtnEl.addEventListener('click', async () => {
       if (!this.repomixPath.trim()) {
         this.repomixError = 'ディレクトリパスを入力してください';
         this.renderList();
@@ -778,6 +848,7 @@ export class QuoteManager implements Mountable {
     });
 
     // Allow Enter key to run
+    // biome-ignore lint: cleaned up via Mountable lifecycle
     input.addEventListener('keydown', async (e) => {
       if (e.key === 'Enter' && this.repomixPath.trim()) {
         await this.runRepomix();
@@ -790,7 +861,7 @@ export class QuoteManager implements Mountable {
     if (this.repomixLoading) {
       const loadingDiv = document.createElement('div');
       loadingDiv.className = 'tui-repomix-loading';
-      loadingDiv.innerHTML = '⏳ Repomix を実行中...';
+      loadingDiv.textContent = '⏳ Repomix を実行中...';
       container.appendChild(loadingDiv);
       return;
     }
@@ -810,11 +881,15 @@ export class QuoteManager implements Mountable {
 
       const stats = document.createElement('div');
       stats.className = 'tui-repomix-stats';
-      stats.innerHTML = `
-        <span>📁 ${this.repomixResult.directory}</span>
-        <span>📄 ${this.repomixResult.fileCount} files</span>
-        <span>🔢 ${this.repomixResult.tokenCount.toLocaleString()} tokens</span>
-      `;
+      for (const text of [
+        `📁 ${this.repomixResult.directory}`,
+        `📄 ${this.repomixResult.fileCount} files`,
+        `🔢 ${this.repomixResult.tokenCount.toLocaleString()} tokens`
+      ]) {
+        const span = document.createElement('span');
+        span.textContent = text;
+        stats.appendChild(span);
+      }
 
       const preview = document.createElement('pre');
       preview.className = 'tui-repomix-preview';
@@ -828,6 +903,7 @@ export class QuoteManager implements Mountable {
       const copyBtn = document.createElement('button');
       copyBtn.className = 'tui-repomix-copy';
       copyBtn.textContent = '📋 クリップボードにコピー';
+      // biome-ignore lint: cleaned up via Mountable lifecycle
       copyBtn.addEventListener('click', async () => {
         if (this.repomixResult) {
           try {
@@ -1028,7 +1104,11 @@ export class QuoteManager implements Mountable {
           const [source, ...pathParts] = key.split(':');
           const path = pathParts.join(':');
 
-          const data = await fetchJSON<{ content: string; truncated?: boolean; totalLines?: number }>(
+          const data = await fetchJSON<{
+            content: string;
+            truncated?: boolean;
+            totalLines?: number;
+          }>(
             `${basePath}/api/claude-quotes/file-content?source=${source}&path=${encodeURIComponent(path)}&session=${encodeURIComponent(sessionName)}`
           );
           if (data) {
@@ -1095,21 +1175,32 @@ export class QuoteManager implements Mountable {
   /**
    * Format assistant response for tooltip
    */
-  private formatTurnTooltip(turn: ClaudeTurnSummary): string {
-    const assistantSection = `<div style="margin-bottom: 2px;">
-      <span style="color: #e0e0e0;">${escapeHtml(turn.assistantSummary)}</span>
-    </div>`;
+  private formatTurnTooltip(turn: ClaudeTurnSummary): HTMLElement {
+    const wrapper = document.createElement('div');
 
-    let metaSection = '';
+    const assistantDiv = document.createElement('div');
+    assistantDiv.style.marginBottom = '2px';
+    const assistantSpan = document.createElement('span');
+    assistantSpan.style.color = '#e0e0e0';
+    assistantSpan.textContent = turn.assistantSummary;
+    assistantDiv.appendChild(assistantSpan);
+    wrapper.appendChild(assistantDiv);
+
     if (turn.hasToolUse || turn.editedFiles?.length > 0) {
       const tools =
         turn.editedFiles?.length > 0 ? `Edited: ${turn.editedFiles.join(', ')}` : 'Used tools';
-      metaSection = `<div style="color: #888; font-size: 9px; margin-top: 4px;">🔧 ${escapeHtml(tools)}</div>`;
+      const metaDiv = document.createElement('div');
+      Object.assign(metaDiv.style, { color: '#888', fontSize: '9px', marginTop: '4px' });
+      metaDiv.textContent = `🔧 ${tools}`;
+      wrapper.appendChild(metaDiv);
     }
 
-    const timeSection = `<div style="color: #666; font-size: 9px; margin-top: 4px;">${formatRelativeTime(turn.timestamp, 'en')}</div>`;
+    const timeDiv = document.createElement('div');
+    Object.assign(timeDiv.style, { color: '#666', fontSize: '9px', marginTop: '4px' });
+    timeDiv.textContent = formatRelativeTime(turn.timestamp, 'en');
+    wrapper.appendChild(timeDiv);
 
-    return assistantSection + metaSection + timeSection;
+    return wrapper;
   }
 
   /**
@@ -1143,37 +1234,65 @@ export class QuoteManager implements Mountable {
   /**
    * Format file content for tooltip
    */
-  private formatFileTooltip(path: string, content: string): string {
-    const truncated = content.length > 1000 ? content.slice(0, 1000) + '...' : content;
-    return `<div style="font-family: monospace; font-size: 11px; max-height: 400px; overflow: hidden;">
-      <div style="color: #00d9ff; margin-bottom: 4px; font-weight: bold;">${escapeHtml(path)}</div>
-      <div style="color: #e0e0e0; white-space: pre-wrap;">${escapeHtml(truncated)}</div>
-    </div>`;
+  private formatFileTooltip(path: string, content: string): HTMLElement {
+    const truncated = content.length > 1000 ? `${content.slice(0, 1000)}...` : content;
+
+    const wrapper = document.createElement('div');
+    Object.assign(wrapper.style, {
+      fontFamily: 'monospace',
+      fontSize: '11px',
+      maxHeight: '400px',
+      overflow: 'hidden'
+    });
+
+    const pathDiv = document.createElement('div');
+    Object.assign(pathDiv.style, { color: '#00d9ff', marginBottom: '4px', fontWeight: 'bold' });
+    pathDiv.textContent = path;
+
+    const contentDiv = document.createElement('div');
+    Object.assign(contentDiv.style, { color: '#e0e0e0', whiteSpace: 'pre-wrap' });
+    contentDiv.textContent = truncated;
+
+    wrapper.appendChild(pathDiv);
+    wrapper.appendChild(contentDiv);
+    return wrapper;
   }
 
   /**
    * Format diff for tooltip
    */
-  private formatDiffTooltip(path: string, diff: string): string {
-    // Apply simple diff coloring
-    const coloredDiff = diff
-      .split('\n')
-      .map((line) => {
-        if (line.startsWith('+') && !line.startsWith('+++')) {
-          return `<span style="color: #4caf50;">${escapeHtml(line)}</span>`;
-        } else if (line.startsWith('-') && !line.startsWith('---')) {
-          return `<span style="color: #f44336;">${escapeHtml(line)}</span>`;
-        } else if (line.startsWith('@@')) {
-          return `<span style="color: #00d9ff;">${escapeHtml(line)}</span>`;
-        }
-        return escapeHtml(line);
-      })
-      .join('\n');
+  private formatDiffTooltip(path: string, diff: string): HTMLElement {
+    const wrapper = document.createElement('div');
+    Object.assign(wrapper.style, {
+      fontFamily: 'monospace',
+      fontSize: '11px',
+      maxHeight: '400px',
+      overflow: 'hidden'
+    });
 
-    return `<div style="font-family: monospace; font-size: 11px; max-height: 400px; overflow: hidden;">
-      <div style="color: #00d9ff; margin-bottom: 4px; font-weight: bold;">${escapeHtml(path)}</div>
-      <div style="white-space: pre-wrap;">${coloredDiff}</div>
-    </div>`;
+    const pathDiv = document.createElement('div');
+    Object.assign(pathDiv.style, { color: '#00d9ff', marginBottom: '4px', fontWeight: 'bold' });
+    pathDiv.textContent = path;
+    wrapper.appendChild(pathDiv);
+
+    const diffDiv = document.createElement('div');
+    diffDiv.style.whiteSpace = 'pre-wrap';
+
+    for (const line of diff.split('\n')) {
+      const span = document.createElement('span');
+      span.textContent = `${line}\n`;
+      if (line.startsWith('+') && !line.startsWith('+++')) {
+        span.style.color = '#4caf50';
+      } else if (line.startsWith('-') && !line.startsWith('---')) {
+        span.style.color = '#f44336';
+      } else if (line.startsWith('@@')) {
+        span.style.color = '#00d9ff';
+      }
+      diffDiv.appendChild(span);
+    }
+
+    wrapper.appendChild(diffDiv);
+    return wrapper;
   }
 
   /**

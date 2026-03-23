@@ -5,10 +5,9 @@
  * Provides unified error handling and request management.
  */
 
-import { z } from 'zod';
+import type { z } from 'zod';
 import {
   type FileInfo,
-  FileInfoSchema,
   ListFilesResponseSchema,
   type ShareLink,
   ShareLinkSchema,
@@ -226,7 +225,10 @@ export function createApiClient(config: ApiClientConfig): ToolbarApiClient {
     if (result.success) {
       return result.data;
     }
-    throw new ApiError(`Invalid response: ${result.error.issues[0]?.message ?? 'validation failed'}`, 0);
+    throw new ApiError(
+      `Invalid response: ${result.error.issues[0]?.message ?? 'validation failed'}`,
+      0
+    );
   };
 
   // Clipboard

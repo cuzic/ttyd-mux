@@ -106,10 +106,7 @@ export const AITokenResponseSchema = z.object({
  * Safely parse JSON with schema validation
  * Returns null on validation failure
  */
-export function parseWithSchema<T>(
-  data: unknown,
-  schema: z.ZodSchema<T>
-): T | null {
+export function parseWithSchema<T>(data: unknown, schema: z.ZodSchema<T>): T | null {
   const result = schema.safeParse(data);
   if (result.success) {
     return result.data;

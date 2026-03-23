@@ -6,7 +6,9 @@
 
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { z } from 'zod';
 import { notFound, sessionNotFound, validationFailed } from '@/core/errors.js';
+import type { RouteDef } from '@/core/server/http/route-types.js';
 import {
   collectMdFiles,
   getClaudeTurnByUuid,
@@ -21,8 +23,6 @@ import {
   runRepomix
 } from '@/features/ai/server/quotes/quotes-service.js';
 import { err, ok } from '@/utils/result.js';
-import { z } from 'zod';
-import type { RouteDef } from '../../route-types.js';
 
 // === Schemas ===
 
@@ -95,7 +95,7 @@ export const claudeQuotesRoutes: RouteDef[] = [
       const { limit } = ctx.params as z.infer<typeof SessionsQuerySchema>;
 
       try {
-        const sessions = getRecentClaudeSessions(limit);
+        const sessions = await getRecentClaudeSessions(limit);
         return ok({ sessions });
       } catch (error) {
         return err(validationFailed('sessions', String(error)));

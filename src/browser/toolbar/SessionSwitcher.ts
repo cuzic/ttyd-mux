@@ -14,7 +14,6 @@ import type { SessionSwitcherElements, TerminalUiConfig } from '@/browser/shared
 import {
   bindBackdropClose,
   bindClickScoped,
-  escapeHtml,
   getSessionName,
   renderEmptyState
 } from '@/browser/shared/utils.js';
@@ -372,7 +371,10 @@ export class SessionSwitcher implements Mountable {
       return;
     }
 
-    this.elements.sessionList.innerHTML = '<div id="tui-session-loading">読み込み中...</div>';
+    const loadingDiv = document.createElement('div');
+    loadingDiv.id = 'tui-session-loading';
+    loadingDiv.textContent = '読み込み中...';
+    this.elements.sessionList.replaceChildren(loadingDiv);
 
     try {
       // Load both bunterm sessions and tmux sessions in parallel
@@ -418,8 +420,10 @@ export class SessionSwitcher implements Mountable {
       this.renderSessions();
     } catch (_error) {
       if (!this.elements) return;
-      this.elements.sessionList.innerHTML =
-        '<div id="tui-session-error">セッションの読み込みに失敗しました</div>';
+      const errorDiv = document.createElement('div');
+      errorDiv.id = 'tui-session-error';
+      errorDiv.textContent = 'セッションの読み込みに失敗しました';
+      this.elements.sessionList.replaceChildren(errorDiv);
     }
   }
 
@@ -490,73 +494,129 @@ export class SessionSwitcher implements Mountable {
       return;
     }
 
-    let html = '';
+    const fragment = document.createDocumentFragment();
 
     // Bunterm sessions section
     if (hasBuntermSessions) {
-      html += '<div class="tui-session-section">';
-      html += '<div class="tui-session-section-header">bunterm Sessions</div>';
-      html += this.filteredSessions
-        .map((session, index) => {
-          const isCurrent = session.name === this.currentSessionName;
-          const isSelected = this.selectedSection === 'bunterm' && index === this.selectedIndex;
-          const classes = [
-            'tui-session-item',
-            isCurrent ? 'current' : '',
-            isSelected ? 'selected' : ''
-          ]
-            .filter(Boolean)
-            .join(' ');
+      const section = document.createElement('div');
+      section.className = 'tui-session-section';
 
-          return `
-            <div class="${classes}" data-section="bunterm" data-index="${index}">
-              <span class="tui-session-icon">${isCurrent ? '📍' : '📁'}</span>
-              <div class="tui-session-info">
-                <div class="tui-session-name">${escapeHtml(session.name)}</div>
-                <div class="tui-session-path">${escapeHtml(session.dir)}</div>
-              </div>
-              ${isCurrent ? '<span class="tui-session-current-badge">現在</span>' : ''}
-            </div>
-          `;
-        })
-        .join('');
-      html += '</div>';
+      const sectionHeader = document.createElement('div');
+      sectionHeader.className = 'tui-session-section-header';
+      sectionHeader.textContent = 'bunterm Sessions';
+      section.appendChild(sectionHeader);
+
+      this.filteredSessions.forEach((session, index) => {
+        const isCurrent = session.name === this.currentSessionName;
+        const isSelected = this.selectedSection === 'bunterm' && index === this.selectedIndex;
+        const classes = [
+          'tui-session-item',
+          isCurrent ? 'current' : '',
+          isSelected ? 'selected' : ''
+        ]
+          .filter(Boolean)
+          .join(' ');
+
+        const item = document.createElement('div');
+        item.className = classes;
+        item.dataset.section = 'bunterm';
+        item.dataset.index = String(index);
+
+        const icon = document.createElement('span');
+        icon.className = 'tui-session-icon';
+        icon.textContent = isCurrent ? '📍' : '📁';
+        item.appendChild(icon);
+
+        const info = document.createElement('div');
+        info.className = 'tui-session-info';
+
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'tui-session-name';
+        nameDiv.textContent = session.name;
+
+        const pathDiv = document.createElement('div');
+        pathDiv.className = 'tui-session-path';
+        pathDiv.textContent = session.dir;
+
+        info.appendChild(nameDiv);
+        info.appendChild(pathDiv);
+        item.appendChild(info);
+
+        if (isCurrent) {
+          const badge = document.createElement('span');
+          badge.className = 'tui-session-current-badge';
+          badge.textContent = '現在';
+          item.appendChild(badge);
+        }
+
+        section.appendChild(item);
+      });
+
+      fragment.appendChild(section);
     }
 
     // Tmux sessions section
     if (hasTmuxSessions) {
-      html += '<div class="tui-session-section tui-tmux-section">';
-      html += '<div class="tui-session-section-header">tmux Sessions</div>';
-      html += this.filteredTmuxSessions
-        .map((tmuxSession, index) => {
-          const isSelected = this.selectedSection === 'tmux' && index === this.selectedIndex;
-          const classes = [
-            'tui-session-item',
-            'tui-tmux-item',
-            tmuxSession.attached ? 'attached' : '',
-            isSelected ? 'selected' : ''
-          ]
-            .filter(Boolean)
-            .join(' ');
+      const section = document.createElement('div');
+      section.className = 'tui-session-section tui-tmux-section';
 
-          const meta = `${tmuxSession.windows} window${tmuxSession.windows !== 1 ? 's' : ''}`;
+      const sectionHeader = document.createElement('div');
+      sectionHeader.className = 'tui-session-section-header';
+      sectionHeader.textContent = 'tmux Sessions';
+      section.appendChild(sectionHeader);
 
-          return `
-            <div class="${classes}" data-section="tmux" data-index="${index}">
-              <span class="tui-session-icon">🖥️</span>
-              <div class="tui-session-info">
-                <div class="tui-session-name">${escapeHtml(tmuxSession.name)}</div>
-                <div class="tui-session-path">${meta}</div>
-              </div>
-              ${tmuxSession.attached ? '<span class="tui-session-attached-badge">attached</span>' : ''}
-            </div>
-          `;
-        })
-        .join('');
-      html += '</div>';
+      this.filteredTmuxSessions.forEach((tmuxSession, index) => {
+        const isSelected = this.selectedSection === 'tmux' && index === this.selectedIndex;
+        const classes = [
+          'tui-session-item',
+          'tui-tmux-item',
+          tmuxSession.attached ? 'attached' : '',
+          isSelected ? 'selected' : ''
+        ]
+          .filter(Boolean)
+          .join(' ');
+
+        const meta = `${tmuxSession.windows} window${tmuxSession.windows !== 1 ? 's' : ''}`;
+
+        const item = document.createElement('div');
+        item.className = classes;
+        item.dataset.section = 'tmux';
+        item.dataset.index = String(index);
+
+        const icon = document.createElement('span');
+        icon.className = 'tui-session-icon';
+        icon.textContent = '🖥️';
+        item.appendChild(icon);
+
+        const info = document.createElement('div');
+        info.className = 'tui-session-info';
+
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'tui-session-name';
+        nameDiv.textContent = tmuxSession.name;
+
+        const pathDiv = document.createElement('div');
+        pathDiv.className = 'tui-session-path';
+        pathDiv.textContent = meta;
+
+        info.appendChild(nameDiv);
+        info.appendChild(pathDiv);
+        item.appendChild(info);
+
+        if (tmuxSession.attached) {
+          const badge = document.createElement('span');
+          badge.className = 'tui-session-attached-badge';
+          badge.textContent = 'attached';
+          item.appendChild(badge);
+        }
+
+        section.appendChild(item);
+      });
+
+      fragment.appendChild(section);
     }
 
-    this.elements.sessionList.innerHTML = html;
+    this.elements.sessionList.replaceChildren(fragment);
     // Click handlers are managed via event delegation in mount() for proper cleanup
   }
 }

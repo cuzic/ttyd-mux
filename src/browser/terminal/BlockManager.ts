@@ -145,16 +145,20 @@ export class BlockManager {
       return;
     }
 
-    block.exitCode = exitCode;
-    block.endedAt = endedAt;
-    block.endLine = endLine;
-    block.status = exitCode === 0 ? 'success' : 'error';
+    const updated: Block = {
+      ...block,
+      exitCode,
+      endedAt,
+      endLine,
+      status: exitCode === 0 ? 'success' : 'error'
+    };
+    this.blocks.set(blockId, updated);
 
     if (this.activeBlockId === blockId) {
       this.activeBlockId = null;
     }
 
-    this.handlers.onBlockEnd?.(block);
+    this.handlers.onBlockEnd?.(updated);
   }
 
   /**
@@ -166,7 +170,8 @@ export class BlockManager {
       return;
     }
 
-    block.output += data;
+    const updated: Block = { ...block, output: block.output + data };
+    this.blocks.set(blockId, updated);
     this.handlers.onBlockOutput?.(blockId, data);
   }
 
@@ -371,9 +376,7 @@ export class BlockManager {
    * Get all selected blocks
    */
   get selectedBlocks(): Block[] {
-    return this.selectedBlockIds
-      .map((id) => this.blocks.get(id)!)
-      .filter(Boolean);
+    return this.selectedBlockIds.map((id) => this.blocks.get(id)!).filter(Boolean);
   }
 
   /**
@@ -878,9 +881,7 @@ export class BlockManager {
    * Get all bookmarked blocks in order
    */
   get bookmarkedBlocks(): Block[] {
-    return this.bookmarkedBlockIds
-      .map((id) => this.blocks.get(id)!)
-      .filter(Boolean);
+    return this.bookmarkedBlockIds.map((id) => this.blocks.get(id)!).filter(Boolean);
   }
 
   /**

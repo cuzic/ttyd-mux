@@ -5,10 +5,16 @@
  */
 
 import { z } from 'zod';
-import { ok, err } from '@/utils/result.js';
-import { sessionNotFound, sessionAlreadyExists, tmuxNotInstalled, tmuxSessionNotFound, validationFailed } from '@/core/errors.js';
+import {
+  sessionAlreadyExists,
+  sessionNotFound,
+  tmuxNotInstalled,
+  tmuxSessionNotFound,
+  validationFailed
+} from '@/core/errors.js';
+import type { RouteDef } from '@/core/server/http/route-types.js';
+import { err, ok } from '@/utils/result.js';
 import { createTmuxClient } from '@/utils/tmux-client.js';
-import type { RouteDef } from '../../route-types.js';
 
 // === Schemas ===
 

@@ -7,9 +7,9 @@
  * - Project: Working directory .md files
  */
 
+import { type FC, useCallback, useEffect, useRef, useState } from 'react';
 import { type ContextFileRef, useChatStore } from '@/browser/terminal/app/stores/chatStore.js';
 import type { FileSource } from '@/features/ai/server/types.js';
-import { type FC, useCallback, useEffect, useRef, useState } from 'react';
 
 export interface FileSelectorProps {
   sessionId: string;
@@ -132,6 +132,7 @@ export const FileSelector: FC<FileSelectorProps> = ({ sessionId, disabled = fals
     };
 
     if (isOpen) {
+      // biome-ignore lint: React lifecycle manages cleanup
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
