@@ -9,19 +9,20 @@
  * - Sec-WebSocket-Protocol token authentication
  */
 
+import type { ServerWebSocket } from 'bun';
 import type {
   NativeTerminalWebSocket,
   NativeTerminalWebSocketData
 } from '@/core/protocol/index.js';
 import { createErrorMessage, serializeServerMessage } from '@/core/protocol/index.js';
-import type { ServerWebSocket } from 'bun';
+import { extractSessionFromWsPath } from '@/core/server/http/path-utils.js';
 import type { NativeSessionManager } from './session-manager.js';
 import {
-  DEFAULT_SECURITY_CONFIG,
-  type SecurityConfig,
   createBearerProtocol,
+  DEFAULT_SECURITY_CONFIG,
   extractBearerToken,
   getTokenGenerator,
+  type SecurityConfig,
   validateOrigin
 } from './ws/index.js';
 
@@ -66,31 +67,13 @@ export function createNativeTerminalWebSocketHandlers(
   const { sessionManager, basePath, enableTokenAuth = false } = options;
   const securityConfig = options.securityConfig ?? DEFAULT_SECURITY_CONFIG;
 
-  /**
-   * Extract session name from WebSocket path
-   * e.g., /bunterm/my-session/ws -> my-session
-   */
-  function extractSessionName(pathname: string): string | null {
-    const prefix = `${basePath}/`;
-    if (!pathname.startsWith(prefix)) {
-      return null;
-    }
-
-    const rest = pathname.slice(prefix.length);
-    if (!rest.endsWith('/ws')) {
-      return null;
-    }
-
-    return rest.slice(0, -3); // Remove '/ws'
-  }
-
   return {
     /**
      * Upgrade HTTP request to WebSocket for native terminal
      */
     async upgrade(req: Request, server: BunServer): Promise<Response | undefined> {
       const url = new URL(req.url);
-      const sessionName = extractSessionName(url.pathname);
+      const sessionName = extractSessionFromWsPath(url.pathname, basePath);
 
       if (!sessionName) {
         return undefined; // Not a native terminal WebSocket request

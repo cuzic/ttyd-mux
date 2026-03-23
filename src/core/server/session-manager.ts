@@ -7,7 +7,9 @@
 
 import type { Config, NativeTerminalConfig } from '@/core/config/types.js';
 import type { NativeTerminalWebSocket, TerminalSessionInfo } from '@/core/protocol/index.js';
+import { createPaneCountChangeMessage } from '@/core/protocol/index.js';
 import { TerminalSession } from '@/core/terminal/session.js';
+import { TmuxPaneMonitor } from './tmux-pane-monitor.js';
 
 export interface NativeSessionOptions {
   /** Session name */
@@ -39,6 +41,8 @@ export class NativeSessionManager {
   private sessions: Map<string, TerminalSession> = new Map();
   /** Maps session name to tmux session name (if attached) */
   private tmuxSessionMap: Map<string, string> = new Map();
+  /** Maps session name to TmuxPaneMonitor (for tmux sessions) */
+  private paneMonitors: Map<string, TmuxPaneMonitor> = new Map();
   private readonly config: Config;
   private readonly nativeConfig: NativeTerminalConfig;
 
@@ -80,6 +84,18 @@ export class NativeSessionManager {
     // Store tmux session mapping if attached
     if (tmuxSession) {
       this.tmuxSessionMap.set(name, tmuxSession);
+    }
+
+    // Start pane monitor for tmux sessions
+    const tmuxSessionName = tmuxSession ?? (this.config.tmux_mode !== 'none' ? name : undefined);
+    if (tmuxSessionName) {
+      // Enable allow-passthrough so OSC notification sequences reach the outer terminal
+      try {
+        Bun.spawnSync(['tmux', 'set-option', '-p', 'allow-passthrough', 'on']);
+      } catch {
+        // tmux may not be available; ignore
+      }
+      this.startPaneMonitor(name, tmuxSessionName, session);
     }
 
     return session;
@@ -171,6 +187,7 @@ export class NativeSessionManager {
     await session.stop();
     this.sessions.delete(name);
     this.tmuxSessionMap.delete(name);
+    this.stopPaneMonitor(name);
   }
 
   /**
@@ -255,5 +272,36 @@ export class NativeSessionManager {
    */
   get sessionCount(): number {
     return this.sessions.size;
+  }
+
+  /**
+   * Start a TmuxPaneMonitor for a session and wire up broadcasting
+   */
+  private startPaneMonitor(
+    sessionName: string,
+    tmuxSessionName: string,
+    session: TerminalSession
+  ): void {
+    const monitor = new TmuxPaneMonitor(tmuxSessionName);
+    monitor.onPaneCountChange((count, panes) => {
+      const message = createPaneCountChangeMessage(
+        count,
+        panes.map((p) => ({ id: p.paneId, command: p.currentCommand, title: p.title }))
+      );
+      session.broadcastMessage(message);
+    });
+    monitor.start();
+    this.paneMonitors.set(sessionName, monitor);
+  }
+
+  /**
+   * Stop and remove a TmuxPaneMonitor for a session
+   */
+  private stopPaneMonitor(name: string): void {
+    const monitor = this.paneMonitors.get(name);
+    if (monitor) {
+      monitor.stop();
+      this.paneMonitors.delete(name);
+    }
   }
 }

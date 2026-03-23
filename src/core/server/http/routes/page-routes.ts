@@ -1,17 +1,20 @@
 /**
  * Page Routes
  *
- * Handles HTML page rendering: portal, terminal sessions, share pages.
+ * Handles HTML page rendering: portal, terminal sessions, share pages, agent timeline.
  */
 
+import { randomBytes } from 'node:crypto';
+import { addShare, getAllShares, getShare, removeShare } from '@/core/config/state.js';
 import type { Config } from '@/core/config/types.js';
 import { generateNativeTerminalHtml } from '@/core/server/html-template.js';
+import { extractSessionFromPagePath } from '@/core/server/http/path-utils.js';
+import { htmlResponse, securityHeaders } from '@/core/server/http/utils.js';
 import { generatePortalHtml } from '@/core/server/portal.js';
-import { isNativeTerminalHtmlPath } from '@/core/server/ws-handler.js';
 import type { NativeSessionManager } from '@/core/server/session-manager.js';
+import { isNativeTerminalHtmlPath } from '@/core/server/ws-handler.js';
+import { generateTimelineHtml } from '@/features/agent-timeline/client/timeline-page.js';
 import { createShareManager } from '@/features/share/server/share-manager.js';
-import { addShare, getAllShares, getShare, removeShare } from '@/core/config/state.js';
-import { htmlResponse, securityHeaders } from '../utils.js';
 import { createLogger } from '@/utils/logger.js';
 
 const log = createLogger('page-routes');
@@ -63,7 +66,7 @@ export async function handlePageRoutes(
 
   // Session HTML page (native terminal)
   if (isNativeTerminalHtmlPath(pathname, basePath)) {
-    const sessionName = extractSessionName(pathname, basePath);
+    const sessionName = extractSessionFromPagePath(pathname, basePath);
     if (sessionName) {
       let session = sessionManager.getSession(sessionName);
 
@@ -91,6 +94,15 @@ export async function handlePageRoutes(
         sessionPath: `${basePath}/${sessionName}`,
         config
       });
+      return htmlResponse(html, { sentryEnabled });
+    }
+  }
+
+  // Agent timeline page
+  if (pathname === `${basePath}/agents` || pathname === `${basePath}/agents/`) {
+    if (method === 'GET') {
+      const nonce = randomBytes(16).toString('base64');
+      const html = generateTimelineHtml(basePath, nonce);
       return htmlResponse(html, { sentryEnabled });
     }
   }
@@ -128,25 +140,4 @@ export async function handlePageRoutes(
   }
 
   return null;
-}
-
-/**
- * Extract session name from path
- */
-function extractSessionName(pathname: string, basePath: string): string | null {
-  const prefix = `${basePath}/`;
-  if (!pathname.startsWith(prefix)) {
-    return null;
-  }
-
-  let rest = pathname.slice(prefix.length);
-  if (rest.endsWith('/')) {
-    rest = rest.slice(0, -1);
-  }
-
-  if (rest.includes('/')) {
-    return null;
-  }
-
-  return rest || null;
 }
