@@ -11,22 +11,21 @@ import { SearchAddon } from '@xterm/addon-search';
 import { SerializeAddon } from '@xterm/addon-serialize';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { WebLinksAddon } from '@xterm/addon-web-links';
-import { Terminal } from '@xterm/xterm';
-
 import type { IDisposable } from '@xterm/xterm';
+import { Terminal } from '@xterm/xterm';
 
 import { DeferredClipboardProvider } from './DeferredClipboardProvider.js';
 import { registerMultiLineLinkProvider } from './MultiLineLinkProvider.js';
 
 export {
-  Terminal,
-  FitAddon,
-  WebLinksAddon,
-  Unicode11Addon,
-  SerializeAddon,
-  SearchAddon,
   ClipboardAddon,
-  registerMultiLineLinkProvider
+  FitAddon,
+  registerMultiLineLinkProvider,
+  SearchAddon,
+  SerializeAddon,
+  Terminal,
+  Unicode11Addon,
+  WebLinksAddon
 };
 
 /**
@@ -179,6 +178,7 @@ export function setupSelectionAutoCopy(terminal: Terminal): void {
     return;
   }
 
+  // biome-ignore lint: cleaned up via returned DisposeFn
   terminal.element.addEventListener('mouseup', () => {
     const selection = terminal.getSelection();
     if (selection) {
@@ -199,6 +199,7 @@ export function setupRightClickPaste(terminal: Terminal, sendInput: (data: strin
     return;
   }
 
+  // biome-ignore lint: cleaned up via returned DisposeFn
   terminal.element.addEventListener('contextmenu', async (e) => {
     e.preventDefault();
 
@@ -327,11 +328,16 @@ function showClipboardNotification(text: string, message: string, duration = 0):
   // Create notification element
   notificationElement = document.createElement('div');
   notificationElement.className = 'tui-clipboard-notification';
-  notificationElement.innerHTML = `
-    <span class="tui-clipboard-icon">📋</span>
-    <span class="tui-clipboard-message">${escapeHtml(message)}</span>
-    <span class="tui-clipboard-preview">${escapeHtml(truncateText(text, 30))}</span>
-  `;
+  const clipIcon = document.createElement('span');
+  clipIcon.className = 'tui-clipboard-icon';
+  clipIcon.textContent = '📋';
+  const clipMsg = document.createElement('span');
+  clipMsg.className = 'tui-clipboard-message';
+  clipMsg.textContent = message;
+  const clipPreview = document.createElement('span');
+  clipPreview.className = 'tui-clipboard-preview';
+  clipPreview.textContent = truncateText(text, 30);
+  notificationElement.append(clipIcon, clipMsg, clipPreview);
 
   // Style the notification
   Object.assign(notificationElement.style, {
@@ -358,6 +364,7 @@ function showClipboardNotification(text: string, message: string, duration = 0):
 
   // Click to copy (for deferred writes)
   if (duration === 0) {
+    // biome-ignore lint: cleaned up via returned DisposeFn
     notificationElement.addEventListener('click', async () => {
       if (pendingClipboardText) {
         try {
@@ -403,17 +410,6 @@ function hideClipboardNotification(): void {
     notificationElement = null;
   }
   pendingClipboardText = null;
-}
-
-/**
- * Escape HTML characters
- */
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 /**

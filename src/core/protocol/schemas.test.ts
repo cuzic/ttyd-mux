@@ -1,9 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import {
-  ClientMessageSchema,
-  ServerMessageSchema,
-  BlockSchema
-} from './schemas.js';
+import { BlockSchema, ClientMessageSchema, ServerMessageSchema } from './schemas.js';
 
 describe('ClientMessageSchema', () => {
   test('parses valid input message', () => {

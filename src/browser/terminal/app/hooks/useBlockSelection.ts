@@ -4,10 +4,10 @@
  * React hook for managing block selection state.
  */
 
-import type { Block } from '@/browser/terminal/BlockManager.js';
+import { useCallback } from 'react';
 import { useBlockStore } from '@/browser/terminal/app/stores/blockStore.js';
 import { useChatStore } from '@/browser/terminal/app/stores/chatStore.js';
-import { useCallback } from 'react';
+import type { Block } from '@/browser/terminal/BlockManager.js';
 
 export interface UseBlockSelectionReturn {
   selectedBlockIds: Set<string>;

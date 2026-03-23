@@ -56,7 +56,7 @@ describe('shutdown command', () => {
   test('prints message when daemon is not running', async () => {
     const stateStore = createInMemoryStateStore();
     const socketClient = createMockSocketClient({
-      exists: () => false
+      exists: async () => false
     });
 
     setDaemonClientDeps({ stateStore, socketClient });
@@ -71,7 +71,7 @@ describe('shutdown command', () => {
     const commands: string[] = [];
 
     const socketClient = createMockSocketClient({
-      exists: () => true,
+      exists: async () => true,
       connect: () =>
         createMockSocketWithResponse(commands, {
           ping: 'pong',
@@ -93,7 +93,7 @@ describe('shutdown command', () => {
     const commands: string[] = [];
 
     const socketClient = createMockSocketClient({
-      exists: () => true,
+      exists: async () => true,
       connect: () =>
         createMockSocketWithResponse(commands, {
           ping: 'pong',

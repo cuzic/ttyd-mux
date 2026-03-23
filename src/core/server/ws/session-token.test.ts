@@ -4,11 +4,11 @@
 
 import { afterEach, describe, expect, test } from 'bun:test';
 import {
-  InMemoryNonceStore,
-  TokenGenerator,
   createBearerProtocol,
   extractBearerToken,
-  resetTokenGenerator
+  InMemoryNonceStore,
+  resetTokenGenerator,
+  TokenGenerator
 } from './session-token.js';
 
 describe('InMemoryNonceStore', () => {

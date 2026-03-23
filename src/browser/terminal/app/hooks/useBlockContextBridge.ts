@@ -5,8 +5,8 @@
  * This bridges the vanilla JS terminal client with the React AI Chat app.
  */
 
-import { useChatStore } from '@/browser/terminal/app/stores/chatStore.js';
 import { useEffect } from 'react';
+import { useChatStore } from '@/browser/terminal/app/stores/chatStore.js';
 
 /** Event detail from terminal-client */
 interface BlockContextEventDetail {
@@ -40,6 +40,7 @@ export function useBlockContextBridge(): void {
       });
     };
 
+    // biome-ignore lint: manual cleanup managed
     document.addEventListener('bunterm:add-context', handleAddContext);
 
     return () => {

@@ -5,9 +5,9 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import {
   AISessionManager,
+  createContextSnapshot,
   DEFAULT_SNAPSHOT_CONFIG,
   IdempotencyStore,
-  createContextSnapshot,
   resetAISessionManager
 } from './ai-session.js';
 

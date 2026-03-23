@@ -3,7 +3,7 @@
  */
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import { type ToolbarEventBus, type ToolbarEvents, createToolbarEventBus } from './events.js';
+import { createToolbarEventBus, type ToolbarEventBus, type ToolbarEvents } from './events.js';
 
 describe('ToolbarEventBus', () => {
   let bus: ToolbarEventBus;

@@ -6,14 +6,20 @@
 
 import type { Config } from '@/core/config/types.js';
 import { methodNotAllowed, notFound } from '@/core/errors.js';
+import {
+  errorEnvelopeResponse,
+  executeRoute,
+  generateRequestId
+} from '@/core/server/http/route-executor.js';
+import { RouteRegistry } from '@/core/server/http/route-registry.js';
+import type { RouteContext, RouteDeps } from '@/core/server/http/route-types.js';
 import type { NativeSessionManager } from '@/core/server/session-manager.js';
-import { errorEnvelopeResponse, executeRoute, generateRequestId } from '../../route-executor.js';
-import { RouteRegistry } from '../../route-registry.js';
-import type { RouteContext, RouteDeps } from '../../route-types.js';
 
+import { agentsRoutes, handleTimelineStream } from './agents-routes.js';
 import { aiRoutes } from './ai-routes.js';
 // Import all route definitions
 import { authRoutes } from './auth-routes.js';
+import { authSessionRoutes } from './auth-session-routes.js';
 import { blocksRoutes, getExecutorManager, handleBlockStream } from './blocks-routes.js';
 import { claudeQuotesRoutes } from './claude-quotes-routes.js';
 import { filesRoutes, handleFileDownload } from './files-routes.js';
@@ -30,7 +36,9 @@ export { getExecutorManager };
 const apiRegistry = new RouteRegistry();
 
 // Register all routes
+apiRegistry.registerAll(agentsRoutes);
 apiRegistry.registerAll(authRoutes);
+apiRegistry.registerAll(authSessionRoutes);
 apiRegistry.registerAll(notificationsRoutes);
 apiRegistry.registerAll(sharesRoutes);
 apiRegistry.registerAll(filesRoutes);
@@ -64,6 +72,11 @@ async function handleSpecialRoutes(
   // Block stream (SSE)
   if (apiPath.match(/^\/blocks\/[^/]+\/stream$/) && req.method === 'GET') {
     return handleBlockStream(ctx);
+  }
+
+  // Agent timeline stream (SSE)
+  if (apiPath === '/agents/timeline' && req.method === 'GET') {
+    return handleTimelineStream(ctx);
   }
 
   return null;

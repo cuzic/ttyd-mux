@@ -4,9 +4,9 @@
  * Manages auto-run mode state persistence.
  */
 
-import { STORAGE_KEYS } from '@/browser/shared/types.js';
 import { z } from 'zod';
-import { type StorageManager, createStorageManager } from './StorageManager.js';
+import { STORAGE_KEYS } from '@/browser/shared/types.js';
+import { createStorageManager, type StorageManager } from './StorageManager.js';
 
 // Schema for auto-run state
 const autoRunSchema = z.boolean();

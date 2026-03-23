@@ -81,6 +81,7 @@ export class Scope implements Disposable {
     options: AddEventListenerOptions = {}
   ): DisposeFn {
     const controller = new AbortController();
+    // biome-ignore lint: Scope.on() is the implementation that wraps addEventListener
     target.addEventListener(type, handler, { ...options, signal: controller.signal });
     return this.add(() => controller.abort());
   }
@@ -160,6 +161,7 @@ export function on(
   options: AddEventListenerOptions = {}
 ): DisposeFn {
   const controller = new AbortController();
+  // biome-ignore lint: standalone on() wraps addEventListener with AbortController cleanup
   target.addEventListener(type, handler, { ...options, signal: controller.signal });
   return () => controller.abort();
 }

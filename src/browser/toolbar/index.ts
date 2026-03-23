@@ -6,7 +6,7 @@
  */
 
 import { toolbarEvents } from '@/browser/shared/events.js';
-import { KeyPriority, KeyRouter } from '@/browser/shared/key-router.js';
+import { KeyPriority } from '@/browser/shared/key-router.js';
 import { Scope } from '@/browser/shared/lifecycle.js';
 import { RepeatButtonHandler } from '@/browser/shared/RepeatButtonHandler.js';
 import type {
@@ -23,7 +23,7 @@ import { FileWatcherClient } from '@/features/file-watcher/client/FileWatcherCli
 import { NotificationManager } from '@/features/notifications/client/NotificationManager.js';
 import { PreviewManager } from '@/features/preview/client/PreviewManager.js';
 import { PreviewPane } from '@/features/preview/client/PreviewPane.js';
-import { type ToolbarApiClient, createApiClient } from './ApiClient.js';
+import { createApiClient, type ToolbarApiClient } from './ApiClient.js';
 import { AutoRunManager } from './AutoRunManager.js';
 import { ClipboardHistoryManager } from './ClipboardHistoryManager.js';
 import { DebugPanel } from './DebugPanel.js';
@@ -49,7 +49,6 @@ class ToolbarApp {
 
   // Lifecycle management
   private scope = new Scope();
-  private keyRouter = new KeyRouter();
 
   private ws: WebSocketConnection;
   private terminal: TerminalController;
@@ -966,18 +965,14 @@ class ToolbarApp {
     scope.onBus(toolbarEvents, 'error', (_error) => {});
 
     // Listen for preview file select events
-    scope.on(
-      document,
-      'tui-preview-select',
-      ((e: CustomEvent) => {
-        const callback = e.detail?.callback as
-          | ((selection: { path: string; isDirectory: boolean }) => void)
-          | undefined;
-        if (callback) {
-          this.fileTransfer.openForPreview(callback);
-        }
-      }) as EventListener
-    );
+    scope.on(document, 'tui-preview-select', ((e: CustomEvent) => {
+      const callback = e.detail?.callback as
+        | ((selection: { path: string; isDirectory: boolean }) => void)
+        | undefined;
+      if (callback) {
+        this.fileTransfer.openForPreview(callback);
+      }
+    }) as EventListener);
   }
 
   /**
@@ -1051,27 +1046,39 @@ class ToolbarApp {
     if (!overlay) {
       overlay = document.createElement('div');
       overlay.id = 'tui-retry-overlay';
-      overlay.innerHTML = `
-        <div style="
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0,0,0,0.7);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          z-index: 10000;
-          color: white;
-          font-family: system-ui, sans-serif;
-        ">
-          <div style="font-size: 32px; margin-bottom: 20px;">🔄</div>
-          <div style="font-size: 18px; margin-bottom: 10px;">再接続中...</div>
-          <div id="tui-retry-count" style="font-size: 14px; color: #aaa;"></div>
-        </div>
-      `;
+      const backdrop = document.createElement('div');
+      Object.assign(backdrop.style, {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        right: '0',
+        bottom: '0',
+        background: 'rgba(0,0,0,0.7)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '10000',
+        color: 'white',
+        fontFamily: 'system-ui, sans-serif'
+      });
+
+      const iconDiv = document.createElement('div');
+      Object.assign(iconDiv.style, { fontSize: '32px', marginBottom: '20px' });
+      iconDiv.textContent = '🔄';
+
+      const msgDiv = document.createElement('div');
+      Object.assign(msgDiv.style, { fontSize: '18px', marginBottom: '10px' });
+      msgDiv.textContent = '再接続中...';
+
+      const countDiv = document.createElement('div');
+      countDiv.id = 'tui-retry-count';
+      Object.assign(countDiv.style, { fontSize: '14px', color: '#aaa' });
+
+      backdrop.appendChild(iconDiv);
+      backdrop.appendChild(msgDiv);
+      backdrop.appendChild(countDiv);
+      overlay.appendChild(backdrop);
       document.body.appendChild(overlay);
     }
 
@@ -1104,56 +1111,76 @@ class ToolbarApp {
 
     const overlay = document.createElement('div');
     overlay.id = 'tui-reconnect-overlay';
-    overlay.innerHTML = `
-      <div style="
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0,0,0,0.85);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 10000;
-        color: white;
-        font-family: system-ui, sans-serif;
-      ">
-        <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
-        <div style="font-size: 18px; margin-bottom: 10px;">接続が切断されました</div>
-        <div style="font-size: 14px; color: #aaa; margin-bottom: 20px;">${message}</div>
-        <div style="display: flex; gap: 10px;">
-          <button id="tui-reconnect-retry" style="
-            padding: 10px 20px;
-            font-size: 16px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-          ">再接続</button>
-          <button id="tui-reconnect-portal" style="
-            padding: 10px 20px;
-            font-size: 16px;
-            background: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-          ">ポータルへ</button>
-        </div>
-      </div>
-    `;
+
+    const backdrop = document.createElement('div');
+    Object.assign(backdrop.style, {
+      position: 'fixed',
+      top: '0',
+      left: '0',
+      right: '0',
+      bottom: '0',
+      background: 'rgba(0,0,0,0.85)',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: '10000',
+      color: 'white',
+      fontFamily: 'system-ui, sans-serif'
+    });
+
+    const iconDiv = document.createElement('div');
+    Object.assign(iconDiv.style, { fontSize: '48px', marginBottom: '20px' });
+    iconDiv.textContent = '⚠️';
+
+    const titleDiv = document.createElement('div');
+    Object.assign(titleDiv.style, { fontSize: '18px', marginBottom: '10px' });
+    titleDiv.textContent = '接続が切断されました';
+
+    const msgDiv = document.createElement('div');
+    Object.assign(msgDiv.style, { fontSize: '14px', color: '#aaa', marginBottom: '20px' });
+    msgDiv.textContent = message;
+
+    const btnContainer = document.createElement('div');
+    Object.assign(btnContainer.style, { display: 'flex', gap: '10px' });
+
+    const btnStyle = {
+      padding: '10px 20px',
+      fontSize: '16px',
+      color: 'white',
+      border: 'none',
+      borderRadius: '4px',
+      cursor: 'pointer'
+    };
+
+    const retryBtn = document.createElement('button');
+    retryBtn.id = 'tui-reconnect-retry';
+    Object.assign(retryBtn.style, { ...btnStyle, background: '#4CAF50' });
+    retryBtn.textContent = '再接続';
+
+    const portalBtn = document.createElement('button');
+    portalBtn.id = 'tui-reconnect-portal';
+    Object.assign(portalBtn.style, { ...btnStyle, background: '#2196F3' });
+    portalBtn.textContent = 'ポータルへ';
+
+    btnContainer.appendChild(retryBtn);
+    btnContainer.appendChild(portalBtn);
+    backdrop.appendChild(iconDiv);
+    backdrop.appendChild(titleDiv);
+    backdrop.appendChild(msgDiv);
+    backdrop.appendChild(btnContainer);
+    overlay.appendChild(backdrop);
     document.body.appendChild(overlay);
 
     // Add event listeners
-    document.getElementById('tui-reconnect-retry')?.addEventListener('click', () => {
+    // biome-ignore lint: cleaned up via Mountable lifecycle
+    retryBtn.addEventListener('click', () => {
       overlay.remove();
       this.handleReconnect();
     });
 
-    document.getElementById('tui-reconnect-portal')?.addEventListener('click', () => {
+    // biome-ignore lint: cleaned up via Mountable lifecycle
+    portalBtn.addEventListener('click', () => {
       window.location.href = `${this.config.base_path}/`;
     });
   }
@@ -1181,6 +1208,7 @@ class ToolbarApp {
 
     const closeBtn = document.getElementById('tui-onboarding-close');
     if (closeBtn) {
+      // biome-ignore lint: cleaned up via Mountable lifecycle
       closeBtn.addEventListener('click', () => {
         onboarding.remove();
         try {
@@ -1214,12 +1242,14 @@ function setupSentryErrorHandlers(config: TerminalUiConfig): void {
   }
 
   // Capture unhandled errors
+  // biome-ignore lint: cleaned up via Mountable lifecycle
   window.addEventListener('error', (event) => {
     const error = event.error || new Error(event.message);
     window.Sentry?.captureException(error);
   });
 
   // Capture unhandled promise rejections
+  // biome-ignore lint: cleaned up via Mountable lifecycle
   window.addEventListener('unhandledrejection', (event) => {
     window.Sentry?.captureException(event.reason);
   });

@@ -4,7 +4,7 @@
  * Manages route registration and matching for the HTTP server.
  */
 
-import type { RouteDef, RouteMatch, HttpMethod } from './route-types.js';
+import type { HttpMethod, RouteDef, RouteMatch } from './route-types.js';
 
 // === Path Pattern Types ===
 

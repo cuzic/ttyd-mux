@@ -1,15 +1,15 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  configNotFound,
   daemonNotRunning,
   formatCliError,
+  pathTraversal,
   renderCliError,
-  sessionNotFound,
-  toCliExitCode,
-  toHttpStatus,
-  tmuxNotInstalled,
-  configNotFound,
   sessionInvalidName,
-  pathTraversal
+  sessionNotFound,
+  tmuxNotInstalled,
+  toCliExitCode,
+  toHttpStatus
 } from './errors.js';
 
 describe('toCliExitCode', () => {

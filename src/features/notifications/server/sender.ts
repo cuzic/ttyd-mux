@@ -2,8 +2,8 @@
  * Push notification sender
  */
 
-import { createLogger } from '@/utils/logger.js';
 import webpush from 'web-push';
+import { createLogger } from '@/utils/logger.js';
 import type { MatchResult, PushSubscription, VapidKeys } from './types.js';
 
 const log = createLogger('notification');

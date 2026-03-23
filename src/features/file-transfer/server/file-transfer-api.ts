@@ -61,7 +61,7 @@ function sanitizeFilenameForHeader(filename: string): string {
   // Remove or replace dangerous characters
   // Only allow alphanumeric, dash, underscore, dot, and space
   const sanitized = filename
-    .replace(/[^\w\s.\-]/g, '_') // Replace special chars with underscore
+    .replace(/[^\w\s.-]/g, '_') // Replace special chars with underscore
     .replace(/\s+/g, '_') // Replace whitespace with underscore
     .slice(0, 255); // Limit length
 

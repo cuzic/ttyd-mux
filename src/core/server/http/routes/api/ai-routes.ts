@@ -4,16 +4,16 @@
  * Handles AI chat, runners, and thread management.
  */
 
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
-import { ok, err } from '@/utils/result.js';
 import { notFound, validationFailed } from '@/core/errors.js';
-import { getExecutorManager } from './blocks-routes.js';
+import type { RouteDef } from '@/core/server/http/route-types.js';
 import type { BlockContext, FileContext } from '@/features/ai/server/types.js';
 import { validateSecurePath } from '@/utils/path-security.js';
-import type { RouteDef } from '../../route-types.js';
+import { err, ok } from '@/utils/result.js';
+import { getExecutorManager } from './blocks-routes.js';
 
 // === Schemas ===
 
@@ -133,7 +133,7 @@ export const aiRoutes: RouteDef[] = [
             const stat = statSync(targetPath);
             if (stat.size > 100 * 1024) continue;
 
-            const content = readFileSync(targetPath, 'utf-8');
+            const content = await Bun.file(targetPath).text();
             const name = basename(targetPath);
 
             fileContexts.push({

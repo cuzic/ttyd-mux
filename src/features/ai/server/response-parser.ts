@@ -365,7 +365,7 @@ function assessCommandRisk(command: string): CommandRisk {
     /:(){ :|:& };:/, // Fork bomb
     /mkfs\./,
     /dd\s+if=.*of=\/dev/,
-    /\>\s*\/dev\/(sd|hd|nvme)/,
+    />\s*\/dev\/(sd|hd|nvme)/,
     /chmod\s+-R\s+777/,
     /curl.*\|\s*(bash|sh)/,
     /wget.*\|\s*(bash|sh)/,

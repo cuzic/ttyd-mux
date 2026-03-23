@@ -4,9 +4,9 @@
  * Utilities for parsing and validating request data using Zod.
  */
 
-import { z, type ZodType, type ZodError } from 'zod';
+import { type ZodError, type ZodType, z } from 'zod';
+import { type ValidationError, validationFailed } from '@/core/errors.js';
 import { err, ok, type Result } from '@/utils/result.js';
-import { validationFailed, type ValidationError } from '@/core/errors.js';
 
 // === Parse Results ===
 
@@ -47,10 +47,7 @@ export const SessionPathSchema = z.object({
 /**
  * Parse request JSON body with schema validation
  */
-export async function parseBody<T>(
-  req: Request,
-  schema: ZodType<T>
-): Promise<ParseResult<T>> {
+export async function parseBody<T>(req: Request, schema: ZodType<T>): Promise<ParseResult<T>> {
   try {
     const raw = await req.json();
     const result = schema.safeParse(raw);
@@ -66,10 +63,7 @@ export async function parseBody<T>(
 /**
  * Parse URL query parameters with schema validation
  */
-export function parseQuery<T>(
-  req: Request,
-  schema: ZodType<T>
-): ParseResult<T> {
+export function parseQuery<T>(req: Request, schema: ZodType<T>): ParseResult<T> {
   const url = new URL(req.url);
   const raw = Object.fromEntries(url.searchParams);
   const result = schema.safeParse(raw);

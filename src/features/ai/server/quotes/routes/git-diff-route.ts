@@ -5,7 +5,7 @@
  * GET /api/claude-quotes/git-diff-file - Get single file diff
  */
 
-import { getFileDiff, getGitDiff } from '../quotes-service.js';
+import { getFileDiff, getGitDiff } from '@/features/ai/server/quotes/quotes-service.js';
 import { GitDiffFileParamsSchema } from './params.js';
 import { handleError, successResponse } from './response.js';
 import { parseParams } from './route-helpers.js';

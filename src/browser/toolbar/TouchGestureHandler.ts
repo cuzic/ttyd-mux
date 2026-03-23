@@ -38,8 +38,6 @@ export class TouchGestureHandler implements Mountable {
   private terminal: TerminalController;
   private input: InputHandler;
   private modifiers: ModifierKeyState;
-
-  private touchStartPos: { x: number; y: number } | null = null;
   private shiftTouchActive = false;
   private scrollTouchActive = false;
   private scrollLastY = 0;
@@ -145,9 +143,7 @@ export class TouchGestureHandler implements Mountable {
         if (target.closest('.xterm-screen') || target.closest('.xterm')) {
           // Small delay to let xterm process the touch, then blur
           setTimeout(() => {
-            const helperTextarea = document.querySelector(
-              '.xterm-helper-textarea'
-            ) as HTMLElement;
+            const helperTextarea = document.querySelector('.xterm-helper-textarea') as HTMLElement;
             if (helperTextarea && document.activeElement === helperTextarea) {
               helperTextarea.blur();
             }
@@ -277,11 +273,7 @@ export class TouchGestureHandler implements Mountable {
           // Don't preventDefault - let pinch handlers take over
         }
         // Track non-Shift/Scroll single touch for hint
-        else if (
-          te.touches.length === 1 &&
-          !this.modifiers.isShiftActive &&
-          !this.scrollActive
-        ) {
+        else if (te.touches.length === 1 && !this.modifiers.isShiftActive && !this.scrollActive) {
           const touch = te.touches[0];
           this.touchStartPos = { x: touch.clientX, y: touch.clientY };
         }

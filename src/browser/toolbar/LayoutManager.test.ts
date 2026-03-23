@@ -58,7 +58,7 @@ const mockResizeObserver = mock(() => ({
 (globalThis as unknown as Record<string, unknown>).cancelAnimationFrame = mock(() => {});
 (globalThis as unknown as Record<string, unknown>).ResizeObserver = mockResizeObserver;
 
-import { Scope } from '../shared/lifecycle.js';
+import { Scope } from '@/browser/shared/lifecycle.js';
 // Import after mocks are set up
 import { LayoutManager } from './LayoutManager.js';
 
@@ -445,7 +445,7 @@ describe('LayoutManager', () => {
 
       // Should round to 0 or use absolute value
       const tuiH = getLastCssValue('--tui-h');
-      expect(Number.parseInt(tuiH || '0')).toBeLessThanOrEqual(0);
+      expect(Number.parseInt(tuiH || '0', 10)).toBeLessThanOrEqual(0);
     });
 
     test('handles fractional heights', () => {

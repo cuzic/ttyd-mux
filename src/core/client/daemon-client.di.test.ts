@@ -29,7 +29,7 @@ describe('DaemonClient with DI', () => {
     test('returns false when socket does not exist', async () => {
       const stateStore = createInMemoryStateStore();
       const socketClient = createMockSocketClient({
-        exists: () => false
+        exists: async () => false
       });
 
       setDaemonClientDeps({ stateStore, socketClient });
@@ -46,7 +46,7 @@ describe('DaemonClient with DI', () => {
       const mockSocket = createMockSocket();
 
       const socketClient = createMockSocketClient({
-        exists: () => true,
+        exists: async () => true,
         connect: () => {
           // Simulate async connection and response
           setTimeout(() => {
@@ -73,7 +73,7 @@ describe('DaemonClient with DI', () => {
       const mockSocket = createMockSocket();
 
       const socketClient = createMockSocketClient({
-        exists: () => true,
+        exists: async () => true,
         connect: () => {
           setTimeout(() => {
             mockSocket.emit('connect');
@@ -99,7 +99,7 @@ describe('DaemonClient with DI', () => {
       const mockSocket = createMockSocket();
 
       const socketClient = createMockSocketClient({
-        exists: () => true,
+        exists: async () => true,
         connect: () => {
           setTimeout(() => {
             mockSocket.emit('error', new Error('Connection refused'));
@@ -130,7 +130,7 @@ describe('DaemonClient with DI', () => {
       };
 
       const socketClient = createMockSocketClient({
-        exists: () => true,
+        exists: async () => true,
         connect: () => {
           setTimeout(() => {
             mockSocket.emit('connect');
@@ -162,7 +162,7 @@ describe('DaemonClient with DI', () => {
       };
 
       const socketClient = createMockSocketClient({
-        exists: () => true,
+        exists: async () => true,
         connect: () => {
           setTimeout(() => {
             mockSocket.emit('connect');
@@ -186,7 +186,7 @@ describe('DaemonClient with DI', () => {
     test('resolves immediately when socket does not exist', async () => {
       const stateStore = createInMemoryStateStore();
       const socketClient = createMockSocketClient({
-        exists: () => false
+        exists: async () => false
       });
 
       setDaemonClientDeps({ stateStore, socketClient });
@@ -202,7 +202,7 @@ describe('DaemonClient with DI', () => {
       const mockSocket = createMockSocket();
 
       const socketClient = createMockSocketClient({
-        exists: () => true,
+        exists: async () => true,
         connect: () => {
           setTimeout(() => {
             mockSocket.emit('connect');
@@ -226,7 +226,7 @@ describe('DaemonClient with DI', () => {
       const mockSocket = createMockSocket();
 
       const socketClient = createMockSocketClient({
-        exists: () => true,
+        exists: async () => true,
         connect: () => {
           setTimeout(() => {
             mockSocket.emit('error', new Error('Connection refused'));
@@ -250,7 +250,7 @@ describe('DaemonClient with DI', () => {
       let spawnCalled = false;
 
       const socketClient = createMockSocketClient({
-        exists: () => true,
+        exists: async () => true,
         connect: () => {
           setTimeout(() => {
             mockSocket.emit('connect');

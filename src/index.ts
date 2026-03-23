@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { program } from 'commander';
 import { wrapCommand } from '@/core/cli/command-runner.js';
 import { attachCommand } from '@/core/cli/commands/attach.js';
 import {
@@ -9,6 +10,7 @@ import {
   caddyStatusCommand,
   caddySyncCommand
 } from '@/core/cli/commands/caddy.js';
+import { connectionsCommand, connectionsRevokeCommand } from '@/core/cli/commands/connections.js';
 import { daemonCommand } from '@/core/cli/commands/daemon.js';
 import { deployCommand } from '@/core/cli/commands/deploy.js';
 import { doctorCommand } from '@/core/cli/commands/doctor.js';
@@ -20,7 +22,6 @@ import { shareCommand, shareListCommand, shareRevokeCommand } from '@/core/cli/c
 import { shutdownCommand } from '@/core/cli/commands/shutdown.js';
 import { statusCommand } from '@/core/cli/commands/status.js';
 import { upCommand } from '@/core/cli/commands/up.js';
-import { program } from 'commander';
 import { NAME, VERSION } from './version.js';
 
 program
@@ -132,6 +133,27 @@ program
   .option('-o, --output <dir>', 'Output directory')
   .option('-c, --config <path>', 'Config file path')
   .action(wrapCommand((options) => deployCommand(options)));
+
+// === Connection management ===
+
+const connections = program.command('connections').description('Manage authenticated connections');
+
+connections
+  .command('list')
+  .alias('ls')
+  .description('List active authenticated sessions')
+  .option('-c, --config <path>', 'Config file path')
+  .option('--json', 'Output as JSON')
+  .action(wrapCommand((options) => connectionsCommand(options)));
+
+connections
+  .command('revoke <id>')
+  .description('Revoke an authenticated session')
+  .option('-c, --config <path>', 'Config file path')
+  .action(wrapCommand((id, options) => connectionsRevokeCommand(id, options)));
+
+// Also register 'connections' without subcommand as alias for 'connections list'
+connections.action(wrapCommand((options) => connectionsCommand(options)));
 
 // === Caddy integration ===
 

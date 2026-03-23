@@ -347,6 +347,7 @@ export function useTerminal(options: UseTerminalOptions): UseTerminalReturn {
   // Handle window resize
   useEffect(() => {
     const handleResize = () => fit();
+    // biome-ignore lint: manual cleanup managed
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [fit]);

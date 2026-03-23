@@ -4,7 +4,10 @@
  * GET /api/claude-quotes/file-content - Get file content
  */
 
-import { readFileContent, resolveFileContentBaseDir } from '../quotes-service.js';
+import {
+  readFileContent,
+  resolveFileContentBaseDir
+} from '@/features/ai/server/quotes/quotes-service.js';
 import { FileContentParamsSchema } from './params.js';
 import { failureResponse, successResponse } from './response.js';
 import { parseParams } from './route-helpers.js';

@@ -2,17 +2,14 @@
  * Route Registry Tests
  */
 
-import { describe, test, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { ok } from '@/utils/result.js';
+import { globalRegistry, matchRoute, RouteRegistry, registerRoutes } from './route-registry.js';
 import type { RouteDef } from './route-types.js';
-import { RouteRegistry, globalRegistry, registerRoutes, matchRoute } from './route-registry.js';
 
 // === Test Helpers ===
 
-function createRoute(
-  method: RouteDef['method'],
-  path: string
-): RouteDef {
+function createRoute(method: RouteDef['method'], path: string): RouteDef {
   return {
     method,
     path,
@@ -270,10 +267,7 @@ describe('Global Registry Functions', () => {
   });
 
   test('registerRoutes adds to global registry', () => {
-    const routes = [
-      createRoute('GET', '/global/a'),
-      createRoute('POST', '/global/b')
-    ];
+    const routes = [createRoute('GET', '/global/a'), createRoute('POST', '/global/b')];
 
     registerRoutes(routes);
 

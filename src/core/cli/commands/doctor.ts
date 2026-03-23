@@ -2,13 +2,14 @@
  * Doctor command - Check dependencies and configuration
  */
 
-import { loadConfig } from '@/core/config/config.js';
 import {
   defaultChecks,
   formatCheckResult,
   hasFailures,
   runChecks
 } from '@/core/cli/services/doctor-service.js';
+import { loadConfig } from '@/core/config/config.js';
+import type { Config } from '@/core/config/types.js';
 import { CliError } from '@/utils/errors.js';
 
 export interface DoctorOptions {
@@ -21,7 +22,7 @@ export interface DoctorOptions {
  */
 export async function doctorCommand(options: DoctorOptions): Promise<void> {
   // Try to load config for port check
-  let config;
+  let config: Config | undefined;
   try {
     config = loadConfig(options.config);
   } catch {

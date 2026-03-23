@@ -38,6 +38,7 @@ export function loadConfig(configPath?: string): Config {
 
   let content: string;
   try {
+    // biome-ignore lint: sync read required at startup
     content = readFileSync(path, 'utf-8');
   } catch (error) {
     throw new Error(
@@ -50,7 +51,9 @@ export function loadConfig(configPath?: string): Config {
     parsed = parseYaml(content);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to load config from ${path}:\n  ${message}\n  Check YAML syntax: indentation and colons.`);
+    throw new Error(
+      `Failed to load config from ${path}:\n  ${message}\n  Check YAML syntax: indentation and colons.`
+    );
   }
 
   const result = ConfigSchema.safeParse(parsed);

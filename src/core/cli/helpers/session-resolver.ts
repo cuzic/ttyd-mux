@@ -12,10 +12,7 @@ import { CliError } from '@/utils/errors.js';
 /**
  * Get session by name, throw CliError if not found
  */
-export async function requireSessionByName(
-  config: Config,
-  name: string
-): Promise<SessionResponse> {
+export async function requireSessionByName(config: Config, name: string): Promise<SessionResponse> {
   const sessions = await getSessions(config);
   const session = sessions.find((s) => s.name === name);
   if (!session) {

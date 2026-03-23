@@ -3,7 +3,7 @@
  * Allows mocking in tests without actual tmux commands
  */
 
-import { type ProcessRunner, defaultProcessRunner } from './process-runner.js';
+import { defaultProcessRunner, type ProcessRunner } from './process-runner.js';
 
 /**
  * Represents a tmux session

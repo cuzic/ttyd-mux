@@ -4,7 +4,10 @@
  * GET /api/claude-quotes/turn/:uuid - Get full turn content
  */
 
-import { getClaudeTurnByUuid, getClaudeTurnByUuidFromSession } from '../quotes-service.js';
+import {
+  getClaudeTurnByUuid,
+  getClaudeTurnByUuidFromSession
+} from '@/features/ai/server/quotes/quotes-service.js';
 import { failureResponse, handleError, successResponse } from './response.js';
 import { type QuoteRouteContext, resolveClaudeFromParams } from './types.js';
 

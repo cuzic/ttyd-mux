@@ -42,6 +42,6 @@ export interface ClaudeTurnFull {
   }>;
 }
 
+export type { GitDiffFile, GitDiffResponse } from '@/utils/git-service.js';
 // Re-export types from centralized services
 export type { MarkdownFile } from '@/utils/markdown-scanner.js';
-export type { GitDiffFile, GitDiffResponse } from '@/utils/git-service.js';

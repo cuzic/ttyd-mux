@@ -15,6 +15,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  * Get the bash shell integration script
  */
 export function getBashIntegration(): string {
+  // biome-ignore lint: sync read at startup
   return readFileSync(join(__dirname, 'bash.sh'), 'utf-8');
 }
 
@@ -22,6 +23,7 @@ export function getBashIntegration(): string {
  * Get the zsh shell integration script
  */
 export function getZshIntegration(): string {
+  // biome-ignore lint: sync read at startup
   return readFileSync(join(__dirname, 'zsh.sh'), 'utf-8');
 }
 

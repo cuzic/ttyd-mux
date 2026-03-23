@@ -27,11 +27,6 @@ export class SelectionHandleManager implements Mountable {
   private selection: SelectionPosition | null = null;
   private activeHandle: 'start' | 'end' | null = null;
   private handleOffset = { x: 0, y: 0 };
-
-  // URL pattern for detection (covers http, https, and common URL characters)
-  private static readonly URL_SCHEMES = /^https?:\/\//i;
-  // Valid URL characters (RFC 3986 + common extras)
-  private static readonly URL_CHARS = /^[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+$/;
   // URL pattern for validation
   private static readonly URL_PATTERN = /^https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+$/i;
 
@@ -111,10 +106,7 @@ export class SelectionHandleManager implements Mountable {
 
     // Listen for Escape key to hide
     scope.on(document, 'keydown', (e) => {
-      if (
-        (e as KeyboardEvent).key === 'Escape' &&
-        !this.container?.classList.contains('hidden')
-      ) {
+      if ((e as KeyboardEvent).key === 'Escape' && !this.container?.classList.contains('hidden')) {
         this.hide();
       }
     });
@@ -421,7 +413,7 @@ export class SelectionHandleManager implements Mountable {
     try {
       await navigator.clipboard.writeText(selection);
       toolbarEvents.emit('toast:show', { message: 'Copied!', type: 'success' });
-    } catch (err) {
+    } catch (_err) {
       toolbarEvents.emit('toast:show', { message: 'Copy failed', type: 'error' });
     }
 

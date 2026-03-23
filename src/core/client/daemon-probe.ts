@@ -13,7 +13,7 @@ export async function isDaemonRunning(): Promise<boolean> {
   const deps = getDaemonClientDeps();
   const socketPath = deps.stateStore.getSocketPath();
 
-  if (!deps.socketClient.exists(socketPath)) {
+  if (!(await deps.socketClient.exists(socketPath))) {
     return false;
   }
 
@@ -48,7 +48,7 @@ export async function sendCommand(command: string): Promise<string | null> {
   const deps = getDaemonClientDeps();
   const socketPath = deps.stateStore.getSocketPath();
 
-  if (!deps.socketClient.exists(socketPath)) {
+  if (!(await deps.socketClient.exists(socketPath))) {
     return null;
   }
 

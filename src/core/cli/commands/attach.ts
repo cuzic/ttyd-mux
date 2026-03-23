@@ -23,7 +23,7 @@ export interface AttachOptions {
 export async function attachCommand(
   name: string | undefined,
   options: AttachOptions
-): Promise<number | void> {
+): Promise<number | undefined> {
   // If no name provided, show selection UI
   if (!name) {
     return interactiveAttach(options);
@@ -33,7 +33,7 @@ export async function attachCommand(
   return attachToSession(name);
 }
 
-async function interactiveAttach(options: AttachOptions): Promise<number | void> {
+async function interactiveAttach(options: AttachOptions): Promise<number | undefined> {
   const sessions = await discoverSessions(options.config);
 
   if (sessions.length === 0) {

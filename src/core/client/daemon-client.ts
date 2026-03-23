@@ -30,10 +30,15 @@ import {
 
 // Re-export types and DI functions
 export type { DaemonClientDeps };
-export { defaultDaemonClientDeps, getDaemonClientDeps, resetDaemonClientDeps, setDaemonClientDeps };
-
 // Re-export probe functions
-export { isDaemonRunning, sendCommand };
+export {
+  defaultDaemonClientDeps,
+  getDaemonClientDeps,
+  isDaemonRunning,
+  resetDaemonClientDeps,
+  sendCommand,
+  setDaemonClientDeps
+};
 
 /**
  * Ensure daemon is running, starting it if necessary
@@ -98,7 +103,7 @@ export async function shutdownDaemon(options: ShutdownDaemonOptions = {}): Promi
   const deps = getDaemonClientDeps();
   const socketPath = deps.stateStore.getSocketPath();
 
-  if (!deps.socketClient.exists(socketPath)) {
+  if (!(await deps.socketClient.exists(socketPath))) {
     return;
   }
 

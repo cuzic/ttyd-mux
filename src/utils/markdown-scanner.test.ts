@@ -1,6 +1,6 @@
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { collectMdFiles, collectMdFilesWithResult } from './markdown-scanner.js';
 
 const TEST_DIR = '/tmp/markdown-scanner-test';
@@ -120,9 +120,9 @@ describe('markdown-scanner', () => {
       const readme = result.files.find((f) => f.name === 'README.md');
 
       expect(readme).toBeDefined();
-      expect(readme!.path).toBe('README.md');
-      expect(readme!.modifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-      expect(readme!.size).toBeGreaterThan(0);
+      expect(readme?.path).toBe('README.md');
+      expect(readme?.modifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(readme?.size).toBeGreaterThan(0);
     });
   });
 });

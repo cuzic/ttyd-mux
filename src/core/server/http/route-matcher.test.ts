@@ -2,25 +2,22 @@
  * Route Matcher Tests
  */
 
-import { describe, test, expect, beforeEach } from 'bun:test';
-import { ok, isOk, isErr } from '@/utils/result.js';
-import type { RouteDef } from './route-types.js';
-import { RouteRegistry } from './route-registry.js';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { isErr, isOk, ok } from '@/utils/result.js';
 import {
+  extractPathParams,
+  joinPath,
   matchRequest,
   matchRequestResult,
   normalizePath,
-  extractPathParams,
-  pathMatches,
-  joinPath
+  pathMatches
 } from './route-matcher.js';
+import { RouteRegistry } from './route-registry.js';
+import type { RouteDef } from './route-types.js';
 
 // === Test Helpers ===
 
-function createRoute(
-  method: RouteDef['method'],
-  path: string
-): RouteDef {
+function createRoute(method: RouteDef['method'], path: string): RouteDef {
   return {
     method,
     path,

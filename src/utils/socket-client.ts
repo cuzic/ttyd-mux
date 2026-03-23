@@ -3,8 +3,8 @@
  * Allows mocking in tests without actual socket connections
  */
 
-import { existsSync } from 'node:fs';
-import { type Socket, connect } from 'node:net';
+import { access } from 'node:fs/promises';
+import { connect, type Socket } from 'node:net';
 
 export interface SocketClient {
   /**
@@ -15,7 +15,7 @@ export interface SocketClient {
   /**
    * Check if a socket file exists
    */
-  exists(path: string): boolean;
+  exists(path: string): Promise<boolean>;
 }
 
 /**
@@ -26,8 +26,13 @@ export const defaultSocketClient: SocketClient = {
     return connect(path);
   },
 
-  exists(path: string): boolean {
-    return existsSync(path);
+  async exists(path: string): Promise<boolean> {
+    try {
+      await access(path);
+      return true;
+    } catch {
+      return false;
+    }
   }
 };
 
@@ -41,6 +46,6 @@ export function createMockSocketClient(overrides?: Partial<SocketClient>): Socke
       (() => {
         throw new Error('connect not mocked');
       }),
-    exists: overrides?.exists ?? (() => false)
+    exists: overrides?.exists ?? (async () => false)
   };
 }

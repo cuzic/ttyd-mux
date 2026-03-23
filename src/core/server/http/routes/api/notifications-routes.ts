@@ -6,18 +6,18 @@
 
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
-import { ok, err } from '@/utils/result.js';
-import { notFound, validationFailed } from '@/core/errors.js';
-import type { PushSubscriptionState } from '@/core/config/types.js';
 import {
   addPushSubscription,
   getAllPushSubscriptions,
   getStateDir,
   removePushSubscription
 } from '@/core/config/state.js';
+import type { PushSubscriptionState } from '@/core/config/types.js';
+import { notFound, validationFailed } from '@/core/errors.js';
+import type { RouteDef } from '@/core/server/http/route-types.js';
 import { getPublicVapidKey } from '@/features/notifications/server/vapid.js';
 import { createLogger } from '@/utils/logger.js';
-import type { RouteDef } from '../../route-types.js';
+import { err, ok } from '@/utils/result.js';
 
 const log = createLogger('notifications-api');
 

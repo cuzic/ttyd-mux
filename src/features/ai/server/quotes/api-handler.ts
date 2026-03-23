@@ -241,4 +241,4 @@ export async function handleClaudeQuotesApi(
 }
 
 // Export for testing
-export { ROUTE_TABLE, findRoute, type RouteDefinition, type RouteMatch };
+export { findRoute, ROUTE_TABLE, type RouteDefinition, type RouteMatch };

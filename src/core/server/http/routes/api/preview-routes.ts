@@ -4,16 +4,16 @@
  * Handles file preview and context files for AI.
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join, relative } from 'node:path';
 import { z } from 'zod';
-import { ok, err } from '@/utils/result.js';
-import { sessionNotFound, notFound, validationFailed, pathTraversal } from '@/core/errors.js';
-import { validateSecurePath } from '@/utils/path-security.js';
+import { notFound, pathTraversal, sessionNotFound, validationFailed } from '@/core/errors.js';
+import type { RouteContext, RouteDef } from '@/core/server/http/route-types.js';
+import { securityHeaders } from '@/core/server/http/utils.js';
 import { createLogger } from '@/utils/logger.js';
-import type { RouteDef, RouteContext } from '../../route-types.js';
-import { securityHeaders } from '../../utils.js';
+import { validateSecurePath } from '@/utils/path-security.js';
+import { err, ok } from '@/utils/result.js';
 
 const log = createLogger('preview-api');
 
@@ -119,8 +119,8 @@ function generateMarkdownPreviewHtml(markdownContent: string, filename: string):
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${title}</title>
-  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14/dist/markdown-it.min.js"><\/script>
-  <script src="https://cdn.jsdelivr.net/npm/markdown-it-cjk-friendly@1/dist/markdown-it-cjk-friendly.min.js"><\/script>
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14/dist/markdown-it.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it-cjk-friendly@1/dist/markdown-it-cjk-friendly.min.js"></script>
   <style>
     :root { color-scheme: light dark; }
     body { max-width: 800px; margin: 0 auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.6; background: #fff; color: #333; }
@@ -207,9 +207,11 @@ export const previewRoutes: RouteDef[] = [
     description: 'Get content of a context file',
     tags: ['preview', 'context'],
     handler: async (ctx) => {
-      const { source, path: filePath, session: sessionName } = ctx.params as z.infer<
-        typeof ContentFileQuerySchema
-      >;
+      const {
+        source,
+        path: filePath,
+        session: sessionName
+      } = ctx.params as z.infer<typeof ContentFileQuerySchema>;
 
       if (source === 'project' && !sessionName) {
         return err(validationFailed('session', 'session parameter is required for project files'));
@@ -242,7 +244,7 @@ export const previewRoutes: RouteDef[] = [
         return err(validationFailed('path', `File too large (max ${MAX_FILE_SIZE / 1024}KB)`));
       }
 
-      const content = readFileSync(targetPath, 'utf-8');
+      const content = await Bun.file(targetPath).text();
       const name = basename(targetPath);
 
       return ok<FileContentResponse>({
@@ -293,7 +295,7 @@ export async function handleFilePreview(ctx: RouteContext): Promise<Response | n
     return null;
   }
 
-  const content = readFileSync(targetPath, 'utf-8');
+  const content = await Bun.file(targetPath).text();
   log.info(`Serving file: ${targetPath} (${content.length} bytes)`);
 
   const isMarkdown =

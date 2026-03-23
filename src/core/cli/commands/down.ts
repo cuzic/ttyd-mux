@@ -2,9 +2,9 @@
  * Down command - Stop session for current directory
  */
 
+import { requireSessionForCwd } from '@/core/cli/helpers/session-resolver.js';
 import { ensureDaemon, getSessions, shutdownDaemon, stopSession } from '@/core/client/index.js';
 import { loadConfig } from '@/core/config/config.js';
-import { requireSessionForCwd } from '@/core/cli/helpers/session-resolver.js';
 import { CliError } from '@/utils/errors.js';
 
 export interface DownOptions {

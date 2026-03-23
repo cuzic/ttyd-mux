@@ -3,11 +3,11 @@ import {
   AUTO_RUN_KEY,
   CLIPBOARD_HISTORY_KEY,
   DEFAULT_TERMINAL_UI_CONFIG,
+  injectTerminalUi,
   ONBOARDING_SHOWN_KEY,
+  onboardingHtml,
   SNIPPETS_KEY,
   STORAGE_KEY,
-  injectTerminalUi,
-  onboardingHtml,
   terminalUiHtml,
   terminalUiStyles
 } from './index.js';

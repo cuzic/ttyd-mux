@@ -94,7 +94,7 @@ export const FileContentParamsSchema = z.object({
 
 // === Parse Helper ===
 
-import { type Result, err, ok } from '@/utils/result.js';
+import { err, ok, type Result } from '@/utils/result.js';
 
 /**
  * Parse URLSearchParams with a Zod schema (field-level validation)

@@ -4,8 +4,8 @@
  * Wraps xterm.js terminal with React integration.
  */
 
-import { useTerminal } from '@/browser/terminal/app/hooks/useTerminal.js';
 import { type FC, useEffect } from 'react';
+import { useTerminal } from '@/browser/terminal/app/hooks/useTerminal.js';
 import { BlockOverlay } from './BlockOverlay.js';
 
 export interface TerminalPaneProps {
@@ -100,6 +100,7 @@ export const TerminalPane: FC<TerminalPaneProps> = ({
 
     // Also listen for window resize as fallback
     const handleWindowResize = () => debouncedFit();
+    // biome-ignore lint: React lifecycle manages cleanup
     window.addEventListener('resize', handleWindowResize);
 
     // Handle orientation change on mobile
@@ -107,6 +108,7 @@ export const TerminalPane: FC<TerminalPaneProps> = ({
       // Delay to allow layout to settle
       setTimeout(debouncedFit, 100);
     };
+    // biome-ignore lint: React lifecycle manages cleanup
     window.addEventListener('orientationchange', handleOrientationChange);
 
     // Handle Visual Viewport changes (mobile keyboard)
@@ -115,7 +117,9 @@ export const TerminalPane: FC<TerminalPaneProps> = ({
       debouncedFit();
     };
     if (visualViewport) {
+      // biome-ignore lint: React lifecycle manages cleanup
       visualViewport.addEventListener('resize', handleVisualViewportResize);
+      // biome-ignore lint: React lifecycle manages cleanup
       visualViewport.addEventListener('scroll', handleVisualViewportResize);
     }
 

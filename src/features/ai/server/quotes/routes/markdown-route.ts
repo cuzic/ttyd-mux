@@ -4,7 +4,7 @@
  * GET /api/claude-quotes/project-markdown - Get project markdown files
  */
 
-import { collectProjectMarkdown } from '../quotes-service.js';
+import { collectProjectMarkdown } from '@/features/ai/server/quotes/quotes-service.js';
 import { ProjectMarkdownParamsSchema } from './params.js';
 import { handleError, successResponse } from './response.js';
 import { parseParams } from './route-helpers.js';

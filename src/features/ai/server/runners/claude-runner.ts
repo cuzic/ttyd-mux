@@ -4,7 +4,7 @@
  * Runs queries using the `claude` CLI tool (Claude Code / claude-cli).
  */
 
-import type { RunRequest, RunnerCapabilities, RunnerName } from '@/features/ai/server/types.js';
+import type { RunnerCapabilities, RunnerName, RunRequest } from '@/features/ai/server/types.js';
 import { BaseCLIRunner } from './base-cli-runner.js';
 
 export class ClaudeRunner extends BaseCLIRunner {

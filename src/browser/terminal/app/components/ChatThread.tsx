@@ -4,9 +4,9 @@
  * Displays chat messages with AI responses.
  */
 
+import { type FC, useEffect, useRef } from 'react';
 import { type ChatMessage, useChatStore } from '@/browser/terminal/app/stores/chatStore.js';
 import type { Citation, NextCommand } from '@/features/ai/server/types.js';
-import { type FC, useEffect, useRef } from 'react';
 
 export interface ChatThreadProps {
   onCitationClick?: (blockId: string) => void;
@@ -34,16 +34,14 @@ export const ChatThread: FC<ChatThreadProps> = ({ onCitationClick, onCommandClic
           <div style={styles.emptyHint}>Select blocks and ask questions about terminal output</div>
         </div>
       ) : (
-        <>
-          {messages.map((message) => (
-            <MessageItem
-              key={message.id}
-              message={message}
-              onCitationClick={onCitationClick}
-              onCommandClick={onCommandClick}
-            />
-          ))}
-        </>
+        messages.map((message) => (
+          <MessageItem
+            key={message.id}
+            message={message}
+            onCitationClick={onCitationClick}
+            onCommandClick={onCommandClick}
+          />
+        ))
       )}
 
       {/* Loading indicator */}

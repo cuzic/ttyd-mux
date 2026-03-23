@@ -15,7 +15,8 @@ import {
   type OutputChunk,
   type RetentionPolicy
 } from '@/core/protocol/index.js';
-import { type OutputRedactor, createRedactor } from './output-redactor.js';
+import type { ExecutorBlockStore } from '@/core/terminal/session-plugins.js';
+import { createRedactor, type OutputRedactor } from './output-redactor.js';
 
 /** Preview size in characters */
 const PREVIEW_SIZE = 500;
@@ -59,7 +60,7 @@ interface BlockMetadata {
 /**
  * BlockStore manages blocks and their output chunks
  */
-export class BlockStore {
+export class BlockStore implements ExecutorBlockStore {
   private blocks: Map<string, BlockMetadata> = new Map();
   private chunks: Map<string, OutputChunk> = new Map();
   private blocksBySession: Map<string, string[]> = new Map(); // sessionName -> blockIds

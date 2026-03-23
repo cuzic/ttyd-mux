@@ -1,4 +1,4 @@
-import { type Key, emitKeypressEvents } from 'node:readline';
+import { emitKeypressEvents, type Key } from 'node:readline';
 import type { TmuxSession } from './tmux.js';
 
 // ANSI escape codes
@@ -142,7 +142,6 @@ export function selectSession(sessions: TmuxSession[]): Promise<SelectResult> {
     const onKeypress = (_str: string, key: Key): void => {
       const action = handleKeypress(key, sessions.length);
 
-      // biome-ignore lint/style/useDefaultSwitchClause: KeyAction union is exhaustively matched
       switch (action.type) {
         case 'quit': {
           cleanupAndResolve({ action: 'quit' });

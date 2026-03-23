@@ -2,19 +2,19 @@
  * Route Executor Tests
  */
 
-import { describe, test, expect, mock } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import { z } from 'zod';
-import { ok, err } from '@/utils/result.js';
 import { sessionNotFound, validationFailed } from '@/core/errors.js';
-import type { RouteDef, RouteDeps, RouteContext } from './route-types.js';
+import { err, ok } from '@/utils/result.js';
 import {
-  executeRoute,
-  successResponse,
   errorEnvelopeResponse,
-  validationErrorResponse,
+  executeRoute,
+  generateRequestId,
   resultToResponse,
-  generateRequestId
+  successResponse,
+  validationErrorResponse
 } from './route-executor.js';
+import type { RouteDef, RouteDeps } from './route-types.js';
 
 // === Test Helpers ===
 
@@ -27,11 +27,7 @@ function createMockDeps(): RouteDeps {
   };
 }
 
-function createMockRequest(
-  method: string,
-  url: string,
-  body?: object
-): Request {
+function createMockRequest(method: string, url: string, body?: object): Request {
   const init: RequestInit = { method };
   if (body) {
     init.body = JSON.stringify(body);
@@ -74,7 +70,11 @@ describe('successResponse', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toBe('application/json');
 
-    const body = await parseResponseJson<{ success: boolean; data: typeof data; requestId: string }>(res);
+    const body = await parseResponseJson<{
+      success: boolean;
+      data: typeof data;
+      requestId: string;
+    }>(res);
     expect(body.success).toBe(true);
     expect(body.data).toEqual(data);
     expect(body.requestId).toBe('req_123');
@@ -100,7 +100,11 @@ describe('errorEnvelopeResponse', () => {
 
     expect(res.status).toBe(404);
 
-    const body = await parseResponseJson<{ success: boolean; error: { code: string; message: string }; requestId: string }>(res);
+    const body = await parseResponseJson<{
+      success: boolean;
+      error: { code: string; message: string };
+      requestId: string;
+    }>(res);
     expect(body.success).toBe(false);
     expect(body.error.code).toBe('SESSION_NOT_FOUND');
     expect(body.error.message).toContain('my-session');
@@ -239,7 +243,11 @@ describe('executeRoute', () => {
       offset: z.coerce.number().default(0)
     });
 
-    const route: RouteDef<z.infer<typeof querySchema>, unknown, { limit: number; offset: number }> = {
+    const route: RouteDef<
+      z.infer<typeof querySchema>,
+      unknown,
+      { limit: number; offset: number }
+    > = {
       method: 'GET',
       path: '/api/items',
       querySchema,

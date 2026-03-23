@@ -4,7 +4,7 @@
  * Runs queries using Google's Gemini CLI tool.
  */
 
-import type { RunRequest, RunnerCapabilities, RunnerName } from '@/features/ai/server/types.js';
+import type { RunnerCapabilities, RunnerName, RunRequest } from '@/features/ai/server/types.js';
 import { BaseCLIRunner } from './base-cli-runner.js';
 
 export class GeminiRunner extends BaseCLIRunner {

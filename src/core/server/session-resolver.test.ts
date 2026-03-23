@@ -1,8 +1,8 @@
 // Import test setup FIRST to set environment variables before any other imports
-import { cleanupTestState, resetTestState } from '@/test-setup.js';
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { Config, SessionState } from '@/core/config/types.js';
+import { cleanupTestState, resetTestState } from '@/test-setup.js';
 import { createSessionResolver } from './session-resolver.js';
 
 describe('SessionResolver', () => {

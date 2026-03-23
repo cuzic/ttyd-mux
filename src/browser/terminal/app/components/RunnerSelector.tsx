@@ -4,9 +4,9 @@
  * Dropdown for selecting AI runner.
  */
 
+import { type FC, useCallback, useEffect, useState } from 'react';
 import { useChatStore } from '@/browser/terminal/app/stores/chatStore.js';
 import type { RunnerName, RunnerStatus } from '@/features/ai/server/types.js';
-import { type FC, useCallback, useEffect, useState } from 'react';
 
 export interface RunnerSelectorProps {
   disabled?: boolean;

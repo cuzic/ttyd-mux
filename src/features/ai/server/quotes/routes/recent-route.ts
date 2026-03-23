@@ -9,7 +9,7 @@ import {
   collectRecentMarkdown,
   getRecentClaudeTurns,
   getRecentClaudeTurnsFromSession
-} from '../quotes-service.js';
+} from '@/features/ai/server/quotes/quotes-service.js';
 import { RecentMarkdownParamsSchema, RecentParamsSchema } from './params.js';
 import { handleError, successResponse } from './response.js';
 import { parseParams } from './route-helpers.js';

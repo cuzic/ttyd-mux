@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, mock, test } from 'bun:test';
-import { Scope, on, onBus } from './lifecycle.js';
+import { on, onBus, Scope } from './lifecycle.js';
 
 describe('Scope', () => {
   test('add() collects disposables', () => {

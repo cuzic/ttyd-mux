@@ -2,20 +2,20 @@
  * Notification module - Push notifications for terminal output patterns
  */
 
-export * from './types.js';
 export * from './matcher.js';
 export * from './sender.js';
 export * from './subscription.js';
+export * from './types.js';
 export * from './vapid.js';
 
 import { createLogger } from '@/utils/logger.js';
-import { type NotificationMatcher, createNotificationMatcher } from './matcher.js';
+import { createNotificationMatcher, type NotificationMatcher } from './matcher.js';
 import {
+  createNotificationSender,
   type NotificationSender,
-  type SubscriptionStore,
-  createNotificationSender
+  type SubscriptionStore
 } from './sender.js';
-import { type SubscriptionManager, createSubscriptionManager } from './subscription.js';
+import { createSubscriptionManager, type SubscriptionManager } from './subscription.js';
 import type { NotificationConfig, PushSubscription, VapidKeys } from './types.js';
 import { loadOrGenerateVapidKeys } from './vapid.js';
 

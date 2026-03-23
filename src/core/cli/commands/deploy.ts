@@ -5,7 +5,7 @@ import { getSessions, isDaemonRunning } from '@/core/client/index.js';
 import { loadConfig } from '@/core/config/config.js';
 import { getAllSessions } from '@/core/config/state.js';
 import type { SessionState } from '@/core/config/types.js';
-import { generateCaddyJson, generateCaddyfileSnippet } from '@/deploy/caddyfile.js';
+import { generateCaddyfileSnippet, generateCaddyJson } from '@/deploy/caddyfile.js';
 import { generateDeployScript } from '@/deploy/deploy-script.js';
 import { generateStaticPortalHtml } from '@/deploy/static-portal.js';
 import { requireHostname } from '@/utils/errors.js';

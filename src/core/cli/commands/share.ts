@@ -2,14 +2,14 @@
  * Share command - Generate read-only share links
  */
 
-import { ensureDaemon } from '@/core/client/index.js';
-import { loadConfig } from '@/core/config/config.js';
 import {
   createShare,
   formatRemaining,
   listShares,
   revokeShare
 } from '@/core/cli/services/share-service.js';
+import { ensureDaemon } from '@/core/client/index.js';
+import { loadConfig } from '@/core/config/config.js';
 import { CliError } from '@/utils/errors.js';
 
 export interface ShareOptions {

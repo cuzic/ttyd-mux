@@ -4,8 +4,8 @@
  * Build URLs for sessions and shares.
  */
 
-import type { Config } from '@/core/config/types.js';
 import { getFullPath } from '@/core/config/config.js';
+import type { Config } from '@/core/config/types.js';
 
 /**
  * Build the base URL for accessing bunterm

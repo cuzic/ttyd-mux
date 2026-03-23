@@ -32,15 +32,22 @@ import {
 import { terminalUiStyles } from './styles.js';
 import { onboardingHtml, terminalUiHtml } from './template.js';
 
-// Re-export config constants (localStorage keys only)
-export { AUTO_RUN_KEY, CLIPBOARD_HISTORY_KEY, ONBOARDING_SHOWN_KEY, SNIPPETS_KEY, STORAGE_KEY };
-
-// Re-export for direct access
-export { onboardingHtml, terminalUiHtml, terminalUiStyles };
-
-// Re-export type and default config
-export { DEFAULT_SENTRY_CONFIG, DEFAULT_TERMINAL_UI_CONFIG };
 export type { SentryConfig, TerminalUiConfig };
+// Re-export config constants (localStorage keys only)
+// Re-export for direct access
+// Re-export type and default config
+export {
+  AUTO_RUN_KEY,
+  CLIPBOARD_HISTORY_KEY,
+  DEFAULT_SENTRY_CONFIG,
+  DEFAULT_TERMINAL_UI_CONFIG,
+  ONBOARDING_SHOWN_KEY,
+  onboardingHtml,
+  SNIPPETS_KEY,
+  STORAGE_KEY,
+  terminalUiHtml,
+  terminalUiStyles
+};
 
 /**
  * Extract Sentry key from DSN for CDN loader URL

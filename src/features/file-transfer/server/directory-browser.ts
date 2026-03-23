@@ -50,7 +50,6 @@ export function contractTilde(path: string): string {
   return path;
 }
 
-// biome-ignore lint/performance/noBarrelFile: intentional re-export for API surface
 export { isRelativePathSafe } from '@/utils/path-security.js';
 
 /**

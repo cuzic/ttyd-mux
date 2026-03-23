@@ -9,7 +9,7 @@
  */
 
 import type { NativeSessionManager } from '@/core/server/session-manager.js';
-import { type Result, err, ok } from '@/utils/result.js';
+import { err, ok, type Result } from '@/utils/result.js';
 import { failureResponse } from './response.js';
 
 /** Context passed to quote route handlers */

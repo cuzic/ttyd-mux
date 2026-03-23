@@ -21,6 +21,7 @@ function mount() {
 
 // Auto-mount when DOM is ready
 if (document.readyState === 'loading') {
+  // biome-ignore lint: React lifecycle manages cleanup
   document.addEventListener('DOMContentLoaded', mount);
 } else {
   mount();

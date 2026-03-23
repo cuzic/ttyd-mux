@@ -144,11 +144,7 @@ export function collectMdFilesWithResult(
   options: CollectMdOptions = {},
   currentDepth = 0
 ): CollectMdResult {
-  const {
-    excludeDirs = DEFAULT_EXCLUDE_DIRS,
-    maxDepth = 5,
-    maxFiles = 100
-  } = options;
+  const { excludeDirs = DEFAULT_EXCLUDE_DIRS, maxDepth = 5, maxFiles = 100 } = options;
 
   const state: ScanState = {
     files: [],

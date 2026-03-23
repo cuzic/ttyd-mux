@@ -22,7 +22,7 @@ describe('list command', () => {
 
   test('prints message when daemon is not running', async () => {
     const stateStore = createInMemoryStateStore();
-    const socketClient = createMockSocketClient({ exists: () => false });
+    const socketClient = createMockSocketClient({ exists: async () => false });
     setDaemonClientDeps({ stateStore, socketClient });
 
     await listCommand({});
@@ -33,7 +33,7 @@ describe('list command', () => {
 
   test('outputs JSON when daemon is not running with --json', async () => {
     const stateStore = createInMemoryStateStore();
-    const socketClient = createMockSocketClient({ exists: () => false });
+    const socketClient = createMockSocketClient({ exists: async () => false });
     setDaemonClientDeps({ stateStore, socketClient });
 
     await listCommand({ json: true });

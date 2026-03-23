@@ -126,6 +126,7 @@ export const App: FC<AppProps> = ({
       }
     };
 
+    // biome-ignore lint: React useEffect manages cleanup via return function
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toggleAiPane]);

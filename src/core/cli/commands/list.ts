@@ -1,8 +1,8 @@
-import { getSessions, getTmuxSessions } from '@/core/client/index.js';
-import type { Config } from '@/core/config/types.js';
-import { loadConfig } from '@/core/config/config.js';
-import { buildSessionUrl } from '@/core/cli/helpers/url-builder.js';
 import { guardDaemon } from '@/core/cli/helpers/daemon-guard.js';
+import { buildSessionUrl } from '@/core/cli/helpers/url-builder.js';
+import { getSessions, getTmuxSessions } from '@/core/client/index.js';
+import { loadConfig } from '@/core/config/config.js';
+import type { Config } from '@/core/config/types.js';
 import { CliError } from '@/utils/errors.js';
 
 export interface ListOptions {
@@ -132,11 +132,13 @@ export async function listCommand(options: ListOptions): Promise<void> {
 
     // Output (JSON or text)
     if (options.json) {
-      console.log(JSON.stringify({
-        sessions: data.sessions,
-        daemon: true,
-        tmuxInstalled: data.tmuxInstalled
-      }));
+      console.log(
+        JSON.stringify({
+          sessions: data.sessions,
+          daemon: true,
+          tmuxInstalled: data.tmuxInstalled
+        })
+      );
     } else {
       outputText(data, options);
     }

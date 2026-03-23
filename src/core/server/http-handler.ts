@@ -8,11 +8,11 @@
  */
 
 import type { Config } from '@/core/config/types.js';
-import type { NativeSessionManager } from './session-manager.js';
-import { handleStaticRoutes } from './http/routes/static-routes.js';
-import { handlePageRoutes } from './http/routes/page-routes.js';
 import { handleApiRequest } from './http/routes/api/index.js';
+import { handlePageRoutes } from './http/routes/page-routes.js';
+import { handleStaticRoutes } from './http/routes/static-routes.js';
 import { securityHeaders } from './http/utils.js';
+import type { NativeSessionManager } from './session-manager.js';
 
 // Re-export for backward compatibility
 export { getExecutorManager } from './http/routes/api/index.js';

@@ -51,6 +51,7 @@ export class StaticFileServer {
 
     try {
       const filePath = join(DIST_DIR, this.filename);
+      // biome-ignore lint: sync read for file caching
       this.cache = readFileSync(filePath, 'utf-8');
       log.debug(`Loaded ${this.filename} from dist`);
     } catch {

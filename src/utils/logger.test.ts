@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
-import { type LogLevel, createLogger, getLogLevel, setLogLevel } from './logger.js';
+import { createLogger, getLogLevel, type LogLevel, setLogLevel } from './logger.js';
 
 /** Regex to match timestamp format in log messages */
 const TIMESTAMP_REGEX = /^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;

@@ -4,7 +4,7 @@
  * Generic utilities for reading and parsing JSONL (JSON Lines) files.
  */
 
-import { readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 
 /**
  * Read and parse a JSONL file, returning an array of parsed objects.
@@ -13,9 +13,9 @@ import { readFileSync } from 'node:fs';
  * @param filePath Path to the JSONL file
  * @returns Array of parsed JSON objects
  */
-export function readJsonlFile<T = unknown>(filePath: string): T[] {
+export async function readJsonlFile<T = unknown>(filePath: string): Promise<T[]> {
   try {
-    const content = readFileSync(filePath, 'utf-8');
+    const content = await readFile(filePath, 'utf-8');
     return parseJsonlContent<T>(content);
   } catch {
     return [];

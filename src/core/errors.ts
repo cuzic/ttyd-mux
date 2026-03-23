@@ -38,7 +38,10 @@ export interface SessionInvalidNameError {
   readonly reason: string;
 }
 
-export type SessionError = SessionNotFoundError | SessionAlreadyExistsError | SessionInvalidNameError;
+export type SessionError =
+  | SessionNotFoundError
+  | SessionAlreadyExistsError
+  | SessionInvalidNameError;
 
 // === Daemon Errors ===
 
@@ -214,12 +217,22 @@ export const invalidType = (
   expected: string,
   received: string
 ): ParseError =>
-  parseError('INVALID_TYPE', source, field, `Invalid type for ${field}: expected ${expected}, got ${received}`, {
-    expected,
-    received
-  });
+  parseError(
+    'INVALID_TYPE',
+    source,
+    field,
+    `Invalid type for ${field}: expected ${expected}, got ${received}`,
+    {
+      expected,
+      received
+    }
+  );
 
-export const invalidFormat = (source: ParseErrorSource, field: string, format: string): ParseError =>
+export const invalidFormat = (
+  source: ParseErrorSource,
+  field: string,
+  format: string
+): ParseError =>
   parseError('INVALID_FORMAT', source, field, `Invalid format for ${field}: expected ${format}`);
 
 export const outOfRange = (
@@ -228,11 +241,12 @@ export const outOfRange = (
   min?: number,
   max?: number
 ): ParseError => {
-  const range = min !== undefined && max !== undefined
-    ? `${min}-${max}`
-    : min !== undefined
-      ? `>= ${min}`
-      : `<= ${max}`;
+  const range =
+    min !== undefined && max !== undefined
+      ? `${min}-${max}`
+      : min !== undefined
+        ? `>= ${min}`
+        : `<= ${max}`;
   return parseError('OUT_OF_RANGE', source, field, `${field} out of range: expected ${range}`);
 };
 
@@ -241,7 +255,12 @@ export const invalidEnum = (
   field: string,
   allowed: string[]
 ): ParseError =>
-  parseError('INVALID_ENUM', source, field, `Invalid value for ${field}: must be one of ${allowed.join(', ')}`);
+  parseError(
+    'INVALID_ENUM',
+    source,
+    field,
+    `Invalid value for ${field}: must be one of ${allowed.join(', ')}`
+  );
 
 export const parseFailed = (source: ParseErrorSource, message: string): ParseError =>
   parseError('PARSE_FAILED', source, '_root', message);

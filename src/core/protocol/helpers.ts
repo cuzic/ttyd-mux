@@ -12,13 +12,14 @@ import type {
   BlockStartMessage
 } from './blocks.js';
 import type { ServerMessage } from './index.js';
-import type { ClientMessage } from './messages.js';
 import type {
   BellMessage,
+  ClientMessage,
   ErrorMessage,
   ExitMessage,
   FileChangeMessage,
   OutputMessage,
+  PaneCountChangeMessage,
   PongMessage,
   TitleMessage
 } from './messages.js';
@@ -52,13 +53,15 @@ export function parseClientMessage(data: string): ClientMessage | null {
  *
  * @returns Result with validated message or parse error details
  */
-export function parseClientMessageSafe(data: string): {
-  ok: true;
-  value: ValidatedClientMessage;
-} | {
-  ok: false;
-  error: string;
-} {
+export function parseClientMessageSafe(data: string):
+  | {
+      ok: true;
+      value: ValidatedClientMessage;
+    }
+  | {
+      ok: false;
+      error: string;
+    } {
   let parsed: unknown;
   try {
     parsed = JSON.parse(data);
@@ -73,7 +76,10 @@ export function parseClientMessageSafe(data: string): {
 
   const issue = result.error.issues[0];
   const field = issue?.path.join('.') || 'unknown';
-  return { ok: false, error: `Validation failed at '${field}': ${issue?.message || 'unknown error'}` };
+  return {
+    ok: false,
+    error: `Validation failed at '${field}': ${issue?.message || 'unknown error'}`
+  };
 }
 
 /**
@@ -99,13 +105,15 @@ export function parseServerMessage(data: string): ServerMessage | null {
  *
  * @returns Result with validated message or parse error details
  */
-export function parseServerMessageSafe(data: string): {
-  ok: true;
-  value: ValidatedServerMessage;
-} | {
-  ok: false;
-  error: string;
-} {
+export function parseServerMessageSafe(data: string):
+  | {
+      ok: true;
+      value: ValidatedServerMessage;
+    }
+  | {
+      ok: false;
+      error: string;
+    } {
   let parsed: unknown;
   try {
     parsed = JSON.parse(data);
@@ -120,7 +128,10 @@ export function parseServerMessageSafe(data: string): {
 
   const issue = result.error.issues[0];
   const field = issue?.path.join('.') || 'unknown';
-  return { ok: false, error: `Validation failed at '${field}': ${issue?.message || 'unknown error'}` };
+  return {
+    ok: false,
+    error: `Validation failed at '${field}': ${issue?.message || 'unknown error'}`
+  };
 }
 
 /**
@@ -211,4 +222,14 @@ export function createBlockOutputMessage(blockId: string, data: string): BlockOu
  */
 export function createBlockListMessage(blocks: Block[]): BlockListMessage {
   return { type: 'blockList', blocks };
+}
+
+/**
+ * Create a pane count change message
+ */
+export function createPaneCountChangeMessage(
+  count: number,
+  panes: { id: string; command: string; title: string }[]
+): PaneCountChangeMessage {
+  return { type: 'paneCountChange', count, panes };
 }

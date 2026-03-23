@@ -1,18 +1,18 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
-import { resetDaemonClientDeps, setDaemonClientDeps } from '@/core/client/daemon-client.js';
-import { createInMemoryStateStore } from '@/core/config/state-store.js';
-import { createMockSocketClient } from '@/utils/socket-client.js';
 import {
   BunCheck,
+  type CheckResult,
   ConfigCheck,
   DaemonCheck,
+  type DoctorCheck,
   formatCheckResult,
   hasFailures,
   runChecks,
-  TmuxCheck,
-  type CheckResult,
-  type DoctorCheck
+  TmuxCheck
 } from '@/core/cli/services/doctor-service.js';
+import { resetDaemonClientDeps, setDaemonClientDeps } from '@/core/client/daemon-client.js';
+import { createInMemoryStateStore } from '@/core/config/state-store.js';
+import { createMockSocketClient } from '@/utils/socket-client.js';
 import { doctorCommand } from './doctor.js';
 
 describe('doctor command', () => {
@@ -33,7 +33,7 @@ describe('doctor command', () => {
 
   test('outputs check results in text mode', async () => {
     const stateStore = createInMemoryStateStore();
-    const socketClient = createMockSocketClient({ exists: () => false });
+    const socketClient = createMockSocketClient({ exists: async () => false });
     setDaemonClientDeps({ stateStore, socketClient });
 
     await doctorCommand({});
@@ -45,7 +45,7 @@ describe('doctor command', () => {
 
   test('outputs JSON in json mode', async () => {
     const stateStore = createInMemoryStateStore();
-    const socketClient = createMockSocketClient({ exists: () => false });
+    const socketClient = createMockSocketClient({ exists: async () => false });
     setDaemonClientDeps({ stateStore, socketClient });
 
     await doctorCommand({ json: true });
@@ -59,7 +59,7 @@ describe('doctor command', () => {
 
   test('json output includes check details', async () => {
     const stateStore = createInMemoryStateStore();
-    const socketClient = createMockSocketClient({ exists: () => false });
+    const socketClient = createMockSocketClient({ exists: async () => false });
     setDaemonClientDeps({ stateStore, socketClient });
 
     await doctorCommand({ json: true });
@@ -107,7 +107,7 @@ describe('doctor checks', () => {
 
   test('DaemonCheck returns ok regardless of daemon state', async () => {
     const stateStore = createInMemoryStateStore();
-    const socketClient = createMockSocketClient({ exists: () => false });
+    const socketClient = createMockSocketClient({ exists: async () => false });
     setDaemonClientDeps({ stateStore, socketClient });
 
     const check = new DaemonCheck();
@@ -133,8 +133,8 @@ describe('runChecks', () => {
     const results = await runChecks([mockCheck1, mockCheck2], {});
 
     expect(results.length).toBe(2);
-    expect(results[0]!.name).toBe('test1');
-    expect(results[1]!.name).toBe('test2');
+    expect(results[0]?.name).toBe('test1');
+    expect(results[1]?.name).toBe('test2');
   });
 
   test('skips port check when config is invalid', async () => {

@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  type Result,
   all,
   andThen,
   err,
@@ -15,6 +14,7 @@ import {
   mapErr,
   ok,
   okWithWarnings,
+  type Result,
   unwrap,
   unwrapOr,
   unwrapOrElse
@@ -202,14 +202,13 @@ describe('Result type', () => {
     });
 
     test('creates success with warnings', () => {
-      const result = okWithWarnings(
-        { reloaded: ['a'] },
-        [{ code: 'RESTART', message: 'needs restart' }]
-      );
+      const result = okWithWarnings({ reloaded: ['a'] }, [
+        { code: 'RESTART', message: 'needs restart' }
+      ]);
       expect(result.ok).toBe(true);
       expect(result.value).toEqual({ reloaded: ['a'] });
       expect(result.warnings).toHaveLength(1);
-      expect(result.warnings[0]!.code).toBe('RESTART');
+      expect(result.warnings[0]?.code).toBe('RESTART');
     });
   });
 

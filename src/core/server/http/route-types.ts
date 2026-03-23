@@ -6,9 +6,9 @@
 
 import type { z } from 'zod';
 import type { Config } from '@/core/config/types.js';
+import type { AnyDomainError } from '@/core/errors.js';
 import type { NativeSessionManager } from '@/core/server/session-manager.js';
 import type { Result } from '@/utils/result.js';
-import type { AnyDomainError } from '@/core/errors.js';
 
 // === HTTP Methods ===
 

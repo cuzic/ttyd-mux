@@ -4,8 +4,8 @@
  * Text input for sending messages to AI.
  */
 
-import { useChatStore } from '@/browser/terminal/app/stores/chatStore.js';
 import { type FC, type FormEvent, useCallback, useRef, useState } from 'react';
+import { useChatStore } from '@/browser/terminal/app/stores/chatStore.js';
 import { FileSelector } from './FileSelector.js';
 import { RunnerSelector } from './RunnerSelector.js';
 

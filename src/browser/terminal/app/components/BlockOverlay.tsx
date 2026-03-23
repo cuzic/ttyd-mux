@@ -4,11 +4,11 @@
  * Renders block boundaries and selection UI over the terminal.
  */
 
-import type { Block } from '@/browser/terminal/BlockManager.js';
+import { type FC, useCallback, useMemo, useState } from 'react';
 import { useBlockSelection } from '@/browser/terminal/app/hooks/useBlockSelection.js';
 import { useBlockStore } from '@/browser/terminal/app/stores/blockStore.js';
 import { useChatStore } from '@/browser/terminal/app/stores/chatStore.js';
-import { type FC, useCallback, useMemo, useState } from 'react';
+import type { Block } from '@/browser/terminal/BlockManager.js';
 
 export interface BlockOverlayProps {
   terminalElement: HTMLElement | null;

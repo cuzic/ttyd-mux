@@ -7,11 +7,11 @@
 
 import type {
   RunChunk,
-  RunRequest,
-  RunResult,
   RunnerCapabilities,
   RunnerName,
-  RunnerStatus
+  RunnerStatus,
+  RunRequest,
+  RunResult
 } from './types.js';
 
 /**

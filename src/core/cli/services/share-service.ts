@@ -4,11 +4,11 @@
  * Business logic for session sharing.
  */
 
+import { buildShareUrl } from '@/core/cli/helpers/url-builder.js';
 import { addShare, getAllShares, getSession, removeShare } from '@/core/config/state.js';
 import type { Config } from '@/core/config/types.js';
-import { buildShareUrl } from '@/core/cli/helpers/url-builder.js';
 import { createShareManager, type ShareState } from '@/features/share/server/share-manager.js';
-import { type Result, err, ok } from '@/utils/result.js';
+import { err, ok, type Result } from '@/utils/result.js';
 
 /**
  * Get a configured ShareManager

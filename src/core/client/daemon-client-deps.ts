@@ -5,9 +5,9 @@
  * Allows mocking dependencies for testing.
  */
 
-import { type StateStore, defaultStateStore } from '@/core/config/state-store.js';
-import { type ProcessRunner, defaultProcessRunner } from '@/utils/process-runner.js';
-import { type SocketClient, defaultSocketClient } from '@/utils/socket-client.js';
+import { defaultStateStore, type StateStore } from '@/core/config/state-store.js';
+import { defaultProcessRunner, type ProcessRunner } from '@/utils/process-runner.js';
+import { defaultSocketClient, type SocketClient } from '@/utils/socket-client.js';
 
 /**
  * Dependencies for DaemonClient (for testing)

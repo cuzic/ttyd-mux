@@ -33,6 +33,7 @@ export function loadOrGenerateVapidKeys(stateDir: string): VapidKeys {
 
   if (existsSync(keysPath)) {
     try {
+      // biome-ignore lint: sync read at startup
       const content = readFileSync(keysPath, 'utf-8');
       return JSON.parse(content) as VapidKeys;
     } catch {

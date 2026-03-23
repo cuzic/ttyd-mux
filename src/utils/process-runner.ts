@@ -5,9 +5,9 @@
 
 import {
   type ChildProcess,
+  execSync,
   type SpawnOptions,
   type SpawnSyncReturns,
-  execSync,
   spawn,
   spawnSync
 } from 'node:child_process';

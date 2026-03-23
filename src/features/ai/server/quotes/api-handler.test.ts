@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { ROUTE_TABLE, findRoute } from './api-handler.js';
+import { findRoute, ROUTE_TABLE } from './api-handler.js';
 
 describe('Claude Quotes API routing', () => {
   describe('findRoute', () => {

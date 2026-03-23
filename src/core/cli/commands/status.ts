@@ -2,10 +2,10 @@
  * Status command - Show daemon and session status
  */
 
-import { getStatus, isDaemonRunning } from '@/core/client/index.js';
-import { loadConfig } from '@/core/config/config.js';
 import { buildSessionUrl } from '@/core/cli/helpers/url-builder.js';
 import { formatPm2StatusLine, getPm2Status } from '@/core/cli/services/status-service.js';
+import { getStatus, isDaemonRunning } from '@/core/client/index.js';
+import { loadConfig } from '@/core/config/config.js';
 import { CliError } from '@/utils/errors.js';
 
 export interface StatusOptions {

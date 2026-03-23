@@ -4,7 +4,7 @@
  * GET /api/claude-quotes/plans - Get plan files from ~/.claude/plans
  */
 
-import { getPlanFiles } from '../quotes-service.js';
+import { getPlanFiles } from '@/features/ai/server/quotes/quotes-service.js';
 import { PlansParamsSchema } from './params.js';
 import { handleError, successResponse } from './response.js';
 import { parseParams } from './route-helpers.js';

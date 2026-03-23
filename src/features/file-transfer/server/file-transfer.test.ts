@@ -10,9 +10,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  createFileTransferManager,
   DEFAULT_FILE_TRANSFER_CONFIG,
   type FileTransferConfig,
-  createFileTransferManager,
   isPathSafe,
   resolveFilePath,
   saveClipboardImages

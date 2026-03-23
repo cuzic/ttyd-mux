@@ -14,9 +14,9 @@
  * ```
  */
 
-import type { ZodSchema, ZodError } from 'zod';
+import type { ZodError, ZodSchema } from 'zod';
 import { type ParseError, type ParseErrorSource, parseError } from '@/core/errors.js';
-import { type Result, ok, err } from './result.js';
+import { err, ok, type Result } from './result.js';
 
 /**
  * Zod issue type (simplified for compatibility with Zod v4)
@@ -52,32 +52,22 @@ function zodIssueToParsError(issue: ZodIssueBase, source: ParseErrorSource): Par
 
   switch (issue.code) {
     case 'invalid_type':
-      return parseError(
-        'INVALID_TYPE',
-        source,
-        field,
-        issue.message,
-        { expected: issue.expected, received: issue.received }
-      );
+      return parseError('INVALID_TYPE', source, field, issue.message, {
+        expected: issue.expected,
+        received: issue.received
+      });
 
     case 'invalid_enum_value':
-      return parseError(
-        'INVALID_ENUM',
-        source,
-        field,
-        issue.message,
-        { expected: issue.options?.join(', '), received: issue.received }
-      );
+      return parseError('INVALID_ENUM', source, field, issue.message, {
+        expected: issue.options?.join(', '),
+        received: issue.received
+      });
 
     case 'invalid_value':
       // Zod v4 uses 'invalid_value' for enum validation
-      return parseError(
-        'INVALID_ENUM',
-        source,
-        field,
-        issue.message,
-        { expected: issue.values?.join(', ') }
-      );
+      return parseError('INVALID_ENUM', source, field, issue.message, {
+        expected: issue.values?.join(', ')
+      });
 
     case 'too_small':
       return parseError(
@@ -121,11 +111,12 @@ export function parseQuery<T>(
   source: ParseErrorSource,
   input: URLSearchParams | string | URL
 ): Result<T, ParseError> {
-  const params = input instanceof URLSearchParams
-    ? input
-    : input instanceof URL
-      ? input.searchParams
-      : new URLSearchParams(input.includes('?') ? input.split('?')[1] : input);
+  const params =
+    input instanceof URLSearchParams
+      ? input
+      : input instanceof URL
+        ? input.searchParams
+        : new URLSearchParams(input.includes('?') ? input.split('?')[1] : input);
 
   // Convert URLSearchParams to object
   const obj: Record<string, string> = {};

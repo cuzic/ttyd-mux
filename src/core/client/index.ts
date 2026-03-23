@@ -1,23 +1,24 @@
 // Re-export all from daemon-client
-export {
-  type DaemonClientDeps,
-  defaultDaemonClientDeps,
-  setDaemonClientDeps,
-  resetDaemonClientDeps,
-  isDaemonRunning,
-  ensureDaemon,
-  shutdownDaemon,
-  restartDaemon
-} from './daemon-client.js';
+
+export type { TmuxSessionResponse, TmuxSessionsResponse } from '@/core/config/types.js';
 
 // Re-export all from api-client
 export {
   apiRequest,
-  getStatus,
   getSessions,
+  getStatus,
   getTmuxSessions,
+  requestShutdown,
   startSession,
-  stopSession,
-  requestShutdown
+  stopSession
 } from './api-client.js';
-export type { TmuxSessionResponse, TmuxSessionsResponse } from '@/core/config/types.js';
+export {
+  type DaemonClientDeps,
+  defaultDaemonClientDeps,
+  ensureDaemon,
+  isDaemonRunning,
+  resetDaemonClientDeps,
+  restartDaemon,
+  setDaemonClientDeps,
+  shutdownDaemon
+} from './daemon-client.js';

@@ -9,7 +9,7 @@
  * - --tui-h: Toolbar height in px
  */
 
-import type { Mountable, Scope } from '../shared/lifecycle.js';
+import type { Mountable, Scope } from '@/browser/shared/lifecycle.js';
 
 export class LayoutManager implements Mountable {
   private toolbarEl: HTMLElement;

@@ -75,7 +75,6 @@ export function handleError(error: unknown, headers: Record<string, string>): Re
 
   // Log unexpected errors for debugging (don't expose to client)
   const internalMessage = error instanceof Error ? error.message : String(error);
-  // biome-ignore lint/suspicious/noConsole: Intentional error logging for debugging
   console.error('[quotes-api] Unexpected error:', internalMessage);
 
   // Return generic message for unknown errors

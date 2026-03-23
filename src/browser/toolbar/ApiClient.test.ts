@@ -5,10 +5,10 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import {
   ApiError,
+  createApiClient,
   type FileInfo,
   type ImageData,
-  type ToolbarApiClient,
-  createApiClient
+  type ToolbarApiClient
 } from './ApiClient.js';
 
 // Mock fetch for testing

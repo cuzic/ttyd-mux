@@ -5,7 +5,7 @@
  * Provides path validation, size limits, and extension filtering.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join } from 'node:path';
@@ -138,7 +138,6 @@ export interface SaveClipboardImagesResult {
 // Path validation (re-exported from utils for backward compatibility)
 // =============================================================================
 
-// biome-ignore lint/performance/noBarrelFile: intentional re-export for API surface
 export { isPathSafe } from '@/utils/path-security.js';
 
 /**
@@ -409,10 +408,10 @@ export function createFileTransferManager(
   /**
    * Find recently edited files from Claude Code history
    */
-  function findRecentFilesFromClaudeHistory(
+  async function findRecentFilesFromClaudeHistory(
     extensions: Set<string>,
     maxCount: number
-  ): RecentFileInfo[] {
+  ): Promise<RecentFileInfo[]> {
     const homeDir = process.env['HOME'] || '';
     if (!homeDir) {
       return [];
@@ -451,7 +450,7 @@ export function createFileTransferManager(
     for (const jsonlFile of jsonlFiles.slice(0, 5)) {
       // Check last 5 sessions
       try {
-        const content = readFileSync(jsonlFile.path, 'utf-8');
+        const content = await Bun.file(jsonlFile.path).text();
         const lines = content.split('\n').filter((line) => line.trim());
 
         // Process lines in reverse to get most recent edits first
@@ -552,7 +551,7 @@ export function createFileTransferManager(
   /**
    * Find recently modified files matching specified extensions
    */
-  function findRecentFiles(options: RecentFilesOptions): Promise<RecentFilesResult> {
+  async function findRecentFiles(options: RecentFilesOptions): Promise<RecentFilesResult> {
     // Check if transfer is enabled
     if (!config.enabled) {
       return Promise.resolve({ success: false, error: 'disabled' });
@@ -566,7 +565,7 @@ export function createFileTransferManager(
     // Use Claude Code history if requested (with fallback to scan)
     if (source === 'claude-history') {
       try {
-        const files = findRecentFilesFromClaudeHistory(normalizedExtensions, maxCount);
+        const files = await findRecentFilesFromClaudeHistory(normalizedExtensions, maxCount);
         if (files.length > 0) {
           log.debug(`Found ${files.length} recent files from Claude history`);
           return Promise.resolve({ success: true, files });

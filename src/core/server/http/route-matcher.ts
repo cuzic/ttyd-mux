@@ -5,14 +5,14 @@
  */
 
 import {
-  methodNotAllowed,
-  notFound,
   type MethodNotAllowedError,
-  type NotFoundError
+  methodNotAllowed,
+  type NotFoundError,
+  notFound
 } from '@/core/errors.js';
 import { err, ok, type Result } from '@/utils/result.js';
-import type { RouteMatch, HttpMethod } from './route-types.js';
 import type { RouteRegistry } from './route-registry.js';
+import type { HttpMethod, RouteMatch } from './route-types.js';
 
 // === Match Result ===
 
@@ -26,11 +26,7 @@ export type MatchResult =
 /**
  * Match a request against the registry
  */
-export function matchRequest(
-  registry: RouteRegistry,
-  method: string,
-  path: string
-): MatchResult {
+export function matchRequest(registry: RouteRegistry, method: string, path: string): MatchResult {
   // Try exact method match
   const match = registry.match(method, path);
   if (match) {
@@ -89,10 +85,7 @@ export function normalizePath(path: string): string {
 /**
  * Extract path parameters from a pattern match
  */
-export function extractPathParams(
-  pattern: string,
-  path: string
-): Record<string, string> | null {
+export function extractPathParams(pattern: string, path: string): Record<string, string> | null {
   const paramNames: string[] = [];
   let regexStr = pattern;
 

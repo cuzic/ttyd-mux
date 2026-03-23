@@ -1,9 +1,9 @@
+import { checkbox } from '@inquirer/prompts';
 import { startSession as apiStartSession, isDaemonRunning } from '@/core/client/index.js';
 import { getFullPath, loadConfig } from '@/core/config/config.js';
 import type { Config, SessionDefinition } from '@/core/config/types.js';
 import { startDaemon } from '@/core/daemon/index.js';
 import { handleCliError } from '@/utils/errors.js';
-import { checkbox } from '@inquirer/prompts';
 
 export interface DaemonOptions {
   foreground?: boolean;

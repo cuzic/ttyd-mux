@@ -30,7 +30,7 @@ export interface NotificationMatcher {
 }
 
 // Re-export for convenience
-export type { PatternConfig, MatchResult };
+export type { MatchResult, PatternConfig };
 
 /** Maximum regex pattern length to prevent DoS */
 const MAX_REGEX_LENGTH = 1000;

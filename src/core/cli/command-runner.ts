@@ -12,13 +12,13 @@
 
 import { type AnyDomainError, formatCliError, toCliExitCode } from '@/core/errors.js';
 import { CliError, getErrorMessage } from '@/utils/errors.js';
-import { type Result, isErr } from '@/utils/result.js';
+import { isErr, type Result } from '@/utils/result.js';
 
-type CommandResult = void | number;
+type CommandResult = undefined | number;
 type CommandFn = () => Promise<CommandResult> | CommandResult;
 
 // Result-based command types
-type ResultCommandResult = Result<void | number, AnyDomainError>;
+type ResultCommandResult = Result<undefined | number, AnyDomainError>;
 type ResultCommandFn = () => Promise<ResultCommandResult> | ResultCommandResult;
 
 /**

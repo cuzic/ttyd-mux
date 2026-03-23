@@ -4,10 +4,10 @@
  * Shows selected blocks and files for AI context.
  */
 
+import { type FC, useMemo } from 'react';
 import { useBlockStore } from '@/browser/terminal/app/stores/blockStore.js';
 import { useChatStore } from '@/browser/terminal/app/stores/chatStore.js';
 import type { FileSource } from '@/features/ai/server/types.js';
-import { type FC, useMemo } from 'react';
 
 export interface ContextTrayProps {
   onClose?: () => void;

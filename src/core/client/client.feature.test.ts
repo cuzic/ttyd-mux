@@ -1,10 +1,10 @@
 // Import test setup FIRST to set environment variables before any other imports
-import { cleanupTestState, resetTestState } from '@/test-setup.js';
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import type { Server } from 'bun';
 import { setDaemonState } from '@/core/config/state.js';
 import type { Config } from '@/core/config/types.js';
-import type { Server } from 'bun';
+import { cleanupTestState, resetTestState } from '@/test-setup.js';
 import {
   apiRequest,
   getSessions,
