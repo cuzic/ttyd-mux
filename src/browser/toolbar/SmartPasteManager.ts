@@ -10,10 +10,10 @@
  * State management is handled by XState state machine.
  */
 
+import { type Actor, createActor } from 'xstate';
 import type { Mountable, Scope } from '@/browser/shared/lifecycle.js';
 import type { SmartPasteElements, TerminalUiConfig } from '@/browser/shared/types.js';
 import { bindBackdropClose, blobToBase64, getSessionName } from '@/browser/shared/utils.js';
-import { type Actor, createActor } from 'xstate';
 import type { ClipboardHistoryManager } from './ClipboardHistoryManager.js';
 import type { InputHandler } from './InputHandler.js';
 import {

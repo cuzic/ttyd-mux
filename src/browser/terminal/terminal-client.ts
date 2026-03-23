@@ -8,10 +8,10 @@
  * - Reconnection logic
  */
 
-import { copyToClipboard } from '@/browser/shared/utils.js';
-import { parseServerMessage, type ServerMessage } from '@/core/protocol/index.js';
-import { match, P } from 'ts-pattern';
 import type { Terminal as XtermTerminal } from '@xterm/xterm';
+import { match, P } from 'ts-pattern';
+import { copyToClipboard, isMobileDevice } from '@/browser/shared/utils.js';
+import { parseServerMessage } from '@/core/protocol/index.js';
 import { type Block, BlockManager } from './BlockManager.js';
 import { BlockRenderer } from './BlockRenderer.js';
 import { ClaudeBlockManager } from './ClaudeBlockManager.js';
@@ -265,18 +265,22 @@ export class TerminalClient implements Disposable {
     };
 
     // Register event listeners with automatic cleanup via DisposableStack
+    // biome-ignore lint: cleaned up via disposables
     window.addEventListener('resize', scheduleFit, { passive: true });
     this.eventListeners.defer(() => window.removeEventListener('resize', scheduleFit));
 
     // Handle orientation change on mobile
+    // biome-ignore lint: cleaned up via disposables
     window.addEventListener('orientationchange', scheduleFit, { passive: true });
     this.eventListeners.defer(() => window.removeEventListener('orientationchange', scheduleFit));
 
     // Handle Visual Viewport changes (mobile keyboard, address bar)
     if (window.visualViewport) {
       const vv = window.visualViewport;
+      // biome-ignore lint: cleaned up via disposables
       vv.addEventListener('resize', scheduleFit, { passive: true });
       this.eventListeners.defer(() => vv.removeEventListener('resize', scheduleFit));
+      // biome-ignore lint: cleaned up via disposables
       vv.addEventListener('scroll', scheduleFit, { passive: true });
       this.eventListeners.defer(() => vv.removeEventListener('scroll', scheduleFit));
     }
@@ -639,7 +643,6 @@ export class TerminalClient implements Disposable {
     }
 
     try {
-
       match(message)
         .with({ type: 'output', data: P.string }, ({ data }) => {
           if (this.terminal) {
@@ -714,6 +717,12 @@ export class TerminalClient implements Disposable {
             );
           }
         )
+        .with({ type: 'paneCountChange' }, (msg) => {
+          if (isMobileDevice() && msg.count >= 3) {
+            const basePath = window.location.pathname.split('/').slice(0, -2).join('/');
+            window.location.href = `${basePath}/agents/`;
+          }
+        })
         .otherwise(() => {
           // Unknown message type - ignore
         });
