@@ -10,7 +10,7 @@ import { findConfigPath, loadConfig } from '@/core/config/config.js';
 import { validateEnvAtStartup } from '@/core/config/env.js';
 import type { Config } from '@/core/config/types.js';
 
-const VERSION_REGEX = /(\d+\.\d+[\.\d]*)/;
+const VERSION_REGEX = /(\d+\.\d+[.\d]*)/;
 
 /**
  * Result of a single health check
@@ -179,7 +179,9 @@ export class PortCheck implements DoctorCheck {
 
   run(ctx: CheckContext): CheckResult {
     const port = ctx.config?.daemon_port ?? 7680;
-    const output = tryExec(`lsof -i :${port} -t 2>/dev/null || ss -tlnp 2>/dev/null | grep :${port}`);
+    const output = tryExec(
+      `lsof -i :${port} -t 2>/dev/null || ss -tlnp 2>/dev/null | grep :${port}`
+    );
 
     if (!output) {
       return {
@@ -225,6 +227,43 @@ export class EnvCheck implements DoctorCheck {
 }
 
 /**
+ * Check security configuration
+ */
+export class SecurityCheck implements DoctorCheck {
+  readonly name = 'security';
+
+  run(ctx: CheckContext): CheckResult {
+    if (!ctx.config) {
+      return { name: this.name, ok: true, message: 'config not loaded, skipped' };
+    }
+
+    const { listen_addresses, security } = ctx.config;
+    const localhostOnly = listen_addresses.every(
+      (addr) => addr === '127.0.0.1' || addr === '::1' || addr === 'localhost'
+    );
+
+    if (security.enable_ws_token_auth) {
+      return { name: this.name, ok: true, message: 'WebSocket token authentication enabled' };
+    }
+
+    if (localhostOnly) {
+      return { name: this.name, ok: true, message: 'localhost only, authentication optional' };
+    }
+
+    const externalAddrs = listen_addresses.filter(
+      (addr) => addr !== '127.0.0.1' && addr !== '::1' && addr !== 'localhost'
+    );
+
+    return {
+      name: this.name,
+      ok: false,
+      message: `外部アドレス (${externalAddrs.join(', ')}) でリッスン中ですが、認証が無効です`,
+      hint: 'security.enable_ws_token_auth: true を設定してください'
+    };
+  }
+}
+
+/**
  * Default checks registry
  */
 export const defaultChecks: DoctorCheck[] = [
@@ -233,16 +272,14 @@ export const defaultChecks: DoctorCheck[] = [
   new ConfigCheck(),
   new EnvCheck(),
   new DaemonCheck(),
-  new PortCheck()
+  new PortCheck(),
+  new SecurityCheck()
 ];
 
 /**
  * Run all checks and return results
  */
-export async function runChecks(
-  checks: DoctorCheck[],
-  ctx: CheckContext
-): Promise<CheckResult[]> {
+export async function runChecks(checks: DoctorCheck[], ctx: CheckContext): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
 
   for (const check of checks) {
