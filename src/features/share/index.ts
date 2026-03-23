@@ -5,13 +5,13 @@
  */
 
 export {
+  type CreateShareOptions,
   createShareManager,
+  generateSecureToken,
+  hashPassword,
+  parseExpiresIn,
   type ShareManager,
   type ShareState,
   type ShareStore,
-  type CreateShareOptions,
-  generateSecureToken,
-  hashPassword,
-  verifyPassword,
-  parseExpiresIn
+  verifyPassword
 } from './server/share-manager.js';

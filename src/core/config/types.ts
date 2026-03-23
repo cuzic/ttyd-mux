@@ -254,7 +254,17 @@ export const SecurityConfigSchema = z.object({
   dev_mode: z.boolean().default(false),
   allowed_origins: z.array(z.string()).default([]),
   enable_ws_token_auth: z.boolean().default(false),
-  ws_token_ttl_seconds: z.number().int().min(10).max(300).default(30)
+  ws_token_ttl_seconds: z.number().int().min(10).max(300).default(30),
+  auth_enabled: z.boolean().default(false),
+  auth_cookie_name: z.string().default('bunterm_session'),
+  auth_session_ttl_seconds: z.number().int().min(60).default(86400),
+  auth_localhost_bypass: z.boolean().default(true),
+  auth_stealth_mode: z.boolean().default(false),
+  auth_trusted_proxies: z.array(z.string()).default([]),
+  auth_proxy_header: z.string().default('X-Forwarded-User'),
+  auth_adaptive_shield: z.boolean().default(false),
+  auth_lan_session_ttl_seconds: z.number().int().min(60).default(604800),
+  auth_internet_session_ttl_seconds: z.number().int().min(60).default(3600)
 });
 
 export type SecurityConfig = z.infer<typeof SecurityConfigSchema>;
@@ -264,7 +274,17 @@ export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
   dev_mode: false,
   allowed_origins: [],
   enable_ws_token_auth: false,
-  ws_token_ttl_seconds: 30
+  ws_token_ttl_seconds: 30,
+  auth_enabled: false,
+  auth_cookie_name: 'bunterm_session',
+  auth_session_ttl_seconds: 86400,
+  auth_localhost_bypass: true,
+  auth_stealth_mode: false,
+  auth_trusted_proxies: [],
+  auth_proxy_header: 'X-Forwarded-User',
+  auth_adaptive_shield: false,
+  auth_lan_session_ttl_seconds: 604800,
+  auth_internet_session_ttl_seconds: 3600
 };
 
 export const StaticOffloadConfigSchema = z.object({

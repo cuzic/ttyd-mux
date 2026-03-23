@@ -5,10 +5,10 @@
  */
 
 import { z } from 'zod';
-import { ok, err } from '@/utils/result.js';
-import { sessionNotFound, notFound, validationFailed } from '@/core/errors.js';
-import { shareManager } from '../page-routes.js';
-import type { RouteDef } from '../../route-types.js';
+import { notFound, sessionNotFound, validationFailed } from '@/core/errors.js';
+import type { RouteDef } from '@/core/server/http/route-types.js';
+import { shareManager } from '@/core/server/http/routes/page-routes.js';
+import { err, ok } from '@/utils/result.js';
 
 // === Schemas ===
 
