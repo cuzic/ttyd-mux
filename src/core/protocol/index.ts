@@ -4,93 +4,93 @@
  * Re-exports all protocol types and helpers for WebSocket communication.
  */
 
-// === Messages ===
+// === AI ===
 export type {
-  // Client messages
-  InputMessage,
-  ResizeMessage,
-  PingMessage,
-  WatchFileMessage,
-  UnwatchFileMessage,
-  WatchDirMessage,
-  UnwatchDirMessage,
-  ClientMessage,
-  // Server messages
-  OutputMessage,
-  TitleMessage,
-  ExitMessage,
-  PongMessage,
-  ErrorMessage,
-  BellMessage,
-  FileChangeMessage,
-  // Session types
-  TerminalSessionOptions,
-  TerminalSessionInfo,
-  // WebSocket types
-  NativeTerminalWebSocketData,
-  NativeTerminalWebSocket
-} from './messages.js';
+  AICitation,
+  AIErrorMessage,
+  AIFinalMessage,
+  AIMessage,
+  AINextCommand,
+  AIRunStartedMessage,
+  AIStreamMessage
+} from './ai.js';
 
 // === Blocks ===
 export {
-  type BlockStatus,
-  type ExtendedBlockStatus,
-  type ExecutionMode,
-  type SubmissionSource,
-  type BlockErrorType,
-  type GitInfo,
   type AgentMeta,
   type Block,
-  type ExtendedBlock,
-  type OutputChunk,
-  type CommandRequest,
-  type CommandResponse,
-  type IntegrationStatus,
-  type RetentionPolicy,
-  DEFAULT_RETENTION_POLICY,
+  type BlockEndMessage,
+  type BlockErrorType,
+  type BlockEvent,
+  type BlockEventType,
+  type BlockListMessage,
+  type BlockOutputMessage,
+  type BlockSession,
+  type BlockStartMessage,
+  type BlockStatus,
   type CancelRequest,
   type CancelResponse,
   type ChunkQueryParams,
   type ChunkQueryResponse,
-  type BlockEventType,
-  type BlockEvent,
-  type BlockSession,
-  type BlockStartMessage,
-  type BlockEndMessage,
-  type BlockOutputMessage,
-  type BlockListMessage
+  type CommandRequest,
+  type CommandResponse,
+  DEFAULT_RETENTION_POLICY,
+  type ExecutionMode,
+  type ExtendedBlock,
+  type ExtendedBlockStatus,
+  type GitInfo,
+  type IntegrationStatus,
+  type OutputChunk,
+  type RetentionPolicy,
+  type SubmissionSource
 } from './blocks.js';
-
-// === AI ===
-export type {
-  AICitation,
-  AINextCommand,
-  AIStreamMessage,
-  AIFinalMessage,
-  AIErrorMessage,
-  AIRunStartedMessage,
-  AIMessage
-} from './ai.js';
-
 // === Helpers ===
 export {
+  createBellMessage,
+  createBlockEndMessage,
+  createBlockListMessage,
+  createBlockOutputMessage,
+  createBlockStartMessage,
+  createErrorMessage,
+  createExitMessage,
+  createFileChangeMessage,
+  createOutputMessage,
+  createPaneCountChangeMessage,
+  createPongMessage,
+  createTitleMessage,
   parseClientMessage,
   parseClientMessageSafe,
   parseServerMessage,
   parseServerMessageSafe,
-  serializeServerMessage,
-  createOutputMessage,
-  createErrorMessage,
-  createExitMessage,
-  createTitleMessage,
-  createPongMessage,
-  createBellMessage,
-  createFileChangeMessage,
-  createBlockStartMessage,
-  createBlockEndMessage,
-  createBlockOutputMessage,
-  createBlockListMessage
+  serializeServerMessage
 } from './helpers.js';
+// === Messages ===
+export type {
+  BellMessage,
+  ClientMessage,
+  ErrorMessage,
+  ExitMessage,
+  FileChangeMessage,
+  // Client messages
+  InputMessage,
+  NativeTerminalWebSocket,
+  // WebSocket types
+  NativeTerminalWebSocketData,
+  // Server messages
+  OutputMessage,
+  PaneCountChangeMessage,
+  PingMessage,
+  PongMessage,
+  ResizeMessage,
+  TerminalSessionInfo,
+  // Session types
+  TerminalSessionOptions,
+  TitleMessage,
+  UnwatchDirMessage,
+  UnwatchFileMessage,
+  WatchDirMessage,
+  WatchFileMessage
+} from './messages.js';
 
 // === Schemas ===
 export {
@@ -114,6 +114,7 @@ import type {
   ExitMessage,
   FileChangeMessage,
   OutputMessage,
+  PaneCountChangeMessage,
   PongMessage,
   TitleMessage
 } from './messages.js';
@@ -148,4 +149,5 @@ export type ServerMessage =
   | AIFinalMessage
   | AIErrorMessage
   | AIRunStartedMessage
+  | PaneCountChangeMessage
   | ClaudeWatcherMessage;

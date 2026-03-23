@@ -14,6 +14,7 @@ import type {
   ExtendedBlock,
   OutputChunk
 } from '@/core/protocol/index.js';
+import type { ExecutorBlockEventEmitter } from '@/core/terminal/session-plugins.js';
 
 /** Maximum events to keep in history per block */
 const MAX_EVENT_HISTORY = 1000;
@@ -33,7 +34,7 @@ interface BlockSubscription {
 /**
  * BlockEventEmitter manages SSE events for blocks
  */
-export class BlockEventEmitter {
+export class BlockEventEmitter implements ExecutorBlockEventEmitter {
   private globalSeq = 0;
   private eventHistory: Map<string, BlockEvent[]> = new Map(); // blockId -> events
   private subscriptions: Map<string, Set<BlockSubscription>> = new Map(); // blockId -> subscriptions
@@ -330,10 +331,12 @@ export function createBlockSSEStream(
       );
 
       // Store unsubscribe for cleanup
+      // biome-ignore lint: controller/emitter lacks typed property
       (controller as any)._unsubscribe = unsubscribe;
     },
     cancel() {
       // Clean up subscription
+      // biome-ignore lint: controller/emitter lacks typed property
       const unsubscribe = (this as any)._unsubscribe;
       if (typeof unsubscribe === 'function') {
         unsubscribe();

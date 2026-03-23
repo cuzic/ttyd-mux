@@ -5,7 +5,6 @@
  * integration with the terminal UI.
  */
 
-export { ClaudeSessionWatcher } from './session-watcher.js';
 export {
   parseHistoryEntry,
   parseSessionEntry,
@@ -22,6 +21,7 @@ export {
   isMatchingProject,
   projectPathToCwd
 } from './path-utils.js';
+export { ClaudeSessionWatcher } from './session-watcher.js';
 export type {
   ClaudeAssistantContent,
   ClaudeAssistantTextWS,
