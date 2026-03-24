@@ -3,7 +3,8 @@
  */
 
 import { guardDaemon } from '@/core/cli/helpers/daemon-guard.js';
-import { apiRequest } from '@/core/client/index.js';
+import { getDaemonUrl } from '@/core/client/daemon-url.js';
+import { createClient } from '@/core/client/eden-client.js';
 import { loadConfig } from '@/core/config/config.js';
 import { CliError } from '@/utils/errors.js';
 
@@ -16,13 +17,6 @@ export interface ConnectionsRevokeOptions {
   config?: string;
 }
 
-interface AuthSessionInfo {
-  id: string;
-  remoteAddr: string;
-  createdAt: string;
-  expiresAt: string;
-}
-
 export async function connectionsCommand(options: ConnectionsOptions): Promise<void> {
   const config = loadConfig(options.config);
 
@@ -32,7 +26,11 @@ export async function connectionsCommand(options: ConnectionsOptions): Promise<v
   }
 
   try {
-    const sessions = await apiRequest<AuthSessionInfo[]>(config, 'GET', '/api/auth/sessions');
+    const client = createClient(getDaemonUrl(config));
+    const { data: sessions, error } = await client.api.auth.sessions.get();
+    if (error || !sessions) {
+      throw new CliError(`Failed to list connections: ${error?.value ?? 'Unknown error'}`);
+    }
 
     if (options.json) {
       console.log(JSON.stringify({ sessions }));
@@ -78,11 +76,11 @@ export async function connectionsRevokeCommand(
   }
 
   try {
-    await apiRequest<{ revoked: boolean; id: string }>(
-      config,
-      'DELETE',
-      `/api/auth/sessions/${encodeURIComponent(id)}`
-    );
+    const client = createClient(getDaemonUrl(config));
+    const { error: delError } = await client.api.auth.sessions({ id }).delete();
+    if (delError) {
+      throw new CliError(`Failed to revoke: ${delError.value ?? 'Unknown error'}`);
+    }
 
     console.log(`Session ${id} revoked.`);
   } catch (error) {

@@ -3,17 +3,13 @@
  */
 
 import { type OtpOptions, OtpOptionsSchema, parseCliOptions } from '@/core/cli/schemas.js';
-import { apiRequest, ensureDaemon } from '@/core/client/index.js';
+import { getDaemonUrl } from '@/core/client/daemon-url.js';
+import { createClient } from '@/core/client/eden-client.js';
+import { ensureDaemon } from '@/core/client/index.js';
 import { loadConfig } from '@/core/config/config.js';
 import { CliError } from '@/utils/errors.js';
 
 export type { OtpOptions };
-
-interface OtpGenerateResponse {
-  code: string;
-  expiresAt: number;
-  ttlSeconds: number;
-}
 
 export async function otpCommand(rawOptions: unknown): Promise<void> {
   const options = parseCliOptions(rawOptions, OtpOptionsSchema, 'otp');
@@ -28,13 +24,19 @@ export async function otpCommand(rawOptions: unknown): Promise<void> {
   // Ensure daemon is running
   await ensureDaemon(options.config, config.daemon_manager);
 
-  const ttlParam = options.ttl ? `?ttl=${options.ttl}` : '';
-  const result = await apiRequest<OtpGenerateResponse>(
-    config,
-    'POST',
-    `/api/auth/otp/generate${ttlParam}`
+  const client = createClient(getDaemonUrl(config));
+  const { data, error } = await client.api.auth.otp.generate.post(
+    {},
+    {
+      query: options.ttl ? { ttl: String(options.ttl) } : undefined
+    }
   );
 
+  if (error || !data) {
+    throw new CliError(`Failed to generate OTP: ${error?.value ?? 'Unknown error'}`);
+  }
+
+  const result = data;
   const ttl = result.ttlSeconds;
 
   // Display OTP prominently

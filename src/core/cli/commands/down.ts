@@ -22,7 +22,7 @@ export async function downCommand(options: DownOptions): Promise<void> {
   const session = await requireSessionForCwd(config);
 
   try {
-    await stopSession(config, session.name, { killTmux: options.killTmux });
+    await stopSession(config, session.name);
 
     if (options.killTmux) {
       console.log(`Session '${session.name}' stopped and tmux session killed`);

@@ -1,17 +1,5 @@
 // Re-export all from daemon-client
 
-export type { TmuxSessionResponse, TmuxSessionsResponse } from '@/core/config/types.js';
-
-// Re-export all from api-client
-export {
-  apiRequest,
-  getSessions,
-  getStatus,
-  getTmuxSessions,
-  requestShutdown,
-  startSession,
-  stopSession
-} from './api-client.js';
 export {
   type DaemonClientDeps,
   defaultDaemonClientDeps,
@@ -22,3 +10,12 @@ export {
   setDaemonClientDeps,
   shutdownDaemon
 } from './daemon-client.js';
+// Re-export Eden client wrappers (type-safe, inferred from Elysia routes)
+export {
+  getSessions,
+  getStatus,
+  getTmuxSessions,
+  requestShutdown,
+  startSession,
+  stopSession
+} from './eden-client.js';

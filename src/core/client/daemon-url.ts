@@ -21,5 +21,5 @@ export function getDaemonUrl(config: Config): string {
  * Build a full API URL
  */
 export function buildApiUrl(config: Config, path: string): string {
-  return `${getDaemonUrl(config)}${config.base_path}${path}`;
+  return `${getDaemonUrl(config)}${path}`;
 }

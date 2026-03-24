@@ -6,13 +6,13 @@
  */
 
 import { getSessions } from '@/core/client/index.js';
-import type { Config, SessionResponse } from '@/core/config/types.js';
+import type { Config } from '@/core/config/types.js';
 import { CliError } from '@/utils/errors.js';
 
 /**
  * Get session by name, throw CliError if not found
  */
-export async function requireSessionByName(config: Config, name: string): Promise<SessionResponse> {
+export async function requireSessionByName(config: Config, name: string) {
   const sessions = await getSessions(config);
   const session = sessions.find((s) => s.name === name);
   if (!session) {
@@ -24,7 +24,7 @@ export async function requireSessionByName(config: Config, name: string): Promis
 /**
  * Get session for current directory, throw CliError if not found
  */
-export async function requireSessionForCwd(config: Config): Promise<SessionResponse> {
+export async function requireSessionForCwd(config: Config) {
   const sessions = await getSessions(config);
   const cwd = process.cwd();
   const session = sessions.find((s) => s.dir === cwd);
