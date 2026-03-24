@@ -18,7 +18,7 @@ export interface ReloadResult {
 }
 
 // Settings that can be hot-reloaded (simple equality check)
-const HOT_RELOADABLE_KEYS = ['hostname', 'caddy_admin_api', 'tmux_mode', 'auto_attach'] as const;
+const HOT_RELOADABLE_KEYS = ['hostname', 'caddy_admin_api', 'command', 'tmux_passthrough'] as const;
 
 // Settings that require restart (simple equality check)
 const RESTART_REQUIRED_KEYS = ['daemon_port', 'base_path'] as const;

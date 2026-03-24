@@ -43,7 +43,5 @@ export {
   SessionDefinitionSchema,
   type SessionState,
   type ShareState,
-  type State,
-  type TmuxMode,
-  TmuxModeSchema
+  type State
 } from './types.js';
