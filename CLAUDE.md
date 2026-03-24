@@ -16,9 +16,11 @@
 
 - **ランタイム**: Bun (1.3.5+)
 - **言語**: TypeScript (strict mode)
+- **HTTP フレームワーク**: Elysia + Eden Treaty（End-to-End 型安全）
 - **テスト**: Bun test
 - **リンター**: Biome
 - **依存**: commander, yaml
+- **バリデーション**: TypeBox（ルートスキーマ）、Zod（設定・CLI）
 
 ## ディレクトリ構造
 
@@ -37,7 +39,7 @@ src/
 │   │   └── state-store.ts # StateStore インターフェース（DI用）
 │   ├── client/           # CLI→デーモン通信
 │   │   ├── index.ts      # クライアント re-exports
-│   │   ├── api-client.ts # HTTP API クライアント
+│   │   ├── eden-client.ts # Eden Treaty API クライアント（型安全）
 │   │   └── daemon-client.ts # デーモンソケット通信
 │   ├── daemon/           # デーモンエントリ
 │   │   └── index.ts      # デーモン起動ロジック
@@ -48,9 +50,14 @@ src/
 │   │   ├── helpers.ts    # パース/シリアライズ
 │   │   └── index.ts      # 全 re-export
 │   ├── server/           # サーバー基盤
-│   │   ├── server.ts     # Bun.serve サーバー
-│   │   ├── http-handler.ts
-│   │   ├── ws-handler.ts
+│   │   ├── server.ts     # Elysia ベースサーバー
+│   │   ├── elysia/       # Elysia ルート定義
+│   │   │   ├── app.ts    # Elysia アプリケーション
+│   │   │   ├── middleware/ # ミドルウェアプラグイン
+│   │   │   ├── sessions.ts # セッション API
+│   │   │   ├── auth.ts   # 認証ルート
+│   │   │   ├── websocket.ts # WebSocket ハンドラ
+│   │   │   └── ...       # 各機能ルート
 │   │   ├── session-manager.ts
 │   │   ├── html-template.ts # HTML テンプレート生成
 │   │   ├── portal.ts
@@ -177,26 +184,32 @@ Bun.Terminal API を使用した組み込み PTY 実装:
 - [docs/optional-field-inventory.md](docs/optional-field-inventory.md) - optional 使用ポリシー
 - [docs/error-handling.md](docs/error-handling.md) - エラーハンドリングポリシー
 
-### HTTP ルーティング (server/http/)
+### HTTP ルーティング (server/elysia/)
 
-HTTP ルートは table-driven routing パターンで定義:
+Elysia フレームワークによるルート定義。Eden Treaty によるクライアント側の型推論で End-to-End 型安全を実現:
 
-- **RouteDef**: ルート定義（method, path, schema, handler）
-- **RouteContext**: ハンドラに渡されるコンテキスト
-- **Result 型返却**: ハンドラは `Result<T, DomainError>` を返す
+- **Elysia プラグイン**: 機能ごとにプラグインとしてルートを定義
+- **TypeBox スキーマ**: ルートの入出力型を TypeBox で定義（Eden の型推論に必要）
+- **Eden Treaty クライアント**: サーバーの型定義から自動推論される型安全なクライアント
 
 ```typescript
-// routes は RouteDef[] として定義
-export const sessionRoutes: RouteDef[] = [
-  {
-    method: 'GET',
-    path: '/api/sessions/:name',
-    handler: async (ctx) => ok(ctx.sessionManager.getSession(ctx.pathParams.name))
-  }
-];
+// server/elysia/sessions.ts - Elysia ルート定義
+export const sessionsRoutes = new Elysia()
+  .get('/api/sessions/:name', ({ params }) => {
+    return sessionManager.getSession(params.name)
+  }, {
+    params: t.Object({ name: t.String() })
+  })
+
+// client/eden-client.ts - Eden による型安全なクライアント
+const client = treaty<App>(baseUrl)
+const { data } = await client.api.sessions({ name }).get()
+// data の型はサーバー定義から自動推論
 ```
 
-詳細は **[docs/route-architecture.md](docs/route-architecture.md)** を参照。
+**注意**: ミドルウェアプラグインは `.as('global')` が必要（Elysia のスコーピングルール）。
+
+詳細は **[docs/adr/066-elysia-eden-migration.md](docs/adr/066-elysia-eden-migration.md)** を参照。
 
 ### ブラウザアーキテクチャ (browser/)
 
