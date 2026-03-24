@@ -30,6 +30,7 @@ import { DebugPanel } from './DebugPanel.js';
 import { FontSizeManager } from './FontSizeManager.js';
 import { InputHandler } from './InputHandler.js';
 import { LayoutManager } from './LayoutManager.js';
+import { MiniBar } from './MiniBar.js';
 import { ModifierKeyState } from './ModifierKeyState.js';
 import { QuoteManager } from './QuoteManager.js';
 import { SearchManager } from './SearchManager.js';
@@ -39,6 +40,7 @@ import { ShareManager } from './ShareManager.js';
 import { SmartPasteManager } from './SmartPasteManager.js';
 import { SnippetManager } from './SnippetManager.js';
 import { TerminalController } from './TerminalController.js';
+import { TerminalStateTracker } from './TerminalStateTracker.js';
 import { TouchGestureHandler } from './TouchGestureHandler.js';
 import { WebSocketConnection } from './WebSocketConnection.js';
 
@@ -70,6 +72,8 @@ class ToolbarApp {
   private quote: QuoteManager;
   private layout: LayoutManager;
   private selectionHandles: SelectionHandleManager;
+  private stateTracker: TerminalStateTracker;
+  private miniBar: MiniBar;
 
   private isMobile: boolean;
 
@@ -105,6 +109,21 @@ class ToolbarApp {
     this.quote = new QuoteManager(config);
     this.layout = new LayoutManager(this.elements.container, () => this.terminal.fitTerminal());
     this.selectionHandles = new SelectionHandleManager();
+    this.stateTracker = new TerminalStateTracker();
+    this.miniBar = new MiniBar(this.stateTracker, {
+      sendArrowUp: () => this.input.sendArrow('up'),
+      sendTab: () => this.input.sendTab(),
+      openSnippet: () => this.elements.snippetBtn.click(),
+      expandToolbar: () => this.toggleToolbar(true),
+      sendCtrlC: () => this.ws.sendBytes([0x03]),
+      toggleSearch: () => this.search.toggle(),
+      goToAgents: () => {
+        window.location.href = `${this.config.base_path}/agents/`;
+      },
+      copySelection: () => {
+        this.terminal.copySelection();
+      }
+    });
   }
 
   /**
@@ -143,8 +162,7 @@ class ToolbarApp {
       enterBtn: document.getElementById('tui-enter') as HTMLButtonElement,
       zoomInBtn: document.getElementById('tui-zoomin') as HTMLButtonElement,
       zoomOutBtn: document.getElementById('tui-zoomout') as HTMLButtonElement,
-      reinitBtn: document.getElementById('tui-reinit') as HTMLButtonElement,
-      reloadBtn: document.getElementById('tui-reload') as HTMLButtonElement,
+
       runBtn: document.getElementById('tui-run') as HTMLButtonElement,
       toggleBtn: document.getElementById('tui-toggle') as HTMLButtonElement,
       ctrlBtn: document.getElementById('tui-ctrl') as HTMLButtonElement,
@@ -340,6 +358,10 @@ class ToolbarApp {
     this.scope.mount(this.smartPaste);
     this.scope.mount(this.layout);
     this.scope.mount(this.selectionHandles);
+    this.scope.mount(this.stateTracker);
+    if (this.isMobile) {
+      this.scope.mount(this.miniBar);
+    }
 
     // Setup bell handler (emits 'notification:bell' via EventBus)
     // Note: WebLinksAddon is already loaded in xterm-bundle.ts, no need to initialize LinkManager
@@ -389,23 +411,6 @@ class ToolbarApp {
     bindClickScoped(scope, elements.zoomOutBtn, () => {
       this.terminal.zoomTerminal(-2);
       toolbarEvents.emit('font:change', this.terminal.currentFontSize);
-    });
-
-    // Reinitialize button - recreate xterm.js instance
-    bindClickScoped(scope, elements.reinitBtn, () => {
-      const success = this.terminal.reinitialize();
-      if (success) {
-        // After reinitialize, fit terminal to container
-        setTimeout(() => this.layout.forceUpdate(), 100);
-      } else {
-        // Fall back to page reload if reinitialize not available
-        this.terminal.forceReload();
-      }
-    });
-
-    // Force reload button - full page reload (mobile only)
-    bindClickScoped(scope, elements.reloadBtn, () => {
-      this.terminal.forceReload();
     });
 
     // Modifier buttons
@@ -895,6 +900,15 @@ class ToolbarApp {
       toggleBtn.title = '入力欄を非表示 (Ctrl+J)';
     } else {
       toggleBtn.title = 'ボタンを非表示 (Ctrl+J)';
+    }
+
+    // Show/hide miniBar on mobile based on toolbar visibility
+    if (this.isMobile) {
+      if (isHidden) {
+        this.miniBar.show();
+      } else {
+        this.miniBar.hide();
+      }
     }
 
     if (isHidden) {
