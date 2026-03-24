@@ -10,50 +10,97 @@ import type { Config } from '@/core/config/types.js';
 import { NativeSessionManager } from './session-manager.js';
 
 // Test config
-const createTestConfig = (): Config => ({
-  base_path: '/bunterm',
-  daemon_port: 7680,
-  listen_addresses: ['127.0.0.1'],
-  listen_sockets: [],
-  auto_attach: true,
-  sessions: [],
-  caddy_admin_api: 'http://localhost:2019',
-  tmux_mode: 'auto',
-  terminal_ui: {
-    font_size_default_mobile: 32,
-    font_size_default_pc: 14,
-    font_size_min: 10,
-    font_size_max: 48,
-    double_tap_delay: 300
-  },
-  notifications: {
-    enabled: false,
-    bell_notification: false,
-    bell_cooldown: 10,
-    patterns: [],
-    default_cooldown: 300
-  },
-  file_transfer: {
-    enabled: false,
-    max_file_size: 100 * 1024 * 1024,
-    allowed_extensions: []
-  },
-  preview: {
-    enabled: false,
-    default_width: 400,
-    debounce_ms: 300,
-    auto_refresh: true,
-    allowed_extensions: ['.html', '.htm']
-  },
-  directory_browser: {
-    enabled: false,
-    allowed_directories: []
-  },
-  native_terminal: {
-    scrollback: 10000,
-    output_buffer_size: 1000
-  }
-});
+const createTestConfig = (): Config =>
+  ({
+    base_path: '/bunterm',
+    daemon_port: 7680,
+    listen_addresses: ['127.0.0.1'],
+    listen_sockets: [],
+    tmux_passthrough: false,
+    sessions: [],
+    caddy_admin_api: 'http://localhost:2019',
+    daemon_manager: 'direct',
+    terminal_ui: {
+      font_size_default_mobile: 32,
+      font_size_default_pc: 14,
+      font_size_min: 10,
+      font_size_max: 48,
+      double_tap_delay: 300,
+      reconnect_retries: 3,
+      reconnect_interval: 2000
+    },
+    notifications: {
+      enabled: false,
+      bell_notification: false,
+      bell_cooldown: 10,
+      patterns: [],
+      default_cooldown: 300
+    },
+    file_transfer: {
+      enabled: false,
+      max_file_size: 100 * 1024 * 1024,
+      allowed_extensions: []
+    },
+    preview: {
+      enabled: false,
+      default_width: 400,
+      debounce_ms: 300,
+      auto_refresh: true,
+      allowed_extensions: ['.html', '.htm'],
+      static_serving: {
+        enabled: true,
+        allowed_extensions: ['.html', '.htm', '.js', '.css', '.json', '.png', '.jpg', '.svg'],
+        spa_fallback: true,
+        max_file_size: 50 * 1024 * 1024
+      }
+    },
+    directory_browser: {
+      enabled: false,
+      allowed_directories: []
+    },
+    sentry: {
+      enabled: false,
+      environment: 'production',
+      sample_rate: 1.0,
+      traces_sample_rate: 0.1,
+      debug: false
+    },
+    native_terminal: {
+      enabled: false,
+      default_shell: '/bin/bash',
+      scrollback: 10000,
+      output_buffer_size: 1000
+    },
+    ai_chat: {
+      enabled: false,
+      default_runner: 'auto',
+      cache_enabled: true,
+      cache_ttl_ms: 3600000,
+      rate_limit_enabled: true,
+      rate_limit_max_requests: 20,
+      rate_limit_window_ms: 60000
+    },
+    security: {
+      dev_mode: false,
+      allowed_origins: [],
+      enable_ws_token_auth: false,
+      ws_token_ttl_seconds: 30,
+      auth_enabled: false,
+      auth_cookie_name: 'bunterm_session',
+      auth_session_ttl_seconds: 86400,
+      auth_localhost_bypass: true,
+      auth_stealth_mode: false,
+      auth_trusted_proxies: [],
+      auth_proxy_header: 'X-Forwarded-User',
+      auth_adaptive_shield: false,
+      auth_lan_session_ttl_seconds: 604800,
+      auth_internet_session_ttl_seconds: 3600
+    },
+    static_offload: {
+      enabled: false,
+      internal_path_prefix: '/_internal_files'
+    }
+  }) as Config;
 
 describe('NativeSessionManager', () => {
   let manager: NativeSessionManager;
@@ -122,10 +169,7 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
   const testDir = process.cwd();
 
   beforeEach(() => {
-    const config = createTestConfig();
-    // Use 'new' mode to avoid tmux session conflicts
-    config.tmux_mode = 'new';
-    manager = new NativeSessionManager(config);
+    manager = new NativeSessionManager(createTestConfig());
   });
 
   afterEach(async () => {
@@ -280,5 +324,36 @@ describe.skipIf(!hasPtySupport)('NativeSessionManager with real PTY', () => {
     await manager.stopAll();
 
     expect(manager.sessionCount).toBe(0);
+  });
+
+  test('createSession with command template', async () => {
+    const config = createTestConfig();
+    config.command = 'echo hello {{name}}';
+    const mgr = new NativeSessionManager(config);
+
+    try {
+      const session = await mgr.createSession({
+        name: 'template-test',
+        dir: testDir,
+        path: '/bunterm/template-test'
+      });
+
+      expect(session).toBeDefined();
+      expect(session.name).toBe('template-test');
+    } finally {
+      await mgr.stopAll();
+    }
+  });
+
+  test('createSession with per-session command override', async () => {
+    const session = await manager.createSession({
+      name: 'override-test',
+      dir: testDir,
+      path: '/bunterm/override-test',
+      command: ['echo', 'hello']
+    });
+
+    expect(session).toBeDefined();
+    expect(session.name).toBe('override-test');
   });
 });

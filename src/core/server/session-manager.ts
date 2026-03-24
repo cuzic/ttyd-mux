@@ -7,9 +7,8 @@
 
 import type { Config, NativeTerminalConfig } from '@/core/config/types.js';
 import type { NativeTerminalWebSocket, TerminalSessionInfo } from '@/core/protocol/index.js';
-import { createPaneCountChangeMessage } from '@/core/protocol/index.js';
 import { TerminalSession } from '@/core/terminal/session.js';
-import { TmuxPaneMonitor } from './tmux-pane-monitor.js';
+import { buildSpawnArgs, expandCommand, sanitizeName } from '@/utils/command-template.js';
 
 export interface NativeSessionOptions {
   /** Session name */
@@ -22,8 +21,8 @@ export interface NativeSessionOptions {
   cols?: number;
   /** Initial terminal rows */
   rows?: number;
-  /** Existing tmux session name to attach to (overrides tmux_mode) */
-  tmuxSession?: string;
+  /** Command template (overrides config.command) */
+  command?: string | string[];
 }
 
 export interface NativeSessionState {
@@ -33,16 +32,10 @@ export interface NativeSessionState {
   pid: number;
   startedAt: string;
   clientCount: number;
-  /** tmux session name if attached to one */
-  tmuxSession?: string;
 }
 
 export class NativeSessionManager {
   private sessions: Map<string, TerminalSession> = new Map();
-  /** Maps session name to tmux session name (if attached) */
-  private tmuxSessionMap: Map<string, string> = new Map();
-  /** Maps session name to TmuxPaneMonitor (for tmux sessions) */
-  private paneMonitors: Map<string, TmuxPaneMonitor> = new Map();
   private readonly config: Config;
   private readonly nativeConfig: NativeTerminalConfig;
 
@@ -55,20 +48,31 @@ export class NativeSessionManager {
    * Create and start a new native terminal session
    */
   async createSession(options: NativeSessionOptions): Promise<TerminalSession> {
-    const { name, dir, cols, rows, tmuxSession } = options;
+    const { name, dir, cols, rows } = options;
 
     // Check if session already exists
     if (this.sessions.has(name)) {
       throw new Error(`Session ${name} already exists`);
     }
 
-    // Build command based on tmux_mode or explicit tmuxSession
-    const command = this.buildCommand(name, { tmuxSession });
+    // Build command from template or default shell
+    const template = options.command ?? this.config.command;
+    let spawnArgs: string[];
+    if (template) {
+      const expanded = expandCommand(template, {
+        name,
+        safeName: sanitizeName(name),
+        dir
+      });
+      spawnArgs = buildSpawnArgs(expanded);
+    } else {
+      spawnArgs = buildSpawnArgs(undefined);
+    }
 
     // Create terminal session
     const session = new TerminalSession({
       name,
-      command,
+      command: spawnArgs,
       cwd: dir,
       cols: cols ?? 80,
       rows: rows ?? 24,
@@ -81,54 +85,16 @@ export class NativeSessionManager {
     // Store session
     this.sessions.set(name, session);
 
-    // Store tmux session mapping if attached
-    if (tmuxSession) {
-      this.tmuxSessionMap.set(name, tmuxSession);
-    }
-
-    // Start pane monitor for tmux sessions
-    const tmuxSessionName = tmuxSession ?? (this.config.tmux_mode !== 'none' ? name : undefined);
-    if (tmuxSessionName) {
-      // Enable allow-passthrough so OSC notification sequences reach the outer terminal
+    // Enable tmux passthrough if configured
+    if (this.config.tmux_passthrough) {
       try {
         Bun.spawnSync(['tmux', 'set-option', '-p', 'allow-passthrough', 'on']);
       } catch {
         // tmux may not be available; ignore
       }
-      this.startPaneMonitor(name, tmuxSessionName, session);
     }
 
     return session;
-  }
-
-  /**
-   * Build the command to run based on tmux_mode or explicit tmuxSession
-   */
-  private buildCommand(sessionName: string, options?: { tmuxSession?: string }): string[] {
-    // If tmuxSession is explicitly specified, attach to that tmux session
-    if (options?.tmuxSession) {
-      return ['tmux', 'attach-session', '-t', options.tmuxSession];
-    }
-
-    const tmuxMode = this.config.tmux_mode;
-
-    switch (tmuxMode) {
-      case 'attach':
-        // Only attach to existing tmux session
-        return ['tmux', 'attach-session', '-t', sessionName];
-
-      case 'new':
-        // Always create new tmux session
-        return ['tmux', 'new-session', '-s', sessionName];
-
-      case 'none':
-        // Direct shell without tmux (for native terminal mode)
-        // Use -i for interactive mode to ensure the shell doesn't exit
-        return [process.env['SHELL'] || '/bin/bash', '-i'];
-      default:
-        // Create or attach (new -A)
-        return ['tmux', 'new-session', '-A', '-s', sessionName];
-    }
   }
 
   /**
@@ -186,8 +152,6 @@ export class NativeSessionManager {
 
     await session.stop();
     this.sessions.delete(name);
-    this.tmuxSessionMap.delete(name);
-    this.stopPaneMonitor(name);
   }
 
   /**
@@ -234,8 +198,7 @@ export class NativeSessionManager {
         path: `${this.config.base_path}/${info.name}`,
         pid: info.pid,
         startedAt: info.startedAt,
-        clientCount: info.clientCount,
-        tmuxSession: this.tmuxSessionMap.get(info.name)
+        clientCount: info.clientCount
       };
     });
   }
@@ -245,19 +208,6 @@ export class NativeSessionManager {
    */
   getSessionInfo(name: string): TerminalSessionInfo | undefined {
     return this.sessions.get(name)?.info;
-  }
-
-  /**
-   * Find a bunterm session that wraps a specific tmux session
-   * Returns the bunterm session name, or undefined if not found
-   */
-  findSessionByTmuxSession(tmuxSessionName: string): string | undefined {
-    for (const [sessionName, tmuxSession] of this.tmuxSessionMap) {
-      if (tmuxSession === tmuxSessionName) {
-        return sessionName;
-      }
-    }
-    return undefined;
   }
 
   /**
@@ -272,36 +222,5 @@ export class NativeSessionManager {
    */
   get sessionCount(): number {
     return this.sessions.size;
-  }
-
-  /**
-   * Start a TmuxPaneMonitor for a session and wire up broadcasting
-   */
-  private startPaneMonitor(
-    sessionName: string,
-    tmuxSessionName: string,
-    session: TerminalSession
-  ): void {
-    const monitor = new TmuxPaneMonitor(tmuxSessionName);
-    monitor.onPaneCountChange((count, panes) => {
-      const message = createPaneCountChangeMessage(
-        count,
-        panes.map((p) => ({ id: p.paneId, command: p.currentCommand, title: p.title }))
-      );
-      session.broadcastMessage(message);
-    });
-    monitor.start();
-    this.paneMonitors.set(sessionName, monitor);
-  }
-
-  /**
-   * Stop and remove a TmuxPaneMonitor for a session
-   */
-  private stopPaneMonitor(name: string): void {
-    const monitor = this.paneMonitors.get(name);
-    if (monitor) {
-      monitor.stop();
-      this.paneMonitors.delete(name);
-    }
   }
 }
