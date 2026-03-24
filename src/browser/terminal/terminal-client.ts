@@ -10,6 +10,7 @@
 
 import type { Terminal as XtermTerminal } from '@xterm/xterm';
 import { match, P } from 'ts-pattern';
+import { toolbarEvents } from '@/browser/shared/events.js';
 import { copyToClipboard } from '@/browser/shared/utils.js';
 import { parseServerMessage } from '@/core/protocol/index.js';
 import { type Block, BlockManager } from './BlockManager.js';
@@ -679,6 +680,7 @@ export class TerminalClient implements Disposable {
         // Block UI messages
         .with({ type: 'blockStart', block: P.not(P.nullish) }, ({ block }) => {
           this.blockManager?.handleBlockStart(block);
+          toolbarEvents.emit('block:start');
         })
         .with(
           {
@@ -690,6 +692,7 @@ export class TerminalClient implements Disposable {
           },
           ({ blockId, exitCode, endedAt, endLine }) => {
             this.blockManager?.handleBlockEnd(blockId, exitCode, endedAt, endLine);
+            toolbarEvents.emit('block:end');
           }
         )
         .with({ type: 'blockOutput', blockId: P.string, data: P.string }, ({ blockId, data }) => {
@@ -715,6 +718,11 @@ export class TerminalClient implements Disposable {
             this.claudeBlockManager?.handleMessage(
               msg as Parameters<ClaudeBlockManager['handleMessage']>[0]
             );
+            if (msg.type === 'claudeToolUse') {
+              toolbarEvents.emit('claude:toolUse');
+            } else if (msg.type === 'claudeSessionEnd') {
+              toolbarEvents.emit('claude:sessionEnd');
+            }
           }
         )
         // TODO: Replace with claude-watcher session count based redirect for agent teams

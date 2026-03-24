@@ -37,6 +37,17 @@ export type ToolbarEvents = {
   'upload:progress': { current: number; total: number };
   'upload:complete': string[];
 
+  // Block UI state
+  'block:start': undefined;
+  'block:end': undefined;
+
+  // Claude watcher state
+  'claude:toolUse': undefined;
+  'claude:sessionEnd': undefined;
+
+  // Selection state
+  'selection:change': boolean;
+
   // Errors
   error: Error;
 };
