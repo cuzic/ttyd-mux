@@ -4,8 +4,6 @@
  * Server infrastructure components for the daemon.
  */
 
-// HTTP Handler
-export { handleHttpRequest } from './http-handler.js';
 // Portal
 export { generateJsonResponse, generatePortalHtml } from './portal.js';
 // Portal Utils
@@ -30,11 +28,3 @@ export {
   type NativeSessionOptions,
   type NativeSessionState
 } from './session-manager.js';
-// WebSocket Handler
-export {
-  type AuthenticatedWebSocketData,
-  createNativeTerminalWebSocketHandlers,
-  isNativeTerminalHtmlPath,
-  isNativeTerminalWebSocketPath,
-  type NativeTerminalWebSocketHandlerOptions
-} from './ws-handler.js';
