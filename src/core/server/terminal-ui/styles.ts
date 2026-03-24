@@ -425,25 +425,6 @@ body:has(#tui.hidden) .xterm-screen {
   display: none;
 }
 
-/* Reinitialize button */
-#tui-reinit {
-  background: #5865f2 !important;
-  border-color: #4752c4 !important;
-}
-
-#tui-reinit:hover, #tui-reinit:active {
-  background: #4752c4 !important;
-}
-
-/* Reload button */
-#tui-reload {
-  background: #ed4245 !important;
-  border-color: #c03537 !important;
-}
-
-#tui-reload:hover, #tui-reload:active {
-  background: #c03537 !important;
-}
 
 /* Mobile optimizations */
 @media (max-width: 768px) {
