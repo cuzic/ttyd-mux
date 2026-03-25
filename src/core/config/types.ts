@@ -308,6 +308,7 @@ export const ConfigSchema = z.object({
   listen_sockets: z.array(z.string()).default([]),
   command: z.union([z.string(), z.array(z.string())]).optional(),
   tmux_passthrough: z.boolean().default(false),
+  attach_on_up: z.boolean().default(false),
   sessions: z.array(SessionDefinitionSchema).default([]),
   hostname: z.string().optional(),
   caddy_admin_api: z.string().default('http://localhost:2019'),

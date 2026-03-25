@@ -54,8 +54,9 @@ export async function upCommand(rawOptions: unknown): Promise<number | undefined
     }
   }
 
-  // Attach to terminal if requested
-  if (options.attach && sessionPath) {
+  // Attach to terminal if requested (CLI flag or config default)
+  const shouldAttach = options.attach ?? config.attach_on_up;
+  if (shouldAttach && sessionPath) {
     const fullPath = getFullPath(config, sessionPath);
     const wsUrl = `ws://localhost:${config.daemon_port}${fullPath}/ws`;
     console.log('Attaching to terminal...');
