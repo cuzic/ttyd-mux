@@ -264,6 +264,51 @@ export class SecurityCheck implements DoctorCheck {
 }
 
 /**
+ * Check if Caddy reverse proxy is reachable (only when hostname is configured)
+ */
+export class CaddyCheck implements DoctorCheck {
+  readonly name = 'caddy';
+
+  async run(ctx: CheckContext): Promise<CheckResult> {
+    if (!ctx.config?.hostname) {
+      return {
+        name: this.name,
+        ok: true,
+        message: 'No hostname configured (Caddy not needed)'
+      };
+    }
+
+    const url = `${ctx.config.caddy_admin_api}/config/`;
+
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(3000) });
+
+      if (!response.ok) {
+        return {
+          name: this.name,
+          ok: true, // warn, not fatal
+          message: `Caddy Admin API returned ${response.status}`,
+          hint: `Check Caddy is running and admin API is accessible at ${ctx.config.caddy_admin_api}`
+        };
+      }
+
+      return {
+        name: this.name,
+        ok: true,
+        message: `Caddy reachable at ${ctx.config.caddy_admin_api}`
+      };
+    } catch {
+      return {
+        name: this.name,
+        ok: true, // warn, not fatal
+        message: `Cannot reach Caddy Admin API at ${ctx.config.caddy_admin_api}`,
+        hint: 'Ensure Caddy is running with admin API enabled'
+      };
+    }
+  }
+}
+
+/**
  * Default checks registry
  */
 export const defaultChecks: DoctorCheck[] = [
@@ -273,7 +318,8 @@ export const defaultChecks: DoctorCheck[] = [
   new EnvCheck(),
   new DaemonCheck(),
   new PortCheck(),
-  new SecurityCheck()
+  new SecurityCheck(),
+  new CaddyCheck()
 ];
 
 /**

@@ -11,7 +11,8 @@ import {
   DEFAULT_SENTRY_CONFIG,
   DEFAULT_TERMINAL_UI_CONFIG
 } from '@/core/config/types.js';
-import { SecurityCheck } from './doctor-service.js';
+import { afterEach, beforeEach, mock } from 'bun:test';
+import { CaddyCheck, SecurityCheck } from './doctor-service.js';
 
 function createConfig(overrides: Partial<Config> = {}): Config {
   return {
@@ -127,5 +128,88 @@ describe('SecurityCheck', () => {
 
     expect(result.ok).toBe(true);
     expect(result.message).toBe('config not loaded, skipped');
+  });
+});
+
+describe('CaddyCheck', () => {
+  const check = new CaddyCheck();
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('skips when no hostname configured', async () => {
+    const config = createConfig();
+
+    const result = await check.run({ config });
+
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe('No hostname configured (Caddy not needed)');
+  });
+
+  it('skips when config not loaded', async () => {
+    const result = await check.run({});
+
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe('No hostname configured (Caddy not needed)');
+  });
+
+  it('passes when Caddy Admin API is reachable', async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(new Response('{}', { status: 200 }))
+    ) as typeof fetch;
+
+    const config = createConfig({ hostname: 'bunterm.example.com' });
+
+    const result = await check.run({ config });
+
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain('Caddy reachable');
+  });
+
+  it('warns when Caddy Admin API returns non-OK status', async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(new Response('', { status: 503 }))
+    ) as typeof fetch;
+
+    const config = createConfig({ hostname: 'bunterm.example.com' });
+
+    const result = await check.run({ config });
+
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain('returned 503');
+    expect(result.hint).toBeDefined();
+  });
+
+  it('warns when Caddy Admin API is unreachable', async () => {
+    globalThis.fetch = mock(() =>
+      Promise.reject(new Error('Connection refused'))
+    ) as typeof fetch;
+
+    const config = createConfig({ hostname: 'bunterm.example.com' });
+
+    const result = await check.run({ config });
+
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain('Cannot reach Caddy Admin API');
+    expect(result.hint).toContain('Ensure Caddy is running');
+  });
+
+  it('uses caddy_admin_api from config', async () => {
+    let calledUrl = '';
+    globalThis.fetch = mock((url: string | URL | Request) => {
+      calledUrl = String(url);
+      return Promise.resolve(new Response('{}', { status: 200 }));
+    }) as typeof fetch;
+
+    const config = createConfig({
+      hostname: 'bunterm.example.com',
+      caddy_admin_api: 'http://caddy:2019'
+    });
+
+    await check.run({ config });
+
+    expect(calledUrl).toBe('http://caddy:2019/config/');
   });
 });
