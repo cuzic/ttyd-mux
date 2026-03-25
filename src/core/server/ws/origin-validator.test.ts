@@ -34,7 +34,7 @@ describe('validateOrigin', () => {
     expect(result.reason).toBe('origin_not_allowed');
   });
 
-  test('rejects missing origin in production mode', () => {
+  test('allows missing origin from localhost (CLI clients)', () => {
     const config = createSecurityConfig({
       devMode: false,
       allowedOrigins: []
@@ -43,8 +43,8 @@ describe('validateOrigin', () => {
     const req = new Request('http://localhost:7680/ws');
 
     const result = validateOrigin(req, config);
-    expect(result.allowed).toBe(false);
-    expect(result.reason).toBe('missing_origin');
+    expect(result.allowed).toBe(true);
+    expect(result.reason).toBe('dev_mode_localhost');
   });
 
   test('allows localhost without origin in dev mode', () => {

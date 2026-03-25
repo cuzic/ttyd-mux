@@ -80,8 +80,8 @@ export function createElysiaApp(deps: ElysiaAppDeps) {
     .use(sharesPlugin)
     .use(staticFilesPlugin)
     .use(previewFilePlugin)
-    .use(pagesPlugin)
-    .use(websocketPlugin());
+    .use(websocketPlugin())
+    .use(pagesPlugin);
 
   return app;
 }

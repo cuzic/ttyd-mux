@@ -74,8 +74,9 @@ export function validateOrigin(req: Request, config: SecurityConfig): Validation
 
   // Check for missing Origin header
   if (!origin) {
-    // Dev mode exception: allow localhost without Origin
-    if (config.devMode && isLocalhost(req)) {
+    // Allow localhost without Origin (CLI clients, non-browser tools)
+    // This is safe: CSWSH attacks come from browsers which always set Origin
+    if (isLocalhost(req)) {
       return { allowed: true, reason: 'dev_mode_localhost' };
     }
     return { allowed: false, reason: 'missing_origin' };
