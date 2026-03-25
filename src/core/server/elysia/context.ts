@@ -10,6 +10,7 @@
 import { Elysia } from 'elysia';
 import type { Config } from '@/core/config/types.js';
 import type { CookieSessionStore } from '@/core/server/auth/cookie-session.js';
+import type { OtpManager } from '@/core/server/auth/otp-manager.js';
 import type { NativeSessionManager } from '@/core/server/session-manager.js';
 import type { CommandExecutorManager } from '@/core/terminal/command-executor-manager.js';
 import type { AgentTimelineService } from '@/features/agent-timeline/server/timeline-service.js';
@@ -24,6 +25,7 @@ export const coreContext = new Elysia({ name: 'core-context' })
   .state('blockEventEmitter', null as null | BlockEventEmitter)
   .state('cookieSessionStore', null as null | CookieSessionStore)
   .state('shareManager', null as null | ShareManager)
+  .state('otpManager', null as null | OtpManager)
   .derive(({ store }) => ({
     sessionManager: store.sessionManager,
     config: store.config,
@@ -31,6 +33,7 @@ export const coreContext = new Elysia({ name: 'core-context' })
     executorManager: store.executorManager,
     blockEventEmitter: store.blockEventEmitter,
     cookieSessionStore: store.cookieSessionStore,
-    shareManager: store.shareManager
+    shareManager: store.shareManager,
+    otpManager: store.otpManager
   }))
   .as('global');

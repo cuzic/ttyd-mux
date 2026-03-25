@@ -8,6 +8,7 @@
 import { existsSync, unlinkSync } from 'node:fs';
 import { getAllPushSubscriptions, getApiSocketPath, getStateDir } from '@/core/config/state.js';
 import type { Config } from '@/core/config/types.js';
+import { OtpManager } from '@/core/server/auth/otp-manager.js';
 import { createElysiaApp } from '@/core/server/elysia/app.js';
 import { rateLimiterPlugin } from '@/core/server/elysia/middleware/rate-limiter.js';
 import { NativeSessionManager } from '@/core/server/session-manager.js';
@@ -85,6 +86,9 @@ export function createNativeTerminalServer(
     eventEmitter: blockEventEmitter
   });
 
+  // Initialize OTP manager for browser authentication
+  const otpManager = config.security?.auth_enabled ? new OtpManager() : null;
+
   // Create and start the Elysia app (rate limiter added here, not in createElysiaApp, to avoid affecting tests)
   const app = createElysiaApp({
     sessionManager,
@@ -93,7 +97,8 @@ export function createNativeTerminalServer(
     executorManager,
     blockEventEmitter,
     cookieSessionStore: options.cookieSessionStore ?? null,
-    shareManager: options.shareManager ?? null
+    shareManager: options.shareManager ?? null,
+    otpManager
   }).use(rateLimiterPlugin);
 
   // Primary: TCP listener (for browsers + WebSocket)

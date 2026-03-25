@@ -2,6 +2,7 @@ import { swagger } from '@elysiajs/swagger';
 import { Elysia } from 'elysia';
 import type { Config } from '@/core/config/types.js';
 import type { CookieSessionStore } from '@/core/server/auth/cookie-session.js';
+import type { OtpManager } from '@/core/server/auth/otp-manager.js';
 import type { NativeSessionManager } from '@/core/server/session-manager.js';
 import type { CommandExecutorManager } from '@/core/terminal/command-executor-manager.js';
 import type { AgentTimelineService } from '@/features/agent-timeline/server/timeline-service.js';
@@ -33,6 +34,7 @@ export interface ElysiaAppDeps {
   blockEventEmitter?: BlockEventEmitter | null;
   cookieSessionStore?: CookieSessionStore | null;
   shareManager?: ShareManager | null;
+  otpManager?: OtpManager | null;
 }
 
 export function createElysiaApp(deps: ElysiaAppDeps) {
@@ -68,6 +70,7 @@ export function createElysiaApp(deps: ElysiaAppDeps) {
     .state('blockEventEmitter', deps.blockEventEmitter ?? null)
     .state('cookieSessionStore', deps.cookieSessionStore ?? null)
     .state('shareManager', deps.shareManager ?? null)
+    .state('otpManager', deps.otpManager ?? null)
     .use(systemPlugin)
     .use(sessionsPlugin)
     .use(agentsPlugin)

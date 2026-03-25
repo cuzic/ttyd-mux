@@ -60,11 +60,7 @@ export const authRoutesPlugin = new Elysia({ prefix: '/api' })
   // POST /api/auth/otp/generate - Generate a 6-digit OTP for browser authentication
   .post(
     '/auth/otp/generate',
-    async ({ query, store, error }) => {
-      // TODO: migrate to coreContext plugin for typed store access
-      const otpManager = (
-        store as { otpManager?: import('@/core/server/auth/otp-manager.js').OtpManager }
-      ).otpManager;
+    async ({ query, otpManager, error }) => {
       if (!otpManager) {
         return error(500, { error: 'OTP_NOT_CONFIGURED', message: 'OTP manager not initialized' });
       }
