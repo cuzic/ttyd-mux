@@ -7,6 +7,8 @@ import { parseCliOptions, type UpOptions, UpOptionsSchema } from '@/core/cli/sch
 import { attachToSession } from '@/core/cli/terminal-attach.js';
 import { startSession as apiStartSession, ensureDaemon, getSessions } from '@/core/client/index.js';
 import { getFullPath, loadConfig } from '@/core/config/config.js';
+import { attachSession as tmuxAttach } from '@/tmux.js';
+import { sanitizeName } from '@/utils/command-template.js';
 import { CliError, getErrorMessage } from '@/utils/errors.js';
 
 export type { UpOptions };
@@ -57,6 +59,16 @@ export async function upCommand(rawOptions: unknown): Promise<number | undefined
   // Attach to terminal if requested (CLI flag or config default)
   const shouldAttach = options.attach ?? config.attach_on_up;
   if (shouldAttach && sessionPath) {
+    // If command uses tmux, delegate to tmux attach (proper terminal multiplexer)
+    const commandStr = Array.isArray(config.command)
+      ? config.command.join(' ')
+      : (config.command ?? '');
+    if (commandStr.includes('tmux')) {
+      const tmuxSessionName = sanitizeName(name);
+      return tmuxAttach(tmuxSessionName);
+    }
+
+    // Non-tmux: use WebSocket terminal attach
     const fullPath = getFullPath(config, sessionPath);
     const wsUrl = `ws://localhost:${config.daemon_port}${fullPath}/ws`;
     console.log('Attaching to terminal...');

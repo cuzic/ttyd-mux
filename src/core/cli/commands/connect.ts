@@ -6,6 +6,8 @@ import { ConnectOptionsSchema, parseCliOptions } from '@/core/cli/schemas.js';
 import { attachToSession } from '@/core/cli/terminal-attach.js';
 import { ensureDaemon, getSessions } from '@/core/client/index.js';
 import { getFullPath, loadConfig } from '@/core/config/config.js';
+import { attachSession as tmuxAttach } from '@/tmux.js';
+import { sanitizeName } from '@/utils/command-template.js';
 import { CliError } from '@/utils/errors.js';
 
 export async function connectCommand(
@@ -28,7 +30,16 @@ export async function connectCommand(
     throw new CliError(`Session '${sessionName}' not found. Run 'bunterm up' first.`);
   }
 
-  // Build WebSocket URL and attach
+  // If command uses tmux, delegate to tmux attach
+  const commandStr = Array.isArray(config.command)
+    ? config.command.join(' ')
+    : (config.command ?? '');
+  if (commandStr.includes('tmux')) {
+    const tmuxSessionName = sanitizeName(sessionName);
+    return tmuxAttach(tmuxSessionName);
+  }
+
+  // Non-tmux: use WebSocket terminal attach
   const fullPath = getFullPath(config, session.path);
   const wsUrl = `ws://localhost:${config.daemon_port}${fullPath}/ws`;
   console.log(`Connecting to ${sessionName}...`);
