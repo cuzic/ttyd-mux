@@ -237,6 +237,75 @@
     }
   }
 
+  // === Performance: RAF Batching & Debouncing ===
+
+  var pendingEvents = [];
+  var rafId = 0;
+  var DEBOUNCE_MS = 100;
+  var debounceTimer = null;
+
+  /** Queue an SSE event for batched DOM update */
+  function queueEvent(event) {
+    pendingEvents.push(event);
+    scheduleFlush();
+  }
+
+  /** Schedule a flush using debounce + RAF */
+  function scheduleFlush() {
+    if (debounceTimer !== null) return;
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null;
+      if (!rafId) {
+        rafId = requestAnimationFrame(flushEvents);
+      }
+    }, DEBOUNCE_MS);
+  }
+
+  /** Process all pending events in a single RAF callback */
+  function flushEvents() {
+    rafId = 0;
+    var batch = pendingEvents;
+    pendingEvents = [];
+    for (var i = 0; i < batch.length; i++) {
+      appendEvent(batch[i]);
+    }
+  }
+
+  // === IntersectionObserver for off-screen cards ===
+
+  var visibleCards = {};
+  var deferredCardUpdates = {}; // agentName -> latest event
+
+  var cardObserver =
+    typeof IntersectionObserver !== 'undefined'
+      ? new IntersectionObserver(
+          (entries) => {
+            for (var i = 0; i < entries.length; i++) {
+              var entry = entries[i];
+              var agentId = entry.target.dataset.agent;
+              if (!agentId) continue;
+              if (entry.isIntersecting) {
+                visibleCards[agentId] = true;
+                // Apply deferred update if any
+                if (deferredCardUpdates[agentId]) {
+                  updateKanbanCard(agentId);
+                  delete deferredCardUpdates[agentId];
+                }
+              } else {
+                delete visibleCards[agentId];
+              }
+            }
+          },
+          { rootMargin: '100px' }
+        )
+      : null;
+
+  /** Check if a card is currently visible (or observer unavailable) */
+  function isCardVisible(agentName) {
+    if (!cardObserver) return true; // no observer = always update
+    return !!visibleCards[agentName];
+  }
+
   // === Auto-scroll tracking ===
 
   function isNearBottom() {
@@ -365,7 +434,9 @@
     trackFilterValues(event);
 
     if (matchesFilters(event)) {
-      container.appendChild(createEventCard(event));
+      var card = createEventCard(event);
+      container.appendChild(card);
+      if (cardObserver) cardObserver.observe(card);
       if (emptyMessage) emptyMessage.style.display = 'none';
       scrollToBottom();
     }
@@ -598,7 +669,7 @@
       setConnectionStatus('disconnected');
     };
 
-    // Listen to all event types
+    // Listen to all event types (batched via queueEvent)
     var eventTypes = [
       'toolUse',
       'toolResult',
@@ -614,7 +685,7 @@
         eventSource.addEventListener(type, (e) => {
           try {
             var event = JSON.parse(e.data);
-            appendEvent(event);
+            queueEvent(event);
           } catch (_err) {
             // Ignore parse errors
           }
@@ -751,7 +822,9 @@
     }
 
     for (var i = 0; i < agents.length; i++) {
-      kanbanCards.appendChild(renderKanbanCard(agents[i]));
+      var card = renderKanbanCard(agents[i]);
+      kanbanCards.appendChild(card);
+      if (cardObserver) cardObserver.observe(card);
     }
 
     // Page dots for mobile
@@ -786,13 +859,22 @@
   function updateKanbanCard(agentName) {
     if (currentView !== 'kanban' || !kanbanCards) return;
 
+    // Defer updates for off-screen cards
+    if (!isCardVisible(agentName)) {
+      deferredCardUpdates[agentName] = true;
+      return;
+    }
+
     var existing = kanbanCards.querySelector(`[data-agent="${agentName}"]`);
     var newCard = renderKanbanCard(agentName);
 
     if (existing) {
       existing.replaceWith(newCard);
+      // Re-observe the new card element
+      if (cardObserver) cardObserver.observe(newCard);
     } else {
       kanbanCards.appendChild(newCard);
+      if (cardObserver) cardObserver.observe(newCard);
       // Update dots when a new card is added
       renderKanbanDots();
     }
