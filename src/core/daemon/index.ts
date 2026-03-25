@@ -1,13 +1,7 @@
-import { existsSync, mkdirSync, unlinkSync } from 'node:fs';
-import { createServer as createUnixServer } from 'node:net';
+import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { getCurrentConfig, initConfigManager, reloadConfig } from '@/core/config/config-manager.js';
-import {
-  clearDaemonState,
-  getSocketPath,
-  getStateDir,
-  setDaemonState
-} from '@/core/config/state.js';
+import { getCurrentConfig, initConfigManager } from '@/core/config/config-manager.js';
+import { clearDaemonState, getStateDir, setDaemonState } from '@/core/config/state.js';
 import type { Config } from '@/core/config/types.js';
 import { InMemoryCookieSessionStore } from '@/core/server/auth/cookie-session.js';
 import { createNativeTerminalServer, type NativeTerminalServer } from '@/core/server/server.js';
@@ -20,20 +14,6 @@ const log = createLogger('daemon');
 export interface DaemonOptions {
   configPath?: string;
   foreground?: boolean;
-}
-
-/**
- * Clean up a socket file if it exists
- */
-function cleanupSocketFile(socketPath: string, label = 'socket'): void {
-  if (existsSync(socketPath)) {
-    try {
-      unlinkSync(socketPath);
-      log.info(`Removed old ${label}: ${socketPath}`);
-    } catch (err) {
-      log.warn(`Failed to remove old ${label} ${socketPath}: ${err}`);
-    }
-  }
 }
 
 export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
@@ -65,7 +45,6 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
   });
 
   const stateDir = getStateDir();
-  const socketPath = getSocketPath();
 
   // Ensure state directory exists
   if (!existsSync(stateDir)) {
@@ -80,20 +59,20 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
     log.info(`Log file enabled: ${logPath}`);
   }
 
-  // Clean up old sockets
-  cleanupSocketFile(socketPath, 'CLI socket');
-
   // Start native terminal daemon (Bun.serve based)
-  await startNativeTerminalDaemon(config, configManager, socketPath, options);
+  await startNativeTerminalDaemon(config, configManager, options);
 }
 
 /**
  * Start daemon in native terminal mode (Bun.serve based)
+ *
+ * The HTTP API (served over both TCP and Unix socket by server.ts)
+ * handles all CLI commands: ping, shutdown, reload.
+ * No separate raw text Unix socket is needed.
  */
 async function startNativeTerminalDaemon(
   config: Config,
   _configManager: ReturnType<typeof initConfigManager>,
-  socketPath: string,
   options: DaemonOptions
 ): Promise<void> {
   log.info('Starting native terminal daemon...');
@@ -106,7 +85,7 @@ async function startNativeTerminalDaemon(
     log.info('Auth session store initialized');
   }
 
-  // Create native terminal server
+  // Create native terminal server (starts both TCP and Unix socket listeners)
   let nativeServer: NativeTerminalServer;
   try {
     nativeServer = createNativeTerminalServer({
@@ -123,50 +102,16 @@ async function startNativeTerminalDaemon(
   setDaemonState({
     pid: process.pid,
     port: config.daemon_port,
+    socket_path: nativeServer.apiSocketPath,
     started_at: new Date().toISOString()
   });
   log.info(`Daemon state saved: pid=${process.pid}`);
-
-  // Create Unix socket for CLI communication
-  const unixServer = createUnixServer((socket) => {
-    socket.on('data', (data) => {
-      const command = data.toString().trim();
-      log.debug(`Unix socket received command: ${command}`);
-      if (command === 'ping') {
-        socket.write('pong');
-      } else if (
-        command === 'shutdown' ||
-        command === 'shutdown-with-sessions' ||
-        command === 'shutdown-with-sessions-kill-tmux'
-      ) {
-        socket.write('ok');
-        shutdownNative();
-      } else if (command === 'reload') {
-        const result = reloadConfig();
-        socket.write(JSON.stringify(result));
-      }
-      socket.end();
-    });
-    socket.on('error', (err) => {
-      log.error(`Unix socket connection error: ${err.message}`);
-    });
-  });
-
-  unixServer.on('error', (err) => {
-    log.error(`Unix server error: ${err.message}`, err.stack);
-  });
-
-  unixServer.listen(socketPath, () => {
-    log.info(`Unix socket listening: ${socketPath}`);
-  });
 
   // Shutdown handler for native mode
   const shutdownNative = async () => {
     log.info('Shutdown requested (native mode)');
     await nativeServer.stop();
     clearDaemonState();
-    unixServer.close();
-    cleanupSocketFile(socketPath, 'CLI socket');
     log.info('Native daemon shutdown complete');
     process.exit(0);
   };

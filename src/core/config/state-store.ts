@@ -18,6 +18,7 @@ export interface StateStore {
   // Path accessors
   getStateDir(): string;
   getSocketPath(): string;
+  getApiSocketPath(): string;
 
   // Raw state access
   loadState(): State;
@@ -65,6 +66,7 @@ export function createInMemoryStateStore(initialState?: Partial<State>): StateSt
   return {
     getStateDir: () => '/tmp/test-state',
     getSocketPath: () => '/tmp/test-state/bunterm.sock',
+    getApiSocketPath: () => '/tmp/test-state/bunterm-api.sock',
 
     loadState: () => ({ ...state, sessions: [...state.sessions] }),
     saveState: (newState: State) => {

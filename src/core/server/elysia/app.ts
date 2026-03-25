@@ -22,6 +22,7 @@ import { previewFilePlugin, previewPlugin } from './preview.js';
 import { sessionsPlugin } from './sessions.js';
 import { sharesPlugin } from './shares.js';
 import { staticFilesPlugin } from './static-files.js';
+import { systemPlugin } from './system.js';
 import { websocketPlugin } from './websocket.js';
 
 export interface ElysiaAppDeps {
@@ -67,6 +68,7 @@ export function createElysiaApp(deps: ElysiaAppDeps) {
     .state('blockEventEmitter', deps.blockEventEmitter ?? null)
     .state('cookieSessionStore', deps.cookieSessionStore ?? null)
     .state('shareManager', deps.shareManager ?? null)
+    .use(systemPlugin)
     .use(sessionsPlugin)
     .use(agentsPlugin)
     .use(blocksPlugin)

@@ -5,7 +5,8 @@
  * All routes, middleware, and WebSocket handlers are registered in the Elysia app.
  */
 
-import { getAllPushSubscriptions, getStateDir } from '@/core/config/state.js';
+import { existsSync, unlinkSync } from 'node:fs';
+import { getAllPushSubscriptions, getApiSocketPath, getStateDir } from '@/core/config/state.js';
 import type { Config } from '@/core/config/types.js';
 import { createElysiaApp } from '@/core/server/elysia/app.js';
 import { rateLimiterPlugin } from '@/core/server/elysia/middleware/rate-limiter.js';
@@ -30,6 +31,7 @@ export interface NativeTerminalServerOptions {
 
 export interface NativeTerminalServer {
   sessionManager: NativeSessionManager;
+  apiSocketPath: string;
   stop: () => Promise<void>;
 }
 
@@ -94,6 +96,7 @@ export function createNativeTerminalServer(
     shareManager: options.shareManager ?? null
   }).use(rateLimiterPlugin);
 
+  // Primary: TCP listener (for browsers + WebSocket)
   app.listen({
     port: config.daemon_port,
     hostname: config.listen_addresses[0] || '127.0.0.1'
@@ -101,12 +104,36 @@ export function createNativeTerminalServer(
 
   log.info(`Native terminal server started on ${config.listen_addresses[0]}:${config.daemon_port}`);
 
+  // Secondary: Unix socket listener (for CLI API, REST-only)
+  const apiSocketPath = getApiSocketPath();
+  if (existsSync(apiSocketPath)) {
+    try {
+      unlinkSync(apiSocketPath);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+  const unixServer = Bun.serve({
+    unix: apiSocketPath,
+    fetch: app.fetch
+  });
+  log.info(`Unix socket API listening: ${apiSocketPath}`);
+
   return {
     sessionManager,
+    apiSocketPath,
     async stop() {
       timelineService.dispose();
       await sessionManager.stopAll();
       app.stop();
+      unixServer.stop();
+      if (existsSync(apiSocketPath)) {
+        try {
+          unlinkSync(apiSocketPath);
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
     }
   };
 }

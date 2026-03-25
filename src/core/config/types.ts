@@ -331,6 +331,7 @@ export type Config = z.infer<typeof ConfigSchema>;
 export const DaemonStateSchema = z.object({
   pid: z.number().int().positive(),
   port: z.number().int().min(1).max(65535),
+  socket_path: z.string().optional(),
   started_at: z.string()
 });
 

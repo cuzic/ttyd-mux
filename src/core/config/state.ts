@@ -36,6 +36,10 @@ function getSocketFilePath(): string {
   return join(getStateDirPath(), 'bunterm.sock');
 }
 
+function getApiSocketFilePath(): string {
+  return join(getStateDirPath(), 'bunterm-api.sock');
+}
+
 export function getConfigDir(): string {
   return getConfigDirPath();
 }
@@ -46,6 +50,10 @@ export function getStateDir(): string {
 
 export function getSocketPath(): string {
   return getSocketFilePath();
+}
+
+export function getApiSocketPath(): string {
+  return getApiSocketFilePath();
 }
 
 function ensureStateDir(): void {
@@ -249,6 +257,7 @@ export function getAllPushSubscriptions(): PushSubscriptionState[] {
 export const defaultStateStore: StateStore = {
   getStateDir,
   getSocketPath,
+  getApiSocketPath,
   loadState,
   saveState,
   getDaemonState,
