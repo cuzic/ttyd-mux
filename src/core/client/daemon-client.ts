@@ -97,46 +97,30 @@ export interface ShutdownDaemonOptions {
 }
 
 /**
- * Shutdown daemon via socket command
+ * Shutdown daemon via HTTP API over Unix socket
  */
 export async function shutdownDaemon(options: ShutdownDaemonOptions = {}): Promise<void> {
   const deps = getDaemonClientDeps();
-  const socketPath = deps.stateStore.getSocketPath();
+  const socketPath = deps.stateStore.getApiSocketPath();
 
   if (!(await deps.socketClient.exists(socketPath))) {
     return;
   }
 
-  let command: string;
-  if (options.stopSessions && options.killTmux) {
-    command = 'shutdown-with-sessions-kill-tmux';
-  } else if (options.stopSessions) {
-    command = 'shutdown-with-sessions';
-  } else {
-    command = 'shutdown';
+  try {
+    await fetch('http://localhost/api/shutdown', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        stopSessions: options.stopSessions ?? false,
+        killTmux: options.killTmux ?? false
+      }),
+      unix: socketPath,
+      signal: AbortSignal.timeout(5000)
+    } as RequestInit);
+  } catch {
+    // Server may shut down before responding — that's expected
   }
-
-  return new Promise((resolve, reject) => {
-    const socket = deps.socketClient.connect(socketPath);
-
-    socket.on('connect', () => {
-      socket.write(command);
-    });
-
-    socket.on('data', (data) => {
-      const response = data.toString().trim();
-      socket.end();
-      if (response === 'ok') {
-        resolve();
-      } else {
-        reject(new Error('Unexpected response'));
-      }
-    });
-
-    socket.on('error', (err) => {
-      reject(err);
-    });
-  });
 }
 
 export interface RestartDaemonOptions {

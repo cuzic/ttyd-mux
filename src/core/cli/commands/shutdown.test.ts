@@ -1,41 +1,10 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
-import { EventEmitter } from 'node:events';
-import type { Socket } from 'node:net';
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test';
 import { resetDaemonClientDeps, setDaemonClientDeps } from '@/core/client/daemon-client.js';
 import { createInMemoryStateStore } from '@/core/config/state-store.js';
 import { createMockSocketClient } from '@/utils/socket-client.js';
 import { shutdownCommand } from './shutdown.js';
 
-/**
- * Create a mock Socket for testing that properly simulates connect -> write -> data flow
- */
-function createMockSocketWithResponse(
-  commands: string[],
-  responseMap: Record<string, string>
-): Socket {
-  const emitter = new EventEmitter() as Socket;
-
-  emitter.write = (data: string | Buffer) => {
-    const cmd = data.toString();
-    commands.push(cmd);
-    const response = responseMap[cmd] ?? 'unknown';
-    setTimeout(() => {
-      emitter.emit('data', Buffer.from(response));
-    }, 5);
-    return true;
-  };
-
-  emitter.end = () => emitter;
-  emitter.destroy = () => emitter;
-  emitter.setTimeout = () => emitter;
-
-  // Emit connect after a small delay
-  setTimeout(() => {
-    emitter.emit('connect');
-  }, 5);
-
-  return emitter;
-}
+const originalFetch = globalThis.fetch;
 
 describe('shutdown command', () => {
   let consoleLogSpy: ReturnType<typeof spyOn>;
@@ -51,6 +20,7 @@ describe('shutdown command', () => {
   afterEach(() => {
     consoleLogSpy.mockRestore();
     resetDaemonClientDeps();
+    globalThis.fetch = originalFetch;
   });
 
   test('prints message when daemon is not running', async () => {
@@ -68,45 +38,69 @@ describe('shutdown command', () => {
 
   test('shuts down daemon without stopping sessions by default', async () => {
     const stateStore = createInMemoryStateStore();
-    const commands: string[] = [];
-
     const socketClient = createMockSocketClient({
-      exists: async () => true,
-      connect: () =>
-        createMockSocketWithResponse(commands, {
-          ping: 'pong',
-          shutdown: 'ok'
-        })
+      exists: async () => true
     });
+
+    const fetchUrls: string[] = [];
+    globalThis.fetch = mock((url: string | URL | Request) => {
+      const urlStr = url.toString();
+      fetchUrls.push(urlStr);
+      if (urlStr.includes('/api/ping')) {
+        return Promise.resolve(new Response(JSON.stringify({ status: 'ok' }), { status: 200 }));
+      }
+      if (urlStr.includes('/api/shutdown')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ status: 'shutting_down', stopSessions: false, killTmux: false }),
+            { status: 200 }
+          )
+        );
+      }
+      return Promise.resolve(new Response('Not Found', { status: 404 }));
+    }) as typeof fetch;
 
     setDaemonClientDeps({ stateStore, socketClient });
 
     await shutdownCommand({});
 
-    expect(commands).toContain('ping');
-    expect(commands).toContain('shutdown');
+    expect(fetchUrls.some((u) => u.includes('/api/ping'))).toBe(true);
+    expect(fetchUrls.some((u) => u.includes('/api/shutdown'))).toBe(true);
     expect(logs.some((log) => log.includes('sessions will be preserved'))).toBe(true);
   });
 
   test('stops sessions when --stop-sessions option is provided', async () => {
     const stateStore = createInMemoryStateStore();
-    const commands: string[] = [];
-
     const socketClient = createMockSocketClient({
-      exists: async () => true,
-      connect: () =>
-        createMockSocketWithResponse(commands, {
-          ping: 'pong',
-          'shutdown-with-sessions': 'ok'
-        })
+      exists: async () => true
     });
+
+    const fetchBodies: unknown[] = [];
+    globalThis.fetch = mock((url: string | URL | Request, init?: RequestInit) => {
+      const urlStr = url.toString();
+      if (urlStr.includes('/api/ping')) {
+        return Promise.resolve(new Response(JSON.stringify({ status: 'ok' }), { status: 200 }));
+      }
+      if (urlStr.includes('/api/shutdown')) {
+        if (init?.body) {
+          fetchBodies.push(JSON.parse(init.body as string));
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ status: 'shutting_down', stopSessions: true, killTmux: false }),
+            { status: 200 }
+          )
+        );
+      }
+      return Promise.resolve(new Response('Not Found', { status: 404 }));
+    }) as typeof fetch;
 
     setDaemonClientDeps({ stateStore, socketClient });
 
     await shutdownCommand({ stopSessions: true });
 
-    expect(commands).toContain('ping');
-    expect(commands).toContain('shutdown-with-sessions');
+    expect(fetchBodies.length).toBeGreaterThan(0);
+    expect((fetchBodies[0] as { stopSessions: boolean }).stopSessions).toBe(true);
     expect(logs.some((log) => log.includes('Stopping all sessions'))).toBe(true);
   });
 });

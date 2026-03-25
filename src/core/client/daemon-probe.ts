@@ -1,77 +1,52 @@
 /**
  * Daemon Probe
  *
- * Socket-based daemon communication: ping and command sending.
+ * HTTP-based daemon health check and command sending via Unix socket.
  */
 
 import { getDaemonClientDeps } from './daemon-client-deps.js';
 
 /**
- * Check if daemon is running by pinging the socket
+ * Check if daemon is running by pinging the HTTP API over Unix socket
  */
 export async function isDaemonRunning(): Promise<boolean> {
   const deps = getDaemonClientDeps();
-  const socketPath = deps.stateStore.getSocketPath();
+  const socketPath = deps.stateStore.getApiSocketPath();
 
   if (!(await deps.socketClient.exists(socketPath))) {
     return false;
   }
 
-  return new Promise((resolve) => {
-    const socket = deps.socketClient.connect(socketPath);
-
-    socket.on('connect', () => {
-      socket.write('ping');
-    });
-
-    socket.on('data', (data) => {
-      const response = data.toString().trim();
-      socket.end();
-      resolve(response === 'pong');
-    });
-
-    socket.on('error', () => {
-      resolve(false);
-    });
-
-    socket.setTimeout(1000, () => {
-      socket.destroy();
-      resolve(false);
-    });
-  });
+  try {
+    const res = await fetch('http://localhost/api/ping', {
+      unix: socketPath,
+      signal: AbortSignal.timeout(1000)
+    } as RequestInit);
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 /**
- * Send a command to the daemon and get response
+ * Send a command to the daemon and get response via HTTP API
  */
 export async function sendCommand(command: string): Promise<string | null> {
   const deps = getDaemonClientDeps();
-  const socketPath = deps.stateStore.getSocketPath();
+  const socketPath = deps.stateStore.getApiSocketPath();
 
   if (!(await deps.socketClient.exists(socketPath))) {
     return null;
   }
 
-  return new Promise((resolve, reject) => {
-    const socket = deps.socketClient.connect(socketPath);
-
-    socket.on('connect', () => {
-      socket.write(command);
-    });
-
-    socket.on('data', (data) => {
-      const response = data.toString().trim();
-      socket.end();
-      resolve(response);
-    });
-
-    socket.on('error', (err) => {
-      reject(err);
-    });
-
-    socket.setTimeout(5000, () => {
-      socket.destroy();
-      reject(new Error('Command timeout'));
-    });
-  });
+  try {
+    const res = await fetch(`http://localhost/api/${command}`, {
+      method: 'POST',
+      unix: socketPath,
+      signal: AbortSignal.timeout(5000)
+    } as RequestInit);
+    return await res.text();
+  } catch {
+    return null;
+  }
 }

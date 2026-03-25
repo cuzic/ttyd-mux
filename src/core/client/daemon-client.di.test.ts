@@ -1,6 +1,4 @@
-import { describe, expect, test } from 'bun:test';
-import { EventEmitter } from 'node:events';
-import type { Socket } from 'node:net';
+import { afterEach, describe, expect, mock, test } from 'bun:test';
 import { createInMemoryStateStore } from '@/core/config/state-store.js';
 import { createMockProcessRunner } from '@/utils/process-runner.js';
 import { createMockSocketClient } from '@/utils/socket-client.js';
@@ -12,17 +10,12 @@ import {
   shutdownDaemon
 } from './daemon-client.js';
 
-/**
- * Create a mock Socket for testing
- */
-function createMockSocket(): Socket {
-  const emitter = new EventEmitter() as Socket;
-  emitter.write = () => true;
-  emitter.end = () => emitter;
-  emitter.destroy = () => emitter;
-  emitter.setTimeout = () => emitter;
-  return emitter;
-}
+const originalFetch = globalThis.fetch;
+
+afterEach(() => {
+  resetDaemonClientDeps();
+  globalThis.fetch = originalFetch;
+});
 
 describe('DaemonClient with DI', () => {
   describe('isDaemonRunning', () => {
@@ -37,150 +30,110 @@ describe('DaemonClient with DI', () => {
       const result = await isDaemonRunning();
 
       expect(result).toBe(false);
-
-      resetDaemonClientDeps();
     });
 
-    test('returns true when daemon responds with pong', async () => {
+    test('returns true when daemon responds with ok', async () => {
       const stateStore = createInMemoryStateStore();
-      const mockSocket = createMockSocket();
-
       const socketClient = createMockSocketClient({
-        exists: async () => true,
-        connect: () => {
-          // Simulate async connection and response
-          setTimeout(() => {
-            mockSocket.emit('connect');
-          }, 10);
-          setTimeout(() => {
-            mockSocket.emit('data', Buffer.from('pong'));
-          }, 20);
-          return mockSocket;
-        }
+        exists: async () => true
       });
+
+      globalThis.fetch = mock(() =>
+        Promise.resolve(new Response(JSON.stringify({ status: 'ok' }), { status: 200 }))
+      ) as typeof fetch;
 
       setDaemonClientDeps({ stateStore, socketClient });
 
       const result = await isDaemonRunning();
 
       expect(result).toBe(true);
-
-      resetDaemonClientDeps();
     });
 
-    test('returns false when daemon responds with unexpected data', async () => {
+    test('returns false when fetch fails', async () => {
       const stateStore = createInMemoryStateStore();
-      const mockSocket = createMockSocket();
-
       const socketClient = createMockSocketClient({
-        exists: async () => true,
-        connect: () => {
-          setTimeout(() => {
-            mockSocket.emit('connect');
-          }, 10);
-          setTimeout(() => {
-            mockSocket.emit('data', Buffer.from('unknown'));
-          }, 20);
-          return mockSocket;
-        }
+        exists: async () => true
       });
+
+      globalThis.fetch = mock(() =>
+        Promise.reject(new Error('Connection refused'))
+      ) as typeof fetch;
 
       setDaemonClientDeps({ stateStore, socketClient });
 
       const result = await isDaemonRunning();
 
       expect(result).toBe(false);
-
-      resetDaemonClientDeps();
     });
 
-    test('returns false on connection error', async () => {
+    test('returns false when response is not ok', async () => {
       const stateStore = createInMemoryStateStore();
-      const mockSocket = createMockSocket();
-
       const socketClient = createMockSocketClient({
-        exists: async () => true,
-        connect: () => {
-          setTimeout(() => {
-            mockSocket.emit('error', new Error('Connection refused'));
-          }, 10);
-          return mockSocket;
-        }
+        exists: async () => true
       });
+
+      globalThis.fetch = mock(() =>
+        Promise.resolve(new Response('Not Found', { status: 404 }))
+      ) as typeof fetch;
 
       setDaemonClientDeps({ stateStore, socketClient });
 
       const result = await isDaemonRunning();
 
       expect(result).toBe(false);
-
-      resetDaemonClientDeps();
     });
   });
 
   describe('shutdownDaemon', () => {
-    test('sends shutdown command when socket exists', async () => {
+    test('sends shutdown request when socket exists', async () => {
       const stateStore = createInMemoryStateStore();
-      const mockSocket = createMockSocket();
-      let writtenCommand = '';
-
-      mockSocket.write = (data: string | Buffer) => {
-        writtenCommand = data.toString();
-        return true;
-      };
-
       const socketClient = createMockSocketClient({
-        exists: async () => true,
-        connect: () => {
-          setTimeout(() => {
-            mockSocket.emit('connect');
-          }, 10);
-          setTimeout(() => {
-            mockSocket.emit('data', Buffer.from('ok'));
-          }, 20);
-          return mockSocket;
-        }
+        exists: async () => true
       });
+      const mockFetch = mock(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({ status: 'shutting_down', stopSessions: false, killTmux: false }),
+            { status: 200 }
+          )
+        )
+      ) as typeof fetch;
+      globalThis.fetch = mockFetch;
 
       setDaemonClientDeps({ stateStore, socketClient });
 
       await shutdownDaemon();
 
-      expect(writtenCommand).toBe('shutdown');
-
-      resetDaemonClientDeps();
+      expect(mockFetch).toHaveBeenCalled();
+      const [url] = (mockFetch as ReturnType<typeof mock>).mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('http://localhost/api/shutdown');
     });
 
-    test('sends shutdown-with-sessions command when stopSessions is true', async () => {
+    test('sends stopSessions option in body', async () => {
       const stateStore = createInMemoryStateStore();
-      const mockSocket = createMockSocket();
-      let writtenCommand = '';
-
-      mockSocket.write = (data: string | Buffer) => {
-        writtenCommand = data.toString();
-        return true;
-      };
-
       const socketClient = createMockSocketClient({
-        exists: async () => true,
-        connect: () => {
-          setTimeout(() => {
-            mockSocket.emit('connect');
-          }, 10);
-          setTimeout(() => {
-            mockSocket.emit('data', Buffer.from('ok'));
-          }, 20);
-          return mockSocket;
-        }
+        exists: async () => true
       });
+      const mockFetch = mock(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({ status: 'shutting_down', stopSessions: true, killTmux: false }),
+            { status: 200 }
+          )
+        )
+      ) as typeof fetch;
+      globalThis.fetch = mockFetch;
 
       setDaemonClientDeps({ stateStore, socketClient });
 
       await shutdownDaemon({ stopSessions: true });
 
-      expect(writtenCommand).toBe('shutdown-with-sessions');
-
-      resetDaemonClientDeps();
+      const [, init] = (mockFetch as ReturnType<typeof mock>).mock.calls[0] as [
+        string,
+        RequestInit & { unix?: string }
+      ];
+      const body = JSON.parse(init.body as string);
+      expect(body.stopSessions).toBe(true);
     });
 
     test('resolves immediately when socket does not exist', async () => {
@@ -193,74 +146,34 @@ describe('DaemonClient with DI', () => {
 
       // Should not throw and resolve quickly
       await shutdownDaemon();
-
-      resetDaemonClientDeps();
     });
 
-    test('rejects on unexpected response', async () => {
+    test('resolves even when fetch fails (server shutting down)', async () => {
       const stateStore = createInMemoryStateStore();
-      const mockSocket = createMockSocket();
-
       const socketClient = createMockSocketClient({
-        exists: async () => true,
-        connect: () => {
-          setTimeout(() => {
-            mockSocket.emit('connect');
-          }, 10);
-          setTimeout(() => {
-            mockSocket.emit('data', Buffer.from('error'));
-          }, 20);
-          return mockSocket;
-        }
+        exists: async () => true
       });
+
+      globalThis.fetch = mock(() => Promise.reject(new Error('Connection reset'))) as typeof fetch;
 
       setDaemonClientDeps({ stateStore, socketClient });
 
-      await expect(shutdownDaemon()).rejects.toThrow('Unexpected response');
-
-      resetDaemonClientDeps();
-    });
-
-    test('rejects on connection error', async () => {
-      const stateStore = createInMemoryStateStore();
-      const mockSocket = createMockSocket();
-
-      const socketClient = createMockSocketClient({
-        exists: async () => true,
-        connect: () => {
-          setTimeout(() => {
-            mockSocket.emit('error', new Error('Connection refused'));
-          }, 10);
-          return mockSocket;
-        }
-      });
-
-      setDaemonClientDeps({ stateStore, socketClient });
-
-      await expect(shutdownDaemon()).rejects.toThrow('Connection refused');
-
-      resetDaemonClientDeps();
+      // Should not throw — connection loss is expected during shutdown
+      await shutdownDaemon();
     });
   });
 
   describe('ensureDaemon', () => {
     test('does not spawn if daemon is already running', async () => {
       const stateStore = createInMemoryStateStore();
-      const mockSocket = createMockSocket();
+      const socketClient = createMockSocketClient({
+        exists: async () => true
+      });
       let spawnCalled = false;
 
-      const socketClient = createMockSocketClient({
-        exists: async () => true,
-        connect: () => {
-          setTimeout(() => {
-            mockSocket.emit('connect');
-          }, 10);
-          setTimeout(() => {
-            mockSocket.emit('data', Buffer.from('pong'));
-          }, 20);
-          return mockSocket;
-        }
-      });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(new Response(JSON.stringify({ status: 'ok' }), { status: 200 }))
+      ) as typeof fetch;
 
       const processRunner = createMockProcessRunner({
         spawn: () => {
@@ -274,8 +187,6 @@ describe('DaemonClient with DI', () => {
       await ensureDaemon();
 
       expect(spawnCalled).toBe(false);
-
-      resetDaemonClientDeps();
     });
   });
 });
