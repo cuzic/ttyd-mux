@@ -6,9 +6,8 @@ import { buildSessionUrl } from '@/core/cli/helpers/url-builder.js';
 import { parseCliOptions, type UpOptions, UpOptionsSchema } from '@/core/cli/schemas.js';
 import { attachToSession } from '@/core/cli/terminal-attach.js';
 import { startSession as apiStartSession, ensureDaemon, getSessions } from '@/core/client/index.js';
-import { getFullPath, loadConfig } from '@/core/config/config.js';
-import { attachSession as tmuxAttach } from '@/tmux.js';
-import { sanitizeName } from '@/utils/command-template.js';
+import { loadConfig } from '@/core/config/config.js';
+import { getStateDir } from '@/core/config/state.js';
 import { CliError, getErrorMessage } from '@/utils/errors.js';
 
 export type { UpOptions };
@@ -22,7 +21,7 @@ export async function upCommand(rawOptions: unknown): Promise<number | undefined
   // Ensure daemon is running
   await ensureDaemon(options.config, config.daemon_manager);
 
-  let sessionPath: string | undefined;
+  let sessionName: string | undefined;
 
   try {
     const session = await apiStartSession(config, {
@@ -30,7 +29,7 @@ export async function upCommand(rawOptions: unknown): Promise<number | undefined
       dir
     });
 
-    sessionPath = session.path;
+    sessionName = session.name;
     const url = buildSessionUrl(config, session.path);
     console.log(`Session started: ${session.name}`);
     console.log(`URL: ${url}`);
@@ -43,7 +42,7 @@ export async function upCommand(rawOptions: unknown): Promise<number | undefined
       const existing = sessions.find((s) => s.name === name);
 
       if (existing) {
-        sessionPath = existing.path;
+        sessionName = existing.name;
         const url = buildSessionUrl(config, existing.path);
         console.log(`Session '${name}' is already running.`);
         console.log(`URL: ${url}`);
@@ -58,21 +57,11 @@ export async function upCommand(rawOptions: unknown): Promise<number | undefined
 
   // Attach to terminal if requested (CLI flag or config default)
   const shouldAttach = options.attach ?? config.attach_on_up;
-  if (shouldAttach && sessionPath) {
-    // If command uses tmux, delegate to tmux attach (proper terminal multiplexer)
-    const commandStr = Array.isArray(config.command)
-      ? config.command.join(' ')
-      : (config.command ?? '');
-    if (commandStr.includes('tmux')) {
-      const tmuxSessionName = sanitizeName(name);
-      return tmuxAttach(tmuxSessionName);
-    }
-
-    // Non-tmux: use WebSocket terminal attach
-    const fullPath = getFullPath(config, sessionPath);
-    const wsUrl = `ws://localhost:${config.daemon_port}${fullPath}/ws`;
+  if (shouldAttach && sessionName) {
+    const stateDir = getStateDir();
+    const socketPath = `${stateDir}/sessions/${sessionName}.sock`;
     console.log('Attaching to terminal...');
-    return attachToSession({ url: wsUrl });
+    return attachToSession({ socketPath });
   }
 
   return undefined;

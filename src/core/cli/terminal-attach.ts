@@ -1,50 +1,67 @@
 /**
- * Terminal Attach — CLI WebSocket client for connecting to bunterm sessions
+ * Terminal Attach — CLI client for connecting to bunterm sessions via Unix socket
  *
- * Connects to a running session via WebSocket, bridges stdin/stdout
- * with the remote PTY, handling raw mode and terminal resize.
- *
- * Note: This is CLI-only code (not browser), so we use ws.onopen/onmessage
- * property handlers instead of addEventListener (which triggers the browser
- * scope.on lint rule).
+ * Connects to a running session via Unix domain socket, bridges stdin/stdout
+ * with the remote PTY using a binary relay protocol (no JSON, no base64).
  */
 
+import { access } from 'node:fs/promises';
+import { createConnection, type Socket } from 'node:net';
+
 import { filterDAResponses, filterFocusEvents } from '@/core/terminal/da-responder.js';
+import { createResizeMessage, parseControlMessage } from '@/utils/socket-relay.js';
 
 export interface AttachOptions {
-  /** WebSocket URL (ws://localhost:7680/bunterm/session-name/ws) */
-  url: string;
+  /** Unix socket path (e.g. ~/.local/state/bunterm/sessions/{name}.sock) */
+  socketPath: string;
 }
 
 /**
- * Attach to a remote terminal session via WebSocket.
+ * Attach to a remote terminal session via Unix socket.
  * Returns exit code (0 = clean close, 1 = error).
  */
 export async function attachToSession(options: AttachOptions): Promise<number> {
+  // Check socket exists before attempting connection
+  try {
+    await access(options.socketPath);
+  } catch {
+    process.stderr.write(`Error: Socket not found: ${options.socketPath}\n`);
+    return 1;
+  }
+
   return new Promise((resolve) => {
-    const ws = new WebSocket(options.url);
     let rawModeSet = false;
+    let resolved = false;
+
+    const resolveOnce = (code: number) => {
+      if (resolved) return;
+      resolved = true;
+      cleanup();
+      resolve(code);
+    };
+
+    const socket: Socket = createConnection(options.socketPath);
 
     const onStdinData = (data: Buffer) => {
-      if (ws.readyState !== WebSocket.OPEN) return;
+      if (socket.destroyed) return;
 
       // Filter DA responses and focus events from outer terminal
-      // (outer terminal responds to DA queries from inner PTY)
       let text = data.toString('utf-8');
       text = filterDAResponses(text) ?? '';
       text = filterFocusEvents(text) ?? '';
       if (!text) return;
 
-      ws.send(
-        JSON.stringify({ type: 'input', data: Buffer.from(text, 'utf-8').toString('base64') })
-      );
+      socket.write(Buffer.from(text, 'utf-8'));
     };
 
     const onResize = () => {
-      sendResize(ws);
+      if (socket.destroyed) return;
+      if (process.stdout.columns && process.stdout.rows) {
+        socket.write(createResizeMessage(process.stdout.columns, process.stdout.rows));
+      }
     };
 
-    ws.onopen = () => {
+    socket.on('connect', () => {
       // Enter raw mode so keystrokes are forwarded immediately
       if (process.stdin.isTTY) {
         process.stdin.setRawMode(true);
@@ -55,65 +72,27 @@ export async function attachToSession(options: AttachOptions): Promise<number> {
       process.stdout.on('resize', onResize);
 
       // Send initial terminal size
-      sendResize(ws);
-    };
+      onResize();
+    });
 
-    ws.onmessage = (event) => {
-      if (typeof event.data === 'string') {
-        try {
-          const msg = JSON.parse(event.data);
-          switch (msg.type) {
-            case 'output':
-              // Output data is base64-encoded
-              if (msg.data) {
-                process.stdout.write(Buffer.from(msg.data, 'base64'));
-              }
-              break;
-            case 'exit':
-              // Session exited — close gracefully
-              cleanup();
-              resolve(typeof msg.code === 'number' ? msg.code : 0);
-              ws.close();
-              break;
-            case 'error':
-              if (msg.message) {
-                process.stderr.write(`Error: ${msg.message}\n`);
-              }
-              break;
-            case 'bell':
-              // Terminal bell — write BEL character
-              process.stdout.write('\x07');
-              break;
-            // Ignore pong, title, block*, fileChange, AI messages
-          }
-        } catch {
-          // Not JSON — write raw
-          process.stdout.write(event.data);
-        }
+    socket.on('data', (data: Buffer) => {
+      // Check for control messages (e.g. exit notification from server)
+      const ctrl = parseControlMessage(data);
+      if (ctrl) {
+        // Control messages from server (resize ack etc.) — ignore on client side
+        return;
       }
-    };
+      // Raw PTY output — write directly to stdout
+      process.stdout.write(data);
+    });
 
-    ws.onclose = () => {
-      cleanup();
-      resolve(0);
-    };
+    socket.on('error', () => {
+      resolveOnce(1);
+    });
 
-    ws.onerror = () => {
-      cleanup();
-      resolve(1);
-    };
-
-    function sendResize(socket: WebSocket) {
-      if (socket.readyState === WebSocket.OPEN && process.stdout.columns && process.stdout.rows) {
-        socket.send(
-          JSON.stringify({
-            type: 'resize',
-            cols: process.stdout.columns,
-            rows: process.stdout.rows
-          })
-        );
-      }
-    }
+    socket.on('close', () => {
+      resolveOnce(0);
+    });
 
     function cleanup() {
       process.stdin.removeListener('data', onStdinData);
@@ -122,6 +101,9 @@ export async function attachToSession(options: AttachOptions): Promise<number> {
         process.stdin.setRawMode(false);
       }
       process.stdin.pause();
+      if (!socket.destroyed) {
+        socket.destroy();
+      }
     }
   });
 }
