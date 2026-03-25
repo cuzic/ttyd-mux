@@ -3,7 +3,7 @@
  */
 
 import { type OtpOptions, OtpOptionsSchema, parseCliOptions } from '@/core/cli/schemas.js';
-import { getDaemonUrl } from '@/core/client/daemon-url.js';
+import { getDaemonConnection } from '@/core/client/daemon-url.js';
 import { createClient } from '@/core/client/eden-client.js';
 import { ensureDaemon } from '@/core/client/index.js';
 import { loadConfig } from '@/core/config/config.js';
@@ -24,7 +24,7 @@ export async function otpCommand(rawOptions: unknown): Promise<void> {
   // Ensure daemon is running
   await ensureDaemon(options.config, config.daemon_manager);
 
-  const client = createClient(getDaemonUrl(config));
+  const client = createClient(getDaemonConnection(config));
   const { data, error } = await client.api.auth.otp.generate.post(
     {},
     {

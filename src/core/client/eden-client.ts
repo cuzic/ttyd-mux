@@ -8,21 +8,27 @@
 import { treaty } from '@elysiajs/eden';
 import type { Config } from '@/core/config/types.js';
 import type { App } from '@/core/server/elysia/app.js';
-import { getDaemonUrl } from './daemon-url.js';
+import { type DaemonConnection, getDaemonConnection } from './daemon-url.js';
 
 /**
- * Cache for Eden Treaty client instances (one per base URL).
+ * Cache for Eden Treaty client instances (one per connection key).
  */
 const clientCache = new Map<string, ReturnType<typeof treaty<App>>>();
 
 /**
  * Create or retrieve a cached Eden Treaty client for the bunterm daemon API.
+ * Accepts a DaemonConnection (preferred) or a plain URL string (legacy).
  */
-export function createClient(baseUrl: string) {
-  let client = clientCache.get(baseUrl);
+export function createClient(connection: DaemonConnection | string) {
+  const conn: DaemonConnection =
+    typeof connection === 'string' ? { baseUrl: connection } : connection;
+  const cacheKey = conn.unix ?? conn.baseUrl;
+
+  let client = clientCache.get(cacheKey);
   if (!client) {
-    client = treaty<App>(baseUrl);
-    clientCache.set(baseUrl, client);
+    const fetchOpts = conn.unix ? { fetch: { unix: conn.unix } as RequestInit } : {};
+    client = treaty<App>(conn.baseUrl, fetchOpts);
+    clientCache.set(cacheKey, client);
   }
   return client;
 }
@@ -48,7 +54,7 @@ function unwrap<T>(response: { data: T; error: unknown }): NonNullable<T> {
  * Get daemon status
  */
 export async function getStatus(config: Config) {
-  const client = createClient(getDaemonUrl(config));
+  const client = createClient(getDaemonConnection(config));
   const response = await client.api.status.get();
   return unwrap(response);
 }
@@ -57,7 +63,7 @@ export async function getStatus(config: Config) {
  * Get all sessions
  */
 export async function getSessions(config: Config) {
-  const client = createClient(getDaemonUrl(config));
+  const client = createClient(getDaemonConnection(config));
   const response = await client.api.sessions.get();
   return unwrap(response);
 }
@@ -69,7 +75,7 @@ export async function startSession(
   config: Config,
   request: { name: string; dir?: string; command?: string | string[] }
 ) {
-  const client = createClient(getDaemonUrl(config));
+  const client = createClient(getDaemonConnection(config));
   const response = await client.api.sessions.post(request);
   return unwrap(response);
 }
@@ -78,7 +84,7 @@ export async function startSession(
  * Stop a session
  */
 export async function stopSession(config: Config, name: string): Promise<void> {
-  const client = createClient(getDaemonUrl(config));
+  const client = createClient(getDaemonConnection(config));
   const response = await client.api.sessions({ name }).delete();
   unwrap(response);
 }
@@ -92,13 +98,19 @@ export async function requestShutdown(
   config: Config,
   options?: { stopSessions?: boolean; killTmux?: boolean }
 ): Promise<void> {
-  const baseUrl = getDaemonUrl(config);
+  const conn = getDaemonConnection(config);
+  const fetchInit: RequestInit & { unix?: string } = {
+    method: 'POST',
+    ...(options
+      ? {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(options)
+        }
+      : {}),
+    ...(conn.unix ? { unix: conn.unix } : {})
+  };
   try {
-    await fetch(`${baseUrl}/api/shutdown`, {
-      method: 'POST',
-      headers: options ? { 'Content-Type': 'application/json' } : undefined,
-      body: options ? JSON.stringify(options) : undefined
-    });
+    await fetch(`${conn.baseUrl}/api/shutdown`, fetchInit);
   } catch {
     // Server will shut down, so connection may be lost
   }
@@ -108,7 +120,7 @@ export async function requestShutdown(
  * Get tmux sessions
  */
 export async function getTmuxSessions(config: Config) {
-  const client = createClient(getDaemonUrl(config));
+  const client = createClient(getDaemonConnection(config));
   const response = await client.api.tmux.sessions.get();
   return unwrap(response);
 }

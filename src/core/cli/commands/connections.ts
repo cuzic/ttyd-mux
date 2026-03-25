@@ -3,7 +3,7 @@
  */
 
 import { guardDaemon } from '@/core/cli/helpers/daemon-guard.js';
-import { getDaemonUrl } from '@/core/client/daemon-url.js';
+import { getDaemonConnection } from '@/core/client/daemon-url.js';
 import { createClient } from '@/core/client/eden-client.js';
 import { loadConfig } from '@/core/config/config.js';
 import { CliError } from '@/utils/errors.js';
@@ -26,7 +26,7 @@ export async function connectionsCommand(options: ConnectionsOptions): Promise<v
   }
 
   try {
-    const client = createClient(getDaemonUrl(config));
+    const client = createClient(getDaemonConnection(config));
     const { data: sessions, error } = await client.api.auth.sessions.get();
     if (error || !sessions) {
       throw new CliError(`Failed to list connections: ${error?.value ?? 'Unknown error'}`);
@@ -76,7 +76,7 @@ export async function connectionsRevokeCommand(
   }
 
   try {
-    const client = createClient(getDaemonUrl(config));
+    const client = createClient(getDaemonConnection(config));
     const { error: delError } = await client.api.auth.sessions({ id }).delete();
     if (delError) {
       throw new CliError(`Failed to revoke: ${delError.value ?? 'Unknown error'}`);
