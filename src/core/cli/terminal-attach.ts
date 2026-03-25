@@ -9,6 +9,8 @@
  * scope.on lint rule).
  */
 
+import { filterDAResponses, filterFocusEvents } from '@/core/terminal/da-responder.js';
+
 export interface AttachOptions {
   /** WebSocket URL (ws://localhost:7680/bunterm/session-name/ws) */
   url: string;
@@ -24,10 +26,18 @@ export async function attachToSession(options: AttachOptions): Promise<number> {
     let rawModeSet = false;
 
     const onStdinData = (data: Buffer) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        // Protocol: input message with base64-encoded data
-        ws.send(JSON.stringify({ type: 'input', data: data.toString('base64') }));
-      }
+      if (ws.readyState !== WebSocket.OPEN) return;
+
+      // Filter DA responses and focus events from outer terminal
+      // (outer terminal responds to DA queries from inner PTY)
+      let text = data.toString('utf-8');
+      text = filterDAResponses(text) ?? '';
+      text = filterFocusEvents(text) ?? '';
+      if (!text) return;
+
+      ws.send(
+        JSON.stringify({ type: 'input', data: Buffer.from(text, 'utf-8').toString('base64') })
+      );
     };
 
     const onResize = () => {
