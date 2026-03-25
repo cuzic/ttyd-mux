@@ -72,6 +72,9 @@ export class TerminalSession implements AsyncDisposable {
   private readonly claudeWatcher: ClaudeSessionWatcher;
   private readonly fileWatcher: FileWatcher;
 
+  // Raw output listeners (for Unix socket relay)
+  private readonly rawOutputListeners: Set<(data: Uint8Array) => void> = new Set();
+
   // Block UI state
   private currentLine = 0;
   private pendingCommand: string | null = null;
@@ -178,6 +181,15 @@ export class TerminalSession implements AsyncDisposable {
    * Handle output data from PTY
    */
   private handleOutput(data: Uint8Array): void {
+    // Notify raw output listeners (Unix socket relay)
+    for (const listener of this.rawOutputListeners) {
+      try {
+        listener(data);
+      } catch {
+        // Listener error — ignore to avoid breaking other listeners
+      }
+    }
+
     // Check for bell character and send bell message
     if (data.includes(BELL_CHAR)) {
       this.broadcaster.broadcast(createBellMessage());
@@ -455,6 +467,21 @@ export class TerminalSession implements AsyncDisposable {
    */
   removeClient(ws: NativeTerminalWebSocket): void {
     this.broadcaster.removeClient(ws);
+  }
+
+  /**
+   * Add a raw output listener (for Unix socket relay).
+   * Receives raw PTY output bytes before any processing.
+   */
+  addRawOutputListener(listener: (data: Uint8Array) => void): void {
+    this.rawOutputListeners.add(listener);
+  }
+
+  /**
+   * Remove a raw output listener.
+   */
+  removeRawOutputListener(listener: (data: Uint8Array) => void): void {
+    this.rawOutputListeners.delete(listener);
   }
 
   /**

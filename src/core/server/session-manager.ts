@@ -9,6 +9,7 @@ import type { Config, NativeTerminalConfig } from '@/core/config/types.js';
 import type { NativeTerminalWebSocket, TerminalSessionInfo } from '@/core/protocol/index.js';
 import { TerminalSession } from '@/core/terminal/session.js';
 import { buildSpawnArgs, expandCommand, sanitizeName } from '@/utils/command-template.js';
+import { createSessionSocket, type SessionSocketResult } from './session-socket.js';
 
 export interface NativeSessionOptions {
   /** Session name */
@@ -36,6 +37,7 @@ export interface NativeSessionState {
 
 export class NativeSessionManager {
   private sessions: Map<string, TerminalSession> = new Map();
+  private sessionSockets: Map<string, SessionSocketResult> = new Map();
   private readonly config: Config;
   private readonly nativeConfig: NativeTerminalConfig;
 
@@ -84,6 +86,14 @@ export class NativeSessionManager {
 
     // Store session
     this.sessions.set(name, session);
+
+    // Create Unix socket for CLI attach
+    try {
+      const socketResult = createSessionSocket(session);
+      this.sessionSockets.set(name, socketResult);
+    } catch (error) {
+      console.debug(`[SessionManager] Failed to create session socket for ${name}:`, error);
+    }
 
     // Enable tmux passthrough if configured
     if (this.config.tmux_passthrough) {
@@ -148,6 +158,13 @@ export class NativeSessionManager {
     const session = this.sessions.get(name);
     if (!session) {
       throw new Error(`Session ${name} not found`);
+    }
+
+    // Cleanup session socket
+    const socketResult = this.sessionSockets.get(name);
+    if (socketResult) {
+      socketResult.cleanup();
+      this.sessionSockets.delete(name);
     }
 
     await session.stop();
