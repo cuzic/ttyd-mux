@@ -121,8 +121,9 @@ export const websocketPlugin = (options: WebSocketPluginOptions = {}) => {
         return;
       }
 
-      // Convert to string if needed
-      const messageStr = typeof message === 'string' ? message : String(message);
+      // Elysia auto-parses JSON WebSocket messages into objects.
+      // Re-serialize to string for session.handleMessage which expects JSON string.
+      const messageStr = typeof message === 'string' ? message : JSON.stringify(message);
 
       session.handleMessage(ws.raw as unknown as NativeTerminalWebSocket, messageStr);
     },
