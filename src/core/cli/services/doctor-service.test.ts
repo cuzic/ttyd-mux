@@ -18,7 +18,6 @@ function createConfig(overrides: Partial<Config> = {}): Config {
     base_path: '/bunterm',
     daemon_port: 7680,
     listen_addresses: ['127.0.0.1', '::1'],
-    listen_sockets: [],
     sessions: [],
     caddy_admin_api: 'http://localhost:2019',
     daemon_manager: 'direct',

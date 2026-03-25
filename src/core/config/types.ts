@@ -305,7 +305,6 @@ export const ConfigSchema = z.object({
     .transform((v) => v.replace(/\/+$/, '')),
   daemon_port: z.number().int().min(1024).max(65535).default(7680),
   listen_addresses: z.array(z.string()).default(['127.0.0.1', '::1']),
-  listen_sockets: z.array(z.string()).default([]),
   command: z.union([z.string(), z.array(z.string())]).optional(),
   tmux_passthrough: z.boolean().default(false),
   attach_on_up: z.boolean().default(false),

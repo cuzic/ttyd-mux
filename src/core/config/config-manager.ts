@@ -24,7 +24,7 @@ const HOT_RELOADABLE_KEYS = ['hostname', 'caddy_admin_api', 'command', 'tmux_pas
 const RESTART_REQUIRED_KEYS = ['daemon_port', 'base_path'] as const;
 
 // Settings that require restart (JSON comparison)
-const RESTART_REQUIRED_ARRAY_KEYS = ['listen_addresses', 'listen_sockets'] as const;
+const RESTART_REQUIRED_ARRAY_KEYS = ['listen_addresses'] as const;
 
 // Terminal UI keys to check
 const TERMINAL_UI_KEYS = [

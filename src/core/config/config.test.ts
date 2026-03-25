@@ -71,28 +71,6 @@ sessions:
       expect(config.daemon_port).toBe(9000);
     });
 
-    test('loads listen_sockets configuration', () => {
-      const configPath = join(TEST_CONFIG_DIR, 'sockets.yaml');
-      const yaml = `
-listen_sockets:
-  - /run/bunterm.sock
-  - /tmp/bunterm-alt.sock
-`;
-      writeFileSync(configPath, yaml);
-
-      const config = loadConfig(configPath);
-
-      expect(config.listen_sockets).toHaveLength(2);
-      expect(config.listen_sockets[0]).toBe('/run/bunterm.sock');
-      expect(config.listen_sockets[1]).toBe('/tmp/bunterm-alt.sock');
-    });
-
-    test('defaults listen_sockets to empty array', () => {
-      const config = loadConfig();
-
-      expect(config.listen_sockets).toEqual([]);
-    });
-
     test('loads toolbar configuration', () => {
       const configPath = join(TEST_CONFIG_DIR, 'terminal_ui.yaml');
       const yaml = `

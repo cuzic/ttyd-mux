@@ -88,7 +88,7 @@ function selectLimiter(apiPath: string, method: string): SlidingWindowRateLimite
  * unconditionally. This is acceptable because:
  * 1. bunterm defaults to localhost-only binding (listen_addresses: ['127.0.0.1', '::1']),
  *    so only local processes (or a trusted reverse proxy) can reach the server.
- * 2. When exposed via a reverse proxy (e.g., Caddy with listen_sockets), the proxy
+ * 2. When exposed via a reverse proxy (e.g., Caddy), the proxy
  *    is trusted to set accurate forwarding headers.
  * 3. The auth middleware (OTP/session tokens) prevents unauthorized access regardless.
  *
