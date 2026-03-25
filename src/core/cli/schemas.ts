@@ -18,10 +18,19 @@ export const ConfigPathSchema = z.string().optional();
 
 export const UpOptionsSchema = z.object({
   name: z.string().min(1).max(64).optional(),
+  attach: z.boolean().optional(),
   config: ConfigPathSchema
 });
 
 export type UpOptions = z.infer<typeof UpOptionsSchema>;
+
+// === Connect Command ===
+
+export const ConnectOptionsSchema = z.object({
+  config: ConfigPathSchema
+});
+
+export type ConnectOptions = z.infer<typeof ConnectOptionsSchema>;
 
 // === Down Command ===
 

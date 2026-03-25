@@ -9,6 +9,7 @@ import {
   caddyStatusCommand,
   caddySyncCommand
 } from '@/core/cli/commands/caddy.js';
+import { connectCommand } from '@/core/cli/commands/connect.js';
 import { connectionsCommand, connectionsRevokeCommand } from '@/core/cli/commands/connections.js';
 import { daemonCommand } from '@/core/cli/commands/daemon.js';
 import { deployCommand } from '@/core/cli/commands/deploy.js';
@@ -49,6 +50,7 @@ program
   .command('up')
   .description('Start session for current directory')
   .option('-n, --name <name>', 'Override session name')
+  .option('-a, --attach', 'Attach to terminal after starting')
   .option('-c, --config <path>', 'Config file path')
   .action(wrapCommand((options) => upCommand(options)));
 
@@ -57,6 +59,12 @@ program
   .description('Stop session for current directory')
   .option('-c, --config <path>', 'Config file path')
   .action(wrapCommand((options) => downCommand(options)));
+
+program
+  .command('connect [name]')
+  .description('Connect to a running session from terminal')
+  .option('-c, --config <path>', 'Config file path')
+  .action(wrapCommand((name, options) => connectCommand(name, options)));
 
 program
   .command('status')

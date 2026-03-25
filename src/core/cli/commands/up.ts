@@ -4,13 +4,14 @@
 
 import { buildSessionUrl } from '@/core/cli/helpers/url-builder.js';
 import { parseCliOptions, type UpOptions, UpOptionsSchema } from '@/core/cli/schemas.js';
+import { attachToSession } from '@/core/cli/terminal-attach.js';
 import { startSession as apiStartSession, ensureDaemon, getSessions } from '@/core/client/index.js';
-import { loadConfig } from '@/core/config/config.js';
+import { getFullPath, loadConfig } from '@/core/config/config.js';
 import { CliError, getErrorMessage } from '@/utils/errors.js';
 
 export type { UpOptions };
 
-export async function upCommand(rawOptions: unknown): Promise<void> {
+export async function upCommand(rawOptions: unknown): Promise<number | undefined> {
   const options = parseCliOptions(rawOptions, UpOptionsSchema, 'up');
   const config = loadConfig(options.config);
   const dir = process.cwd();
@@ -19,12 +20,15 @@ export async function upCommand(rawOptions: unknown): Promise<void> {
   // Ensure daemon is running
   await ensureDaemon(options.config, config.daemon_manager);
 
+  let sessionPath: string | undefined;
+
   try {
     const session = await apiStartSession(config, {
       name,
       dir
     });
 
+    sessionPath = session.path;
     const url = buildSessionUrl(config, session.path);
     console.log(`Session started: ${session.name}`);
     console.log(`URL: ${url}`);
@@ -37,14 +41,26 @@ export async function upCommand(rawOptions: unknown): Promise<void> {
       const existing = sessions.find((s) => s.name === name);
 
       if (existing) {
+        sessionPath = existing.path;
         const url = buildSessionUrl(config, existing.path);
         console.log(`Session '${name}' is already running.`);
         console.log(`URL: ${url}`);
       } else {
         console.log(`Session '${name}' is already running.`);
+        return;
       }
-      return;
+    } else {
+      throw new CliError(`Failed to start session: ${message}`);
     }
-    throw new CliError(`Failed to start session: ${message}`);
   }
+
+  // Attach to terminal if requested
+  if (options.attach && sessionPath) {
+    const fullPath = getFullPath(config, sessionPath);
+    const wsUrl = `ws://localhost:${config.daemon_port}${fullPath}/ws`;
+    console.log('Attaching to terminal...');
+    return attachToSession({ url: wsUrl });
+  }
+
+  return undefined;
 }
