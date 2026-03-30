@@ -6,7 +6,7 @@
  */
 
 import { toolbarEvents } from '@/browser/shared/events.js';
-import { KeyPriority } from '@/browser/shared/key-router.js';
+import { KeyPriority, KeyRouter } from '@/browser/shared/key-router.js';
 import { Scope } from '@/browser/shared/lifecycle.js';
 import { RepeatButtonHandler } from '@/browser/shared/RepeatButtonHandler.js';
 import type {
@@ -74,6 +74,7 @@ class ToolbarApp {
   private selectionHandles: SelectionHandleManager;
   private stateTracker: TerminalStateTracker;
   private miniBar: MiniBar;
+  private keyRouter = new KeyRouter();
 
   private isMobile: boolean;
 
@@ -822,12 +823,14 @@ class ToolbarApp {
     // If empty, just send Enter to terminal
     if (!text) {
       this.input.sendEnter();
+      this.terminal.focus();
       return;
     }
 
     if (this.input.sendText(text)) {
       this.elements.input.value = '';
       this.adjustTextareaHeight();
+      this.terminal.focus();
 
       // Auto mode: send Enter after 1 second
       if (this.autoRun.isActive) {
@@ -848,6 +851,7 @@ class ToolbarApp {
     if (this.input.sendText(text)) {
       this.elements.input.value = '';
       this.adjustTextareaHeight();
+      this.terminal.focus();
       // Wait 1 second then send Enter
       setTimeout(() => this.input.sendEnter(), 1000);
     }

@@ -5,7 +5,7 @@
  * - Pinch-to-zoom for font size
  * - Scroll drag mode
  * - Double-tap to send Enter
- * - Shift+touch for text selection
+ * - Alt+touch for text selection
  */
 
 import { toolbarEvents } from '@/browser/shared/events.js';
@@ -178,7 +178,7 @@ export class TouchGestureHandler implements Mountable {
             return;
           }
 
-          if (this.modifiers.isShiftActive && !me.shiftKey) {
+          if (this.modifiers.isAltActive && !me.shiftKey) {
             const newEvent = new MouseEvent(me.type, {
               bubbles: me.bubbles,
               cancelable: me.cancelable,
@@ -254,8 +254,8 @@ export class TouchGestureHandler implements Mountable {
           this.scrollTouchActive = true;
           te.preventDefault();
         }
-        // Single finger touch with Shift active -> convert to mouse event for selection
-        else if (te.touches.length === 1 && this.modifiers.isShiftActive) {
+        // Single finger touch with Alt active -> convert to mouse event for selection
+        else if (te.touches.length === 1 && this.modifiers.isAltActive) {
           const touch = te.touches[0];
           this.touchStartPos = { x: touch.clientX, y: touch.clientY };
           this.shiftTouchActive = true;
@@ -273,7 +273,7 @@ export class TouchGestureHandler implements Mountable {
           // Don't preventDefault - let pinch handlers take over
         }
         // Track non-Shift/Scroll single touch for hint
-        else if (te.touches.length === 1 && !this.modifiers.isShiftActive && !this.scrollActive) {
+        else if (te.touches.length === 1 && !this.modifiers.isAltActive && !this.scrollActive) {
           const touch = te.touches[0];
           this.touchStartPos = { x: touch.clientX, y: touch.clientY };
         }
@@ -705,7 +705,7 @@ export class TouchGestureHandler implements Mountable {
 
   /**
    * Setup long-press for text selection on mobile
-   * Long press activates Shift mode and starts selection
+   * Long press activates Alt mode and starts selection
    */
   private mountLongPressSelection(scope: Scope): void {
     // Only apply on touch devices
@@ -797,8 +797,8 @@ export class TouchGestureHandler implements Mountable {
             this.selectionHandles.show();
           }
 
-          // Deactivate Shift after selection is complete
-          this.modifiers.deactivate('shift');
+          // Deactivate Alt after selection is complete
+          this.modifiers.deactivate('alt');
         }
       },
       { passive: true, capture: true }
@@ -811,7 +811,7 @@ export class TouchGestureHandler implements Mountable {
         this.cancelLongPress();
         if (this.longPressActive) {
           this.longPressActive = false;
-          this.modifiers.deactivate('shift');
+          this.modifiers.deactivate('alt');
         }
       },
       { passive: true, capture: true }
@@ -841,8 +841,8 @@ export class TouchGestureHandler implements Mountable {
       navigator.vibrate(50);
     }
 
-    // Activate Shift mode for selection
-    this.modifiers.activate('shift');
+    // Activate Alt mode for selection
+    this.modifiers.activate('alt');
     this.shiftTouchActive = true;
     this.touchStartPos = { x: touch.clientX, y: touch.clientY };
 

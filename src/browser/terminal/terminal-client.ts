@@ -1223,6 +1223,7 @@ export class TerminalClient implements Disposable {
       // Request replay of buffered output to restore terminal content
       this.send({ type: 'replayRequest' });
     }
+
   }
 
   /**

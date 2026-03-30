@@ -368,9 +368,9 @@ export class QuoteManager implements Mountable {
    * Fetch project markdown files (deep search, sorted by modification time)
    */
   private async fetchProjectMarkdown(basePath: string, sessionName: string): Promise<void> {
-    // Use recent-markdown endpoint with long time range for deep search
+    // Use recent-markdown endpoint (max 168 hours = 7 days)
     const data = await fetchJSON<{ files: MarkdownFile[] }>(
-      `${basePath}/api/claude-quotes/recent-markdown?session=${encodeURIComponent(sessionName)}&count=30&hours=8760`
+      `${basePath}/api/claude-quotes/recent-markdown?session=${encodeURIComponent(sessionName)}&count=30&hours=168`
     );
     this.projectMarkdown = data?.files ?? [];
   }
