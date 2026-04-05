@@ -20,16 +20,23 @@ export class FileWatcher implements Disposable {
   private debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly debounceMs: number;
   private readonly sessionDir: string;
-  private readonly onChange: (relativePath: string) => void;
+  private onChange: (relativePath: string) => void;
 
   constructor(
     sessionDir: string,
-    onChange: (relativePath: string) => void,
+    onChange: (relativePath: string) => void = () => {},
     options: FileWatcherOptions = {}
   ) {
     this.sessionDir = sessionDir;
     this.onChange = onChange;
     this.debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
+  }
+
+  /**
+   * Set the onChange callback (for deferred wiring via DI)
+   */
+  setOnChange(callback: (path: string) => void): void {
+    this.onChange = callback;
   }
 
   /**

@@ -34,6 +34,7 @@ export interface BlockManager {
 
 /** External session monitoring (implemented by features/claude-watcher) */
 export interface SessionWatcher {
+  readonly sessionId: string | null;
   start(): Promise<void>;
   stop(): void;
   on(event: 'message', listener: (msg: ServerMessage) => void): this;
@@ -51,6 +52,7 @@ export interface FileChangeNotifier {
   unwatchFile(relativePath: string): void;
   watchDir(relativePath: string): void;
   unwatchDir(relativePath: string): void;
+  setOnChange(callback: (path: string) => void): void;
   close(): void;
 }
 
@@ -134,6 +136,9 @@ class NullBlockManager implements BlockManager {
 }
 
 class NullSessionWatcher implements SessionWatcher {
+  get sessionId(): null {
+    return null;
+  }
   async start(): Promise<void> {}
   stop(): void {}
   on(_event: string, _listener: (...args: any[]) => void): this {
@@ -146,6 +151,7 @@ class NullFileChangeNotifier implements FileChangeNotifier {
   unwatchFile(_relativePath: string): void {}
   watchDir(_relativePath: string): void {}
   unwatchDir(_relativePath: string): void {}
+  setOnChange(_callback: (path: string) => void): void {}
   close(): void {}
 }
 

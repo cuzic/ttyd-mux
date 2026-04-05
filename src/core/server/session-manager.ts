@@ -5,9 +5,14 @@
  * terminal sessions, similar to SessionManager for terminal sessions.
  */
 
+import { getApiSocketPath } from '@/core/config/state.js';
 import type { Config, NativeTerminalConfig } from '@/core/config/types.js';
 import type { NativeTerminalWebSocket, TerminalSessionInfo } from '@/core/protocol/index.js';
+import type { SessionPlugins } from '@/core/terminal/session-plugins.js';
 import { TerminalSession } from '@/core/terminal/session.js';
+import { BlockModel } from '@/features/blocks/server/block-model.js';
+import { ClaudeSessionWatcher } from '@/features/claude-watcher/server/index.js';
+import { FileWatcher } from '@/features/file-watcher/server/file-watcher.js';
 import { buildSpawnArgs, expandCommand, sanitizeName } from '@/utils/command-template.js';
 import { createSessionSocket, type SessionSocketResult } from './session-socket.js';
 
@@ -71,15 +76,26 @@ export class NativeSessionManager {
       spawnArgs = buildSpawnArgs(undefined);
     }
 
+    // Build session plugins (feature implementations)
+    const plugins: SessionPlugins = {
+      blockManager: new BlockModel(dir),
+      sessionWatcher: new ClaudeSessionWatcher({ cwd: dir }),
+      fileChangeNotifier: new FileWatcher(dir, () => {})
+    };
+
     // Create terminal session
-    const session = new TerminalSession({
-      name,
-      command: spawnArgs,
-      cwd: dir,
-      cols: cols ?? 80,
-      rows: rows ?? 24,
-      outputBufferSize: this.nativeConfig.output_buffer_size
-    });
+    const session = new TerminalSession(
+      {
+        name,
+        command: spawnArgs,
+        cwd: dir,
+        cols: cols ?? 80,
+        rows: rows ?? 24,
+        outputBufferSize: this.nativeConfig.output_buffer_size,
+        apiSocketPath: getApiSocketPath()
+      },
+      plugins
+    );
 
     // Start the session
     await session.start();

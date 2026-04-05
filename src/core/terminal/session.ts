@@ -9,6 +9,9 @@
  * - WebSocket protocol handling
  */
 
+import { existsSync, rmSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { match } from 'ts-pattern';
 import {
   type Block,
@@ -27,11 +30,11 @@ import {
   type TerminalSessionInfo,
   type TerminalSessionOptions
 } from '@/core/protocol/index.js';
-import { BlockModel } from '@/features/blocks/server/block-model.js';
-import { ClaudeSessionWatcher } from '@/features/claude-watcher/server/index.js';
-import { FileWatcher } from '@/features/file-watcher/server/file-watcher.js';
 import { ClientBroadcaster } from './broadcaster.js';
+import { type SessionPlugins, nullPlugins } from './session-plugins.js';
+import type { BlockManager, FileChangeNotifier, SessionWatcher } from './session-plugins.js';
 import { applyCjkWorkaround, needsCjkWorkaround } from './cjk-workaround.js';
+import { buildShellEnvInjection } from './shell-env-injection.js';
 import { filterDAResponses, filterFocusEvents } from './da-responder.js';
 import { fixOsc52ClipboardTarget } from './dcs-handler.js';
 import { type OscNotification, parseOscNotifications } from './osc-notification-parser.js';
@@ -45,6 +48,19 @@ import {
 
 // Bell character (ASCII 7)
 const BELL_CHAR = 0x07;
+
+// Resolve osc633-sender binary path (built with bun build --compile)
+// Try multiple locations: project root dist/ (dev mode) and relative to compiled output
+const __dirname = dirname(fileURLToPath(import.meta.url));
+function findOsc633Sender(): string | null {
+  const candidates = [
+    join(__dirname, '../../../dist/osc633-sender'), // from src/core/terminal/ → project root dist/
+    join(__dirname, '../../dist/osc633-sender'), // from compiled output
+    join(process.cwd(), 'dist/osc633-sender') // fallback: cwd-relative
+  ];
+  return candidates.find((p) => existsSync(p)) ?? null;
+}
+const OSC633_SENDER_PATH = findOsc633Sender();
 
 const DEFAULT_COLS = 80;
 const DEFAULT_ROWS = 24;
@@ -69,9 +85,9 @@ export class TerminalSession implements AsyncDisposable {
   // Extracted components
   private readonly broadcaster: ClientBroadcaster;
   private readonly oscParser: Osc633Parser;
-  private readonly blockModel: BlockModel;
-  private readonly claudeWatcher: ClaudeSessionWatcher;
-  private readonly fileWatcher: FileWatcher;
+  private readonly blockModel: BlockManager;
+  private readonly claudeWatcher: SessionWatcher;
+  private readonly fileWatcher: FileChangeNotifier;
 
   // Raw output listeners (for Unix socket relay)
   private readonly rawOutputListeners: Set<(data: Uint8Array) => void> = new Set();
@@ -84,6 +100,12 @@ export class TerminalSession implements AsyncDisposable {
   private pendingCommand: string | null = null;
   private blockUIEnabled = true;
 
+  // Side-channel dedup: track last injected OSC 633 to skip duplicate from stdout
+  private lastInjectedOsc633: { type: string; timestamp: number } | null = null;
+
+  // Temp directory created for zsh ZDOTDIR injection; cleaned up on session exit
+  private injectionCleanupDir: string | null = null;
+
   // Claude watcher last message tracking (for agent status)
   private lastWatcherMessage: { type: string; timestamp: string; toolName?: string } | null = null;
 
@@ -91,7 +113,10 @@ export class TerminalSession implements AsyncDisposable {
   readonly cwd: string;
   readonly command: string[];
 
-  constructor(private readonly options: TerminalSessionOptions) {
+  constructor(
+    private readonly options: TerminalSessionOptions,
+    plugins: SessionPlugins = nullPlugins
+  ) {
     this.name = options.name;
     this.cwd = options.cwd;
     this.command = options.command;
@@ -104,10 +129,14 @@ export class TerminalSession implements AsyncDisposable {
       maxOutputBuffer: options.outputBufferSize ?? DEFAULT_OUTPUT_BUFFER_SIZE
     });
     this.oscParser = new Osc633Parser();
-    this.blockModel = new BlockModel(options.cwd);
 
-    // Initialize Claude Session Watcher
-    this.claudeWatcher = new ClaudeSessionWatcher({ cwd: options.cwd });
+    // Inject feature plugins
+    this.blockModel = plugins.blockManager;
+    this.claudeWatcher = plugins.sessionWatcher;
+    this.fileWatcher = plugins.fileChangeNotifier;
+    this.fileWatcher.setOnChange((path) => this.broadcastFileChange(path));
+
+    // Wire claude watcher events to broadcaster
     this.claudeWatcher.on('message', (msg) => {
       // Track last message for agent status reporting
       // biome-ignore lint: watcher message lacks typed property
@@ -125,11 +154,6 @@ export class TerminalSession implements AsyncDisposable {
     this.claudeWatcher.on('error', (err) => {
       console.debug(`[Session:${this.name}] Claude watcher error:`, err);
     });
-
-    // Initialize File Watcher for live preview
-    this.fileWatcher = new FileWatcher(options.cwd, (path) => {
-      this.broadcastFileChange(path);
-    });
   }
 
   /**
@@ -143,15 +167,29 @@ export class TerminalSession implements AsyncDisposable {
     // Snapshot PTY fds before spawn to detect new master fd
     const ptyFdsBefore = this.detectPtmxFds();
 
+    // Build shell-specific env injection (e.g. PROMPT_COMMAND for bash, ZDOTDIR for zsh)
+    const injection = buildShellEnvInjection(
+      this.command,
+      process.env as Record<string, string>
+    );
+    if (injection.cleanupDir) {
+      this.injectionCleanupDir = injection.cleanupDir;
+    }
+
     // Use Bun.Terminal for PTY management
     this.proc = Bun.spawn(this.command, {
       cwd: this.cwd,
       env: {
         ...process.env,
         ...this.options.env,
+        ...injection.env,
         TERM: 'xterm-256color',
         // Enable shell integration for block UI
-        BUNTERM_NATIVE: '1'
+        BUNTERM_NATIVE: '1',
+        // Side-channel: session name and API socket path for osc633-sender
+        BUNTERM_SESSION: this.name,
+        BUNTERM_API_SOCK: this.options.apiSocketPath ?? '',
+        ...(OSC633_SENDER_PATH ? { BUNTERM_OSC633_SENDER: OSC633_SENDER_PATH } : {})
       },
       terminal: {
         cols: this.currentCols,
@@ -261,6 +299,15 @@ export class TerminalSession implements AsyncDisposable {
   private handleOSC633Sequence(seq: OSC633Sequence): void {
     if (!this.blockUIEnabled) {
       return;
+    }
+
+    // Dedup: skip if this sequence was already received via side-channel within 200ms
+    if (this.lastInjectedOsc633) {
+      const elapsed = Date.now() - this.lastInjectedOsc633.timestamp;
+      if (this.lastInjectedOsc633.type === seq.type && elapsed < 200) {
+        this.lastInjectedOsc633 = null;
+        return;
+      }
     }
 
     switch (seq.type) {
@@ -604,6 +651,16 @@ export class TerminalSession implements AsyncDisposable {
   }
 
   /**
+   * Inject an OSC 633 sequence from the side-channel (osc633-sender).
+   * Bypasses tmux passthrough by receiving sequences directly via HTTP API.
+   */
+  injectOSC633(seq: OSC633Sequence): void {
+    this.handleOSC633Sequence(seq);
+    // Arm dedup AFTER processing so the guard only blocks the subsequent stdout duplicate
+    this.lastInjectedOsc633 = { type: seq.type, timestamp: Date.now() };
+  }
+
+  /**
    * Check if block UI is enabled
    */
   get isBlockUIEnabled(): boolean {
@@ -674,6 +731,16 @@ export class TerminalSession implements AsyncDisposable {
 
     // Reset OSC parser state
     this.oscParser.reset();
+
+    // Remove temporary ZDOTDIR created for zsh shell-integration injection
+    if (this.injectionCleanupDir) {
+      try {
+        rmSync(this.injectionCleanupDir, { recursive: true, force: true });
+      } catch (err) {
+        console.debug(`[Session:${this.name}] Failed to remove injection temp dir:`, err);
+      }
+      this.injectionCleanupDir = null;
+    }
   }
 
   /**
