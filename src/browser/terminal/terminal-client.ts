@@ -34,8 +34,6 @@ declare global {
     DecorationManager: typeof DecorationManager;
     FileOpsSidebar: typeof FileOpsSidebar;
     PathLinkManager: typeof PathLinkManager;
-    term: import('@xterm/xterm').Terminal | null;
-    fitAddon: import('@xterm/addon-fit').FitAddon | null;
   }
 }
 
@@ -80,7 +78,7 @@ interface TerminalClientOptions {
 }
 
 interface ClientMessage {
-  type: 'input' | 'resize' | 'ping' | 'watchFile' | 'unwatchFile' | 'watchDir' | 'unwatchDir';
+  type: 'input' | 'resize' | 'ping' | 'watchFile' | 'unwatchFile' | 'watchDir' | 'unwatchDir' | 'replayRequest';
   data?: string;
   cols?: number;
   rows?: number;

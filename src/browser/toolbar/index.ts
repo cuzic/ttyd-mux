@@ -58,7 +58,7 @@ class ToolbarApp {
   private input: InputHandler;
   private search: SearchManager;
   private notifications: NotificationManager;
-  private share: ShareManager;
+  private share!: ShareManager;
   private snippet: SnippetManager;
   private clipboardHistory: ClipboardHistoryManager;
   private fileTransfer: FileTransferManager;
@@ -142,7 +142,7 @@ class ToolbarApp {
       // Remove leading/trailing slashes and get first segment
       const segments = remainder.split('/').filter((s) => s.length > 0);
       if (segments.length > 0) {
-        const sessionName = decodeURIComponent(segments[0]);
+        const sessionName = decodeURIComponent(segments[0]!);
         document.title = `${sessionName} - bunterm`;
         return;
       }
@@ -641,7 +641,7 @@ class ToolbarApp {
         if (e.isComposing) {
           return false;
         }
-        if (e.key !== 'Escape' || !this.preview.isVisible()) {
+        if (e.key !== 'Escape' || !this.preview.isVisible) {
           return false;
         }
         e.preventDefault();
@@ -656,7 +656,7 @@ class ToolbarApp {
         if (e.isComposing) {
           return false;
         }
-        if (e.key !== 'Escape' || !this.selectionHandles.isVisible()) {
+        if (e.key !== 'Escape' || !this.selectionHandles.isVisible) {
           return false;
         }
         e.preventDefault();
@@ -964,20 +964,20 @@ class ToolbarApp {
     const { scope } = this;
 
     // Listen for bell events
-    scope.onBus(toolbarEvents, 'notification:bell', () => {});
+    scope.add(toolbarEvents.on('notification:bell', () => {}));
 
     // Listen for toast notifications
-    scope.onBus(toolbarEvents, 'toast:show', ({ message, type }) => {
+    scope.add(toolbarEvents.on('toast:show', ({ message, type }) => {
       this.notifications.showToast(message, type || 'info');
-    });
+    }));
 
     // Listen for font change events
-    scope.onBus(toolbarEvents, 'font:change', (size) => {
+    scope.add(toolbarEvents.on('font:change', (size) => {
       this.fontSizeManager.save(size);
-    });
+    }));
 
     // Listen for error events
-    scope.onBus(toolbarEvents, 'error', (_error) => {});
+    scope.add(toolbarEvents.on('error', (_error) => {}));
 
     // Listen for preview file select events
     scope.on(document, 'tui-preview-select', ((e: CustomEvent) => {
@@ -996,7 +996,7 @@ class ToolbarApp {
   private setupVisibilityHandler(): void {
     this.scope.on(document, 'visibilitychange', () => {
       if (!document.hidden) {
-        if (!this.ws.isConnected()) {
+        if (!this.ws.isConnected) {
           this.handleReconnect();
         }
       }
@@ -1006,7 +1006,7 @@ class ToolbarApp {
     this.scope.on(window, 'bunterm-ws-close', () => {
       // Small delay to avoid immediate reconnect on page unload
       setTimeout(() => {
-        if (!this.ws.isConnected()) {
+        if (!this.ws.isConnected) {
           this.handleReconnect();
         }
       }, 500);

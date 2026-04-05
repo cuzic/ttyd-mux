@@ -14,6 +14,7 @@ export class SearchManager {
   private caseSensitive = false;
   private regex = false;
   private currentMatchIndex = 0;
+  private totalMatches = 0;
 
   private searchBar: HTMLElement | null = null;
   private searchInput: HTMLInputElement | null = null;
@@ -59,16 +60,8 @@ export class SearchManager {
       return Promise.reject(new Error('Terminal not available'));
     }
 
-    // Create SearchAddon with decoration options for highlighting
+    // Create SearchAddon with highlight limit
     this.searchAddon = new SearchAddonClass({
-      decorations: {
-        matchBackground: '#665500', // Yellow-ish background for matches
-        matchBorder: '#ffaa00', // Orange border
-        matchOverviewRuler: '#ffaa00', // Orange in overview ruler
-        activeMatchBackground: '#ff6600', // Orange background for active match
-        activeMatchBorder: '#ff9900', // Brighter orange border
-        activeMatchColorOverviewRuler: '#ff6600' // Orange in overview ruler
-      },
       highlightLimit: 1000 // Max matches to highlight
     });
     term.loadAddon(this.searchAddon);

@@ -113,6 +113,17 @@ export class TerminalController {
   }
 
   /**
+   * Focus the terminal
+   */
+  focus(): void {
+    const term = this.findTerminal();
+    if (term?.element) {
+      const textarea = term.element.querySelector('.xterm-helper-textarea') as HTMLElement | null;
+      textarea?.focus();
+    }
+  }
+
+  /**
    * Copy current selection to clipboard
    */
   copySelection(): Promise<boolean> {

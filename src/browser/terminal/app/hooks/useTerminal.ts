@@ -10,29 +10,7 @@ import type { SerializeAddon } from '@xterm/addon-serialize';
 import type { IDisposable, Terminal } from '@xterm/xterm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-declare global {
-  interface Window {
-    XtermBundle: {
-      createTerminal: (options?: {
-        fontSize?: number;
-        fontFamily?: string;
-        scrollback?: number;
-        cursorBlink?: boolean;
-      }) => {
-        terminal: Terminal;
-        fitAddon: FitAddon;
-        serializeAddon: SerializeAddon;
-        searchAddon: SearchAddon;
-        webLinksAddon: unknown;
-        unicode11Addon: unknown;
-        clipboardAddon: unknown;
-      };
-      setupSelectionAutoCopy?: (terminal: Terminal) => void;
-      setupRightClickPaste?: (terminal: Terminal, sendInput: (data: string) => void) => void;
-      setupSelectionHighlight?: (terminal: Terminal, searchAddon: SearchAddon) => IDisposable;
-    };
-  }
-}
+// Window.XtermBundle is declared in terminal-client.ts
 
 export interface UseTerminalOptions {
   wsUrl: string;

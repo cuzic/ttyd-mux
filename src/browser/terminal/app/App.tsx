@@ -13,20 +13,7 @@ import { useBlockContextBridge } from './hooks/useBlockContextBridge.js';
 import { useBlockStore } from './stores/blockStore.js';
 import { useChatStore } from './stores/chatStore.js';
 
-declare global {
-  interface Window {
-    __TERMINAL_UI_CONFIG__?: {
-      base_path?: string;
-      sessionName?: string;
-      sessionPath?: string;
-      isShared?: boolean;
-      isNativeTerminal?: boolean;
-    };
-    __TERMINAL_CLIENT__?: {
-      sendInput: (data: string) => void;
-    };
-  }
-}
+// Window extensions are declared in @/browser/shared/types.ts
 
 export interface AppProps {
   /** Session name */

@@ -52,9 +52,10 @@ export class SmartPasteManager implements Mountable {
     this.actor.start();
 
     // Subscribe to state changes
-    this.unsubscribe = this.actor.subscribe((snapshot) => {
+    const subscription = this.actor.subscribe((snapshot) => {
       this.onStateChange(snapshot);
     });
+    this.unsubscribe = () => subscription.unsubscribe();
   }
 
   /**
@@ -188,7 +189,7 @@ export class SmartPasteManager implements Mountable {
 
     // Keyboard navigation
     scope.on(document, 'keydown', (e) => {
-      if (!this.isPreviewVisible()) {
+      if (!this.isPreviewVisible) {
         return;
       }
       const event = e as KeyboardEvent;
@@ -422,6 +423,20 @@ export class SmartPasteManager implements Mountable {
   get isPreviewVisible(): boolean {
     const state = this.getState();
     return state === 'previewing' || state === 'uploading';
+  }
+
+  /**
+   * Check if smart paste is in an active/visible state
+   */
+  isVisible(): boolean {
+    return this.isPreviewVisible;
+  }
+
+  /**
+   * Cancel current smart paste operation
+   */
+  cancel(): void {
+    this.send({ type: 'CANCEL' });
   }
 
   /**

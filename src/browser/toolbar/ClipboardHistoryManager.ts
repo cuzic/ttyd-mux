@@ -137,7 +137,7 @@ export class ClipboardHistoryManager implements Mountable {
     if (!text.trim()) {
       return;
     }
-    if (this.history.length > 0 && this.history[0].text === text) {
+    if (this.history.length > 0 && this.history[0]?.text === text) {
       return;
     }
 
@@ -213,7 +213,7 @@ export class ClipboardHistoryManager implements Mountable {
     }
 
     if (this.history.length === 0) {
-      renderEmptyState(list, '履歴がありません', { id: 'tui-clipboard-history-empty' });
+      renderEmptyState(list as HTMLElement, '履歴がありません', { id: 'tui-clipboard-history-empty' });
       return;
     }
 

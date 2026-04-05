@@ -11,6 +11,7 @@ import { isMobileDevice } from '@/browser/shared/utils.js';
 import { createStorageManager, type StorageManager } from './StorageManager.js';
 
 export class FontSizeManager {
+  private config: TerminalUiConfig;
   private storage: StorageManager<number>;
   private defaultSize: number;
 

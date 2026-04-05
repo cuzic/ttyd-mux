@@ -290,6 +290,13 @@ export class QuoteManager implements Mountable {
   }
 
   /**
+   * Check if modal is visible
+   */
+  isVisible(): boolean {
+    return this.elements ? !this.elements.modal.classList.contains('hidden') : false;
+  }
+
+  /**
    * Switch tab
    */
   private switchTab(tab: QuoteTab): void {
@@ -327,7 +334,7 @@ export class QuoteManager implements Mountable {
       const matchingSession = this.claudeSessions.find(
         (s) => s.projectName === sessionName || s.projectPath.endsWith(`/${sessionName}`)
       );
-      this.selectedClaudeSession = matchingSession || this.claudeSessions[0];
+      this.selectedClaudeSession = matchingSession ?? this.claudeSessions[0] ?? null;
     }
 
     // Fetch all in parallel
@@ -528,7 +535,7 @@ export class QuoteManager implements Mountable {
         const meta = document.createElement('div');
         meta.className = 'tui-quote-item-meta';
         meta.textContent =
-          turn.editedFiles?.length > 0 ? `Edited: ${turn.editedFiles.join(', ')}` : 'Used tools';
+          turn.editedFiles && turn.editedFiles.length > 0 ? `Edited: ${turn.editedFiles.join(', ')}` : 'Used tools';
         content.appendChild(meta);
       }
 
@@ -571,7 +578,7 @@ export class QuoteManager implements Mountable {
       };
       const emptyDiv = document.createElement('div');
       emptyDiv.className = 'tui-quote-empty';
-      emptyDiv.textContent = emptyMessages[source];
+      emptyDiv.textContent = emptyMessages[source] ?? null;
       container.replaceChildren(emptyDiv);
       return;
     }
@@ -849,8 +856,8 @@ export class QuoteManager implements Mountable {
 
     // Allow Enter key to run
     // biome-ignore lint: cleaned up via Mountable lifecycle
-    input.addEventListener('keydown', async (e) => {
-      if (e.key === 'Enter' && this.repomixPath.trim()) {
+    inputEl.addEventListener('keydown', async (e: Event) => {
+      if ((e as KeyboardEvent).key === 'Enter' && this.repomixPath.trim()) {
         await this.runRepomix();
       }
     });
@@ -1009,7 +1016,7 @@ export class QuoteManager implements Mountable {
         this.plans.forEach((f) => this.selectedFilePaths.add(`plans:${f.path}`));
         break;
       case 'gitDiff':
-        if (this.gitDiff?.files.length > 0) {
+        if (this.gitDiff && this.gitDiff.files.length > 0) {
           this.selectedGitFiles = new Set(this.gitDiff.files.map((f) => f.path));
           this.selectFullDiff = false;
         }
@@ -1101,7 +1108,7 @@ export class QuoteManager implements Mountable {
       // Collect files
       if (this.selectedFilePaths.size > 0) {
         for (const key of this.selectedFilePaths) {
-          const [source, ...pathParts] = key.split(':');
+          const [source = '', ...pathParts] = key.split(':');
           const path = pathParts.join(':');
 
           const data = await fetchJSON<{
@@ -1186,9 +1193,9 @@ export class QuoteManager implements Mountable {
     assistantDiv.appendChild(assistantSpan);
     wrapper.appendChild(assistantDiv);
 
-    if (turn.hasToolUse || turn.editedFiles?.length > 0) {
+    if (turn.hasToolUse || (turn.editedFiles && turn.editedFiles.length > 0)) {
       const tools =
-        turn.editedFiles?.length > 0 ? `Edited: ${turn.editedFiles.join(', ')}` : 'Used tools';
+        turn.editedFiles && turn.editedFiles.length > 0 ? `Edited: ${turn.editedFiles.join(', ')}` : 'Used tools';
       const metaDiv = document.createElement('div');
       Object.assign(metaDiv.style, { color: '#888', fontSize: '9px', marginTop: '4px' });
       metaDiv.textContent = `🔧 ${tools}`;
@@ -1307,6 +1314,7 @@ export class QuoteManager implements Mountable {
 
     this.listScope.on(element, 'touchstart', (e: Event) => {
       const touch = (e as TouchEvent).touches[0];
+      if (!touch) return;
       touchX = touch.clientX;
       touchY = touch.clientY;
 
@@ -1327,6 +1335,7 @@ export class QuoteManager implements Mountable {
     this.listScope.on(element, 'touchmove', (e: Event) => {
       // Cancel if moved too far
       const touch = (e as TouchEvent).touches[0];
+      if (!touch) return;
       const dx = Math.abs(touch.clientX - touchX);
       const dy = Math.abs(touch.clientY - touchY);
       if (dx > 10 || dy > 10) {

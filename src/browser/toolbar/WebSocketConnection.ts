@@ -5,23 +5,7 @@
  * and provides methods for sending text data.
  */
 
-interface TerminalClient {
-  isConnected: boolean;
-  sendInput(data: string): void;
-  // File watcher methods
-  watchFile(path: string): void;
-  unwatchFile(path: string): void;
-  watchDir(path: string): void;
-  unwatchDir(path: string): void;
-  onFileChange(listener: (path: string, timestamp: number) => void): () => void;
-}
-
-// Extend window type for native terminal
-declare global {
-  interface Window {
-    __TERMINAL_CLIENT__?: TerminalClient;
-  }
-}
+// TerminalClientInterface and Window.__TERMINAL_CLIENT__ are declared in @/browser/shared/types.ts
 
 export class WebSocketConnection {
   /**

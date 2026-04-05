@@ -117,7 +117,7 @@ export class Scope implements Disposable {
     // LIFO order for proper dependency cleanup
     for (let i = this.disposables.length - 1; i >= 0; i--) {
       try {
-        this.disposables[i]();
+        this.disposables[i]!();
       } catch {
         // Ignore errors during cleanup
       }

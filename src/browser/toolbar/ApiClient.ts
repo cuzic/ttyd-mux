@@ -170,6 +170,9 @@ export interface ToolbarApiClient {
 
   // Share
   createShare(session: string, expiresIn: string): Promise<ShareLink>;
+
+  // Health
+  checkHealth(): Promise<boolean>;
 }
 
 /**
@@ -315,6 +318,16 @@ export function createApiClient(config: ApiClientConfig): ToolbarApiClient {
     );
   };
 
+  // Health
+  const checkHealth = async (): Promise<boolean> => {
+    try {
+      const response = await fetchFn(`${basePath}/api/health`, { signal });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  };
+
   return {
     uploadImages,
     listFiles,
@@ -323,6 +336,7 @@ export function createApiClient(config: ApiClientConfig): ToolbarApiClient {
     getVapidKey,
     subscribe,
     unsubscribe,
-    createShare
+    createShare,
+    checkHealth
   };
 }

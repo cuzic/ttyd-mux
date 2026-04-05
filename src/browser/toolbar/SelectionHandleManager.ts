@@ -150,7 +150,7 @@ export class SelectionHandleManager implements Mountable {
     this.container?.classList.add('hidden');
     this.copyBtn?.classList.add('hidden');
     this.selection = null;
-    this.terminal?.clearSelection();
+    this.terminal?.clearSelection?.();
   }
 
   /**
@@ -266,6 +266,7 @@ export class SelectionHandleManager implements Mountable {
 
     this.activeHandle = handle;
     const touch = e.touches[0];
+    if (!touch) return;
     const handleEl = handle === 'start' ? this.startHandle : this.endHandle;
 
     if (handleEl) {
@@ -287,6 +288,7 @@ export class SelectionHandleManager implements Mountable {
 
     e.preventDefault();
     const touch = e.touches[0];
+    if (!touch) return;
     const pos = this.screenToCell(
       touch.clientX - this.handleOffset.x,
       touch.clientY - this.handleOffset.y
@@ -506,6 +508,7 @@ export class SelectionHandleManager implements Mountable {
       // Find first non-URL character
       for (let col = searchStart; col < lineText.length; col++) {
         const char = lineText[col];
+        if (!char) continue;
         // Stop at whitespace or control characters
         if (/\s/.test(char) || char.charCodeAt(0) < 32) {
           urlEndRow = row;

@@ -90,7 +90,7 @@ export class KeyRouter {
    * @param scope - Scope for automatic cleanup
    */
   mount(scope: Scope): void {
-    scope.on(document, 'keydown', this.handle, { capture: true });
+    scope.on(document, 'keydown', (e: Event) => this.handle(e as KeyboardEvent), { capture: true });
   }
 }
 

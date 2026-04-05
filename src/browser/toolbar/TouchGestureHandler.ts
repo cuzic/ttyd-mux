@@ -46,6 +46,7 @@ export class TouchGestureHandler implements Mountable {
   private lastTapTime = 0;
   private scrollActive = false;
 
+  private touchStartPos: { x: number; y: number } | null = null;
   private scrollBtn: HTMLElement | null = null;
 
   // Edge swipe for session switcher
@@ -249,6 +250,7 @@ export class TouchGestureHandler implements Mountable {
         // Single finger touch with Scroll active -> enable scroll drag mode
         if (te.touches.length === 1 && this.scrollActive) {
           const touch = te.touches[0];
+          if (!touch) return;
           this.touchStartPos = { x: touch.clientX, y: touch.clientY };
           this.scrollLastY = touch.clientY;
           this.scrollTouchActive = true;
@@ -257,6 +259,7 @@ export class TouchGestureHandler implements Mountable {
         // Single finger touch with Alt active -> convert to mouse event for selection
         else if (te.touches.length === 1 && this.modifiers.isAltActive) {
           const touch = te.touches[0];
+          if (!touch) return;
           this.touchStartPos = { x: touch.clientX, y: touch.clientY };
           this.shiftTouchActive = true;
           te.preventDefault();
@@ -264,8 +267,9 @@ export class TouchGestureHandler implements Mountable {
         }
         // 2nd finger added -> cancel Shift/Scroll mode, allow pinch
         else if (te.touches.length === 2 && (this.shiftTouchActive || this.scrollTouchActive)) {
-          if (this.shiftTouchActive) {
-            this.dispatchMouseEvent('mouseup', te.touches[0], true);
+          const firstTouch = te.touches[0];
+          if (this.shiftTouchActive && firstTouch) {
+            this.dispatchMouseEvent('mouseup', firstTouch, true);
           }
           this.shiftTouchActive = false;
           this.scrollTouchActive = false;
@@ -275,6 +279,7 @@ export class TouchGestureHandler implements Mountable {
         // Track non-Shift/Scroll single touch for hint
         else if (te.touches.length === 1 && !this.modifiers.isAltActive && !this.scrollActive) {
           const touch = te.touches[0];
+          if (!touch) return;
           this.touchStartPos = { x: touch.clientX, y: touch.clientY };
         }
       },
@@ -290,6 +295,7 @@ export class TouchGestureHandler implements Mountable {
         if (te.touches.length === 1 && this.scrollTouchActive) {
           te.preventDefault();
           const touch = te.touches[0];
+          if (!touch) return;
           const deltaY = this.scrollLastY - touch.clientY;
 
           // Trigger scroll when threshold is reached
@@ -305,7 +311,9 @@ export class TouchGestureHandler implements Mountable {
         // Handle Shift selection mode
         else if (te.touches.length === 1 && this.shiftTouchActive) {
           te.preventDefault();
-          this.dispatchMouseEvent('mousemove', te.touches[0], true);
+          const moveTouch = te.touches[0];
+          if (!moveTouch) return;
+          this.dispatchMouseEvent('mousemove', moveTouch, true);
         }
         // Don't interfere with 2-finger gestures (pinch)
       },
@@ -325,6 +333,7 @@ export class TouchGestureHandler implements Mountable {
         // Shift selection mode ending
         else if (this.shiftTouchActive && te.touches.length === 0) {
           const touch = te.changedTouches[0];
+          if (!touch) return;
           this.dispatchMouseEvent('mouseup', touch, true);
           this.shiftTouchActive = false;
           this.touchStartPos = null;
@@ -338,8 +347,11 @@ export class TouchGestureHandler implements Mountable {
    * Get distance between two touch points
    */
   private getTouchDistance(touches: TouchList): number {
-    const dx = touches[0].clientX - touches[1].clientX;
-    const dy = touches[0].clientY - touches[1].clientY;
+    // Callers always check touches.length === 2 before calling
+    const t0 = touches[0]!;
+    const t1 = touches[1]!;
+    const dx = t0.clientX - t1.clientX;
+    const dy = t0.clientY - t1.clientY;
     return Math.sqrt(dx * dx + dy * dy);
   }
 
@@ -561,6 +573,7 @@ export class TouchGestureHandler implements Mountable {
 
         if (te.touches.length === 1) {
           const touch = te.touches[0];
+          if (!touch) return;
           const screenWidth = window.innerWidth;
 
           // Check if touch started from right edge
@@ -587,6 +600,7 @@ export class TouchGestureHandler implements Mountable {
 
         if (te.changedTouches.length === 1) {
           const touch = te.changedTouches[0];
+          if (!touch) return;
           const deltaX = this.edgeSwipeStartX - touch.clientX; // Positive = swipe left
           const deltaY = Math.abs(touch.clientY - this.edgeSwipeStartY);
 
@@ -630,14 +644,16 @@ export class TouchGestureHandler implements Mountable {
 
         // Single finger touch with Alt or Ctrl active -> enable scroll mode
         if (te.touches.length === 1) {
+          const modTouch = te.touches[0];
+          if (!modTouch) return;
           if (this.modifiers.isAltActive) {
             this.modifierScrollActive = true;
-            this.modifierScrollLastY = te.touches[0].clientY;
+            this.modifierScrollLastY = modTouch.clientY;
             this.modifierScrollMode = 'alt';
             te.preventDefault();
           } else if (this.modifiers.isCtrlActive) {
             this.modifierScrollActive = true;
-            this.modifierScrollLastY = te.touches[0].clientY;
+            this.modifierScrollLastY = modTouch.clientY;
             this.modifierScrollMode = 'ctrl';
             te.preventDefault();
           }
@@ -656,6 +672,7 @@ export class TouchGestureHandler implements Mountable {
         }
 
         const touch = te.touches[0];
+        if (!touch) return;
         const deltaY = this.modifierScrollLastY - touch.clientY;
 
         if (Math.abs(deltaY) >= ALT_SCROLL_THRESHOLD) {
@@ -746,6 +763,7 @@ export class TouchGestureHandler implements Mountable {
         }
 
         const touch = te.touches[0];
+        if (!touch) return;
         this.longPressStartPos = { x: touch.clientX, y: touch.clientY };
 
         // Start long press timer
@@ -765,6 +783,7 @@ export class TouchGestureHandler implements Mountable {
         // Cancel long press if moved too much before it triggered
         if (this.longPressTimer && this.longPressStartPos && te.touches.length === 1) {
           const touch = te.touches[0];
+          if (!touch) return;
           const dx = touch.clientX - this.longPressStartPos.x;
           const dy = touch.clientY - this.longPressStartPos.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
@@ -792,7 +811,7 @@ export class TouchGestureHandler implements Mountable {
 
           // Show selection handles if there's a selection
           const term = this.terminal.findTerminal();
-          if (term?.hasSelection() && this.selectionHandles) {
+          if (term?.hasSelection?.() && this.selectionHandles) {
             this.selectionHandles.setTerminal(term);
             this.selectionHandles.show();
           }

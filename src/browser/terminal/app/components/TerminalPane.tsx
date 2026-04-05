@@ -153,7 +153,7 @@ export const TerminalPane: FC<TerminalPaneProps> = ({
   }, [fit, containerRef]);
 
   return (
-    <div class="terminal-pane" style={styles.container}>
+    <div className="terminal-pane" style={styles.container}>
       {/* Loading overlay */}
       {isLoading && (
         <div style={styles.loading}>

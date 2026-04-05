@@ -36,6 +36,8 @@ export interface ClaudeBlockManagerOptions {
   onTurnComplete?: (turn: ClaudeTurn) => void;
   onSessionStart?: (sessionId: string) => void;
   onSessionEnd?: (sessionId: string) => void;
+  onFileOperation?: (filePath: string, toolName: string, turnId: string) => void;
+  onFileOperationResult?: (filePath: string, toolName: string, isError: boolean) => void;
 }
 
 // Message types from server

@@ -13,7 +13,14 @@ export interface Terminal {
   buffer: {
     active: TerminalBuffer;
   };
+  rows?: number;
+  cols?: number;
   getSelection(): string;
+  hasSelection?(): boolean;
+  getSelectionPosition?(): { start: { x: number; y: number }; end: { x: number; y: number } } | undefined;
+  clearSelection?(): void;
+  select?(column: number, row: number, length: number): void;
+  selectLines?(start: number, end: number): void;
   loadAddon(addon: unknown): void;
   onBell(callback: () => void): void;
   scrollLines(amount: number): void;
@@ -23,6 +30,7 @@ export interface Terminal {
 /** Terminal buffer interface */
 export interface TerminalBuffer {
   length: number;
+  viewportY?: number;
   getLine(index: number): TerminalLine | undefined;
 }
 
@@ -123,6 +131,7 @@ export interface ToolbarElements {
   downloadBtn: HTMLButtonElement;
   uploadBtn: HTMLButtonElement;
   previewBtn: HTMLButtonElement;
+  buttonsToggleBtn: HTMLButtonElement;
   // Share modal elements
   shareModal: HTMLElement;
   shareModalClose: HTMLButtonElement;
@@ -207,6 +216,18 @@ export type SmartPasteContentType =
 /** Pending upload item for preview - re-exported from toolbar */
 export type { PendingUpload } from '@/browser/toolbar/smartPasteMachine.js';
 
+/** Share modal elements */
+export interface ShareElements {
+  shareBtn: HTMLElement;
+  modal: HTMLElement;
+  modalClose: HTMLElement;
+  createBtn: HTMLElement;
+  resultSection: HTMLElement;
+  urlInput: HTMLInputElement;
+  copyBtn: HTMLElement;
+  qrBtn: HTMLElement;
+}
+
 /** Session switcher modal elements */
 export interface SessionSwitcherElements {
   modal: HTMLElement;
@@ -232,13 +253,25 @@ export interface SmartPasteElements {
   dropZone: HTMLElement;
 }
 
+/** Interface for the terminal client exposed on window */
+export interface TerminalClientInterface {
+  isConnected: boolean;
+  sendInput(data: string): void;
+  watchFile(path: string): void;
+  unwatchFile(path: string): void;
+  watchDir(path: string): void;
+  unwatchDir(path: string): void;
+  onFileChange(listener: (path: string, timestamp: number) => void): () => void;
+}
+
 /** Declare global window extensions */
 declare global {
   interface Window {
     __TERMINAL_UI_CONFIG__: TerminalUiConfig;
-    term?: Terminal;
+    __TERMINAL_CLIENT__?: TerminalClientInterface;
+    term: Terminal | null;
     socket?: WebSocket;
-    fitAddon?: FitAddon;
+    fitAddon: FitAddon | null;
     SearchAddon?: {
       SearchAddon: new () => SearchAddon;
     };

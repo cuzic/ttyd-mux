@@ -5,7 +5,10 @@
  * Enables loose coupling between managers.
  */
 
-import mitt, { type Emitter, type Handler, type WildcardHandler } from 'mitt';
+import mittModule, { type Emitter, type Handler, type WildcardHandler } from 'mitt';
+
+// mitt exports default function, but TypeScript module resolution may wrap it
+const mitt = mittModule as unknown as <Events extends Record<string, unknown>>(all?: unknown) => Emitter<Events>;
 
 /**
  * Toolbar event types with their payloads
@@ -47,6 +50,9 @@ export type ToolbarEvents = {
 
   // Selection state
   'selection:change': boolean;
+
+  // Toast notifications
+  'toast:show': { message: string; type: 'info' | 'error' | 'success' };
 
   // Errors
   error: Error;
