@@ -3,7 +3,9 @@ import { join } from 'node:path';
 import { getCurrentConfig, initConfigManager } from '@/core/config/config-manager.js';
 import { clearDaemonState, getStateDir, setDaemonState } from '@/core/config/state.js';
 import type { Config } from '@/core/config/types.js';
+import { createServices } from '@/bootstrap/service-factory.js';
 import { InMemoryCookieSessionStore } from '@/core/server/auth/cookie-session.js';
+import { NativeSessionManager } from '@/core/server/session-manager.js';
 import { createNativeTerminalServer, type NativeTerminalServer } from '@/core/server/server.js';
 import { createLogger, setLogFile } from '@/utils/logger.js';
 import { captureException, initSentry } from '@/utils/sentry.js';
@@ -85,13 +87,18 @@ async function startNativeTerminalDaemon(
     log.info('Auth session store initialized');
   }
 
-  // Create native terminal server (starts both TCP and Unix socket listeners)
+  // Bootstrap feature services, then create the server
+  const sessionManager = new NativeSessionManager(config);
+  const services = createServices(config, sessionManager);
+
   let nativeServer: NativeTerminalServer;
   try {
     nativeServer = createNativeTerminalServer({
       config,
       getConfig: getCurrentConfig,
-      cookieSessionStore
+      sessionManager,
+      cookieSessionStore,
+      ...services
     });
   } catch (error) {
     log.error(`Failed to start native terminal server: ${error}`);

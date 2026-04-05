@@ -5,20 +5,16 @@
  * All routes, middleware, and WebSocket handlers are registered in the Elysia app.
  */
 
-import { existsSync, unlinkSync } from 'node:fs';
-import { getAllPushSubscriptions, getApiSocketPath, getStateDir } from '@/core/config/state.js';
+import { chmodSync, existsSync, unlinkSync } from 'node:fs';
+import { getApiSocketPath, getStateDir } from '@/core/config/state.js';
 import type { Config } from '@/core/config/types.js';
 import { OtpManager } from '@/core/server/auth/otp-manager.js';
 import { createElysiaApp } from '@/core/server/elysia/app.js';
 import { rateLimiterPlugin } from '@/core/server/elysia/middleware/rate-limiter.js';
 import { NativeSessionManager } from '@/core/server/session-manager.js';
-import { createCommandExecutorManager } from '@/core/terminal/command-executor-manager.js';
-import { AgentTimelineService } from '@/features/agent-timeline/server/timeline-service.js';
-import { createBlockEventEmitter } from '@/features/blocks/server/block-event-emitter.js';
-import { createBlockStore } from '@/features/blocks/server/block-store.js';
-import { createRedactor } from '@/features/blocks/server/output-redactor.js';
-import { createNotificationSender } from '@/features/notifications/server/sender.js';
-import { loadOrGenerateVapidKeys } from '@/features/notifications/server/vapid.js';
+import type { CommandExecutorManager } from '@/core/terminal/command-executor-manager.js';
+import type { AgentTimelineService } from '@/features/agent-timeline/server/timeline-service.js';
+import type { BlockEventEmitter } from '@/features/blocks/server/block-event-emitter.js';
 import { createLogger } from '@/utils/logger.js';
 
 const log = createLogger('native-server');
@@ -26,8 +22,12 @@ const log = createLogger('native-server');
 export interface NativeTerminalServerOptions {
   config: Config;
   getConfig: () => Config;
+  sessionManager?: NativeSessionManager;
   cookieSessionStore?: import('@/core/server/auth/cookie-session.js').CookieSessionStore | null;
   shareManager?: import('@/features/share/server/share-manager.js').ShareManager | null;
+  timelineService: AgentTimelineService;
+  executorManager: CommandExecutorManager;
+  blockEventEmitter: BlockEventEmitter;
 }
 
 export interface NativeTerminalServer {
@@ -42,49 +42,8 @@ export interface NativeTerminalServer {
 export function createNativeTerminalServer(
   options: NativeTerminalServerOptions
 ): NativeTerminalServer {
-  const { config } = options;
-  const sessionManager = new NativeSessionManager(config);
-
-  // Initialize push notification sender for agent error events
-  const stateDir = getStateDir();
-  const vapidKeys = loadOrGenerateVapidKeys(stateDir);
-  const contactEmail = config.notifications?.contact_email ?? 'webmaster@localhost';
-  const notificationSender = createNotificationSender(vapidKeys, contactEmail, {
-    getSubscriptions: () => getAllPushSubscriptions(),
-    getSubscriptionsForSession: (sessionName) =>
-      getAllPushSubscriptions().filter((s) => !s.sessionName || s.sessionName === sessionName),
-    removeSubscription: (_id) => {
-      // Removal handled by notifications plugin
-    }
-  });
-
-  // Initialize agent timeline service for SSE streaming
-  const timelineService = new AgentTimelineService({
-    sessionManager,
-    onErrorEvent: (event) => {
-      notificationSender
-        .sendNotification({
-          pattern: {
-            regex: '',
-            message: `[bunterm] Agent Error: ${event.agentName}`
-          },
-          matchedText: event.summary,
-          sessionName: event.agentName,
-          timestamp: event.timestamp
-        })
-        .catch((error) => {
-          log.error(`Failed to send error notification: ${String(error)}`);
-        });
-    }
-  });
-  // Initialize command executor and block event emitter
-  const redactor = createRedactor({ enabled: true });
-  const blockStore = createBlockStore(undefined, redactor);
-  const blockEventEmitter = createBlockEventEmitter();
-  const executorManager = createCommandExecutorManager(sessionManager, {
-    blockStore,
-    eventEmitter: blockEventEmitter
-  });
+  const { config, timelineService, executorManager, blockEventEmitter } = options;
+  const sessionManager = options.sessionManager ?? new NativeSessionManager(config);
 
   // Initialize OTP manager for browser authentication
   const otpManager = config.security?.auth_enabled ? new OtpManager() : null;
@@ -118,10 +77,26 @@ export function createNativeTerminalServer(
       // Ignore cleanup errors
     }
   }
+  // Restrict state directory to owner only
+  const stateDir = getStateDir();
+  try {
+    chmodSync(stateDir, 0o700);
+  } catch {
+    log.warn('Failed to set permissions on state directory');
+  }
+
   const unixServer = Bun.serve({
     unix: apiSocketPath,
     fetch: app.fetch
   });
+
+  // Restrict API socket to owner only (defense in depth)
+  try {
+    chmodSync(apiSocketPath, 0o600);
+  } catch {
+    log.warn('Failed to set permissions on API socket');
+  }
+
   log.info(`Unix socket API listening: ${apiSocketPath}`);
 
   return {
