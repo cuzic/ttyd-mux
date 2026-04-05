@@ -57,7 +57,7 @@ describe('createClient (Eden Treaty)', () => {
       fetch: app.fetch
     });
 
-    client = createClient(`http://localhost:${server.port}`);
+    client = createClient({ baseUrl: `http://localhost:${server.port}` });
   });
 
   afterAll(() => {

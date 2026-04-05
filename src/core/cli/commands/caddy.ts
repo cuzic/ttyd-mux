@@ -18,6 +18,7 @@ export interface CaddyOptions {
   hostname?: string;
   adminApi?: string;
   config?: string;
+  caddySecurity?: boolean;
 }
 
 function getHostname(options: CaddyOptions, config: Config): string | undefined {
@@ -33,8 +34,30 @@ export function caddySnippetCommand(options: CaddyOptions): void {
   const config = loadConfig(options.config);
   const basePath = config.base_path;
   const daemonPort = config.daemon_port;
+  const useCaddySecurity = options.caddySecurity ?? false;
 
   console.log('# Add this to your Caddyfile:');
+
+  if (useCaddySecurity) {
+    console.log('');
+    console.log('# caddy-security: exclude WebSocket upgrades from the authorize check');
+    console.log('@untrusted {');
+    console.log('    not header Upgrade websocket');
+    console.log('}');
+    console.log('authorize with @untrusted');
+  }
+
+  console.log('');
+  console.log('# WebSocket bypass – must come before any authorize directive');
+  console.log('@ws_upgrade {');
+  console.log('    header Connection *Upgrade*');
+  console.log('    header Upgrade websocket');
+  console.log('}');
+  console.log('handle @ws_upgrade {');
+  console.log(`    reverse_proxy 127.0.0.1:${daemonPort}`);
+  console.log('}');
+
+  console.log('');
   console.log(`handle_path ${basePath}/* {`);
   console.log(`  reverse_proxy localhost:${daemonPort}`);
   console.log('}');
@@ -139,12 +162,6 @@ export async function caddyRemoveCommand(options: CaddyOptions): Promise<void> {
   } catch (error) {
     throw CliError.from(error, 'Caddy remove failed');
   }
-}
-
-// Sync command is no longer needed (native terminal uses proxy mode)
-export function caddySyncCommand(_options: CaddyOptions): void {
-  console.log('Note: "caddy sync" is deprecated and no longer needed.');
-  console.log('Native terminal uses proxy mode; routes are managed via "caddy setup/remove".');
 }
 
 async function connectToCaddyOrExit(adminApi: string): Promise<CaddyClient> {

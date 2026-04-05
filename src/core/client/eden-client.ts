@@ -17,11 +17,9 @@ const clientCache = new Map<string, ReturnType<typeof treaty<App>>>();
 
 /**
  * Create or retrieve a cached Eden Treaty client for the bunterm daemon API.
- * Accepts a DaemonConnection (preferred) or a plain URL string (legacy).
  */
-export function createClient(connection: DaemonConnection | string) {
-  const conn: DaemonConnection =
-    typeof connection === 'string' ? { baseUrl: connection } : connection;
+export function createClient(connection: DaemonConnection) {
+  const conn = connection;
   const cacheKey = conn.unix ?? conn.baseUrl;
 
   let client = clientCache.get(cacheKey);

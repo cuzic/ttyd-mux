@@ -6,8 +6,7 @@ import {
   caddyRemoveCommand,
   caddySetupCommand,
   caddySnippetCommand,
-  caddyStatusCommand,
-  caddySyncCommand
+  caddyStatusCommand
 } from '@/core/cli/commands/caddy.js';
 import { connectCommand } from '@/core/cli/commands/connect.js';
 import { copyCommand } from '@/core/cli/commands/copy.js';
@@ -185,14 +184,6 @@ caddy
   .option('--admin-api <url>', 'Caddy Admin API URL')
   .option('-c, --config <path>', 'Config file path')
   .action(wrapCommand((options) => caddyRemoveCommand(options)));
-
-caddy
-  .command('sync')
-  .description('Sync session routes with Caddy (static proxy mode)')
-  .option('--hostname <hostname>', 'Server hostname (or set in config.yaml)')
-  .option('--admin-api <url>', 'Caddy Admin API URL')
-  .option('-c, --config <path>', 'Config file path')
-  .action(wrapCommand((options) => caddySyncCommand(options)));
 
 caddy
   .command('status')
