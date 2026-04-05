@@ -17,8 +17,6 @@ import type { InputHandler } from './InputHandler.js';
 export class TerminalController {
   private config: TerminalUiConfig;
   private isMobile: boolean;
-  private reinitTimer: ReturnType<typeof setTimeout> | null = null;
-
   constructor(config: TerminalUiConfig) {
     this.config = config;
     this.isMobile = isMobileDevice();
@@ -233,12 +231,14 @@ export class TerminalController {
    * Schedule a debounced reinitialize (300ms). Optionally run a callback after reinit.
    */
   scheduleReinit(afterReinit?: () => void): void {
-    if (this.reinitTimer) clearTimeout(this.reinitTimer);
-    this.reinitTimer = setTimeout(() => {
-      this.reinitTimer = null;
-      this.reinitialize();
-      afterReinit?.();
-    }, 300);
+    const terminalClient = window.__TERMINAL_CLIENT__ as
+      | { scheduleReinit?: () => void }
+      | undefined;
+
+    if (terminalClient?.scheduleReinit) {
+      terminalClient.scheduleReinit();
+      if (afterReinit) setTimeout(afterReinit, 350);
+    }
   }
 
   /**
