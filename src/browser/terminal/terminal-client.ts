@@ -298,17 +298,12 @@ export class TerminalClient implements Disposable {
       this.eventListeners.defer(() => vv.removeEventListener('scroll', scheduleFit));
     }
 
-    // Reconnect when tab becomes visible again (mobile sleep recovery)
+    // Reload page when tab becomes visible and connection is lost (mobile sleep recovery)
     const handleVisibilityChange = () => {
       if (document.hidden) return;
       if (this.ws?.readyState === WebSocket.OPEN) return;
-      // Reset retry counter and reconnect immediately
-      this.reconnectAttempts = 0;
-      if (this.reconnectTimer !== null) {
-        window.clearTimeout(this.reconnectTimer);
-        this.reconnectTimer = null;
-      }
-      this.scheduleReconnect();
+      // Connection lost while away — reload is the most reliable recovery
+      location.reload();
     };
     // biome-ignore lint: cleaned up via disposables
     document.addEventListener('visibilitychange', handleVisibilityChange);
