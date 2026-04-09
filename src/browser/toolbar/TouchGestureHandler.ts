@@ -38,6 +38,7 @@ export class TouchGestureHandler implements Mountable {
   private terminal: TerminalController;
   private input: InputHandler;
   private modifiers: ModifierKeyState;
+  private touchStartPos: { x: number; y: number } | null = null;
   private shiftTouchActive = false;
   private scrollTouchActive = false;
   private scrollLastY = 0;

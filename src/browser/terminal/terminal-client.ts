@@ -153,7 +153,7 @@ export class TerminalClient implements Disposable {
       scrollback: 10000,
       autoReconnect: true,
       reconnectDelay: 2000,
-      maxReconnectAttempts: 5,
+      maxReconnectAttempts: 30,
       enableBlockUI: true,
       enablePathLinks: true,
       filterMouseReporting: false, // Disabled by default - enable if shell shows garbage on mouse move
@@ -297,6 +297,24 @@ export class TerminalClient implements Disposable {
       vv.addEventListener('scroll', scheduleFit, { passive: true });
       this.eventListeners.defer(() => vv.removeEventListener('scroll', scheduleFit));
     }
+
+    // Reconnect when tab becomes visible again (mobile sleep recovery)
+    const handleVisibilityChange = () => {
+      if (document.hidden) return;
+      if (this.ws?.readyState === WebSocket.OPEN) return;
+      // Reset retry counter and reconnect immediately
+      this.reconnectAttempts = 0;
+      if (this.reconnectTimer !== null) {
+        window.clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
+      this.scheduleReconnect();
+    };
+    // biome-ignore lint: cleaned up via disposables
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    this.eventListeners.defer(() =>
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    );
 
     // Wait for fonts to load before fitting (font metrics can change)
     if (document.fonts?.ready) {
@@ -858,7 +876,7 @@ export class TerminalClient implements Disposable {
     }
 
     this.reconnectAttempts++;
-    const delay = this.options.reconnectDelay * this.reconnectAttempts;
+    const delay = Math.min(this.options.reconnectDelay * this.reconnectAttempts, 10000);
     this.terminal?.write(
       `\r\n\x1b[33m[Reconnecting... attempt ${this.reconnectAttempts}]\x1b[0m\r\n`
     );

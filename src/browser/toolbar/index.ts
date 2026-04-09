@@ -6,7 +6,7 @@
  */
 
 import { toolbarEvents } from '@/browser/shared/events.js';
-import { KeyPriority } from '@/browser/shared/key-router.js';
+import { KeyPriority, KeyRouter } from '@/browser/shared/key-router.js';
 import { Scope } from '@/browser/shared/lifecycle.js';
 import { RepeatButtonHandler } from '@/browser/shared/RepeatButtonHandler.js';
 import type {
@@ -74,6 +74,7 @@ class ToolbarApp {
   private selectionHandles: SelectionHandleManager;
   private stateTracker: TerminalStateTracker;
   private miniBar: MiniBar;
+  private keyRouter = new KeyRouter();
 
   private isMobile: boolean;
 
@@ -560,7 +561,7 @@ class ToolbarApp {
 
     // Priority: CRITICAL (200) - SmartPaste preview modal Escape
     scope.add(
-      keyRouter.register((e) => {
+      keyRouter.register((e: KeyboardEvent) => {
         // Skip IME composition
         if (e.isComposing) {
           return false;
@@ -576,7 +577,7 @@ class ToolbarApp {
 
     // Priority: MODAL_HIGH (100) - Snippet modal Escape
     scope.add(
-      keyRouter.register((e) => {
+      keyRouter.register((e: KeyboardEvent) => {
         if (e.isComposing) {
           return false;
         }
@@ -591,7 +592,7 @@ class ToolbarApp {
 
     // Priority: MODAL_HIGH (100) - File transfer modal Escape
     scope.add(
-      keyRouter.register((e) => {
+      keyRouter.register((e: KeyboardEvent) => {
         if (e.isComposing) {
           return false;
         }
@@ -606,7 +607,7 @@ class ToolbarApp {
 
     // Priority: MODAL_HIGH (100) - Share modal Escape
     scope.add(
-      keyRouter.register((e) => {
+      keyRouter.register((e: KeyboardEvent) => {
         if (e.isComposing) {
           return false;
         }
@@ -621,7 +622,7 @@ class ToolbarApp {
 
     // Priority: MODAL (80) - Quote modal Escape
     scope.add(
-      keyRouter.register((e) => {
+      keyRouter.register((e: KeyboardEvent) => {
         if (e.isComposing) {
           return false;
         }
@@ -636,7 +637,7 @@ class ToolbarApp {
 
     // Priority: PANE (60) - Preview pane Escape
     scope.add(
-      keyRouter.register((e) => {
+      keyRouter.register((e: KeyboardEvent) => {
         if (e.isComposing) {
           return false;
         }
@@ -651,7 +652,7 @@ class ToolbarApp {
 
     // Priority: PANE (60) - Selection handles Escape
     scope.add(
-      keyRouter.register((e) => {
+      keyRouter.register((e: KeyboardEvent) => {
         if (e.isComposing) {
           return false;
         }
@@ -666,7 +667,7 @@ class ToolbarApp {
 
     // Priority: SEARCH (40) - Search bar Ctrl+Shift+F toggle
     scope.add(
-      keyRouter.register((e) => {
+      keyRouter.register((e: KeyboardEvent) => {
         // Modifier shortcuts don't need isComposing check
         if (e.key === 'F' && e.ctrlKey && e.shiftKey && !e.altKey) {
           e.preventDefault();
@@ -679,7 +680,7 @@ class ToolbarApp {
 
     // Priority: SEARCH (40) - Search bar Escape
     scope.add(
-      keyRouter.register((e) => {
+      keyRouter.register((e: KeyboardEvent) => {
         if (e.isComposing) {
           return false;
         }
@@ -694,7 +695,7 @@ class ToolbarApp {
 
     // Priority: GLOBAL (0) - Ctrl+; toggle toolbar
     scope.add(
-      keyRouter.register((e) => {
+      keyRouter.register((e: KeyboardEvent) => {
         if (e.key === ';' && e.ctrlKey && !e.altKey && !e.shiftKey) {
           e.preventDefault();
           this.toggleToolbar();
@@ -706,7 +707,7 @@ class ToolbarApp {
 
     // Priority: GLOBAL (0) - Ctrl+K toggle session switcher
     scope.add(
-      keyRouter.register((e) => {
+      keyRouter.register((e: KeyboardEvent) => {
         if (e.key === 'k' && e.ctrlKey && !e.altKey && !e.shiftKey) {
           e.preventDefault();
           this.sessionSwitcher.toggle();
@@ -718,7 +719,7 @@ class ToolbarApp {
 
     // Priority: GLOBAL (0) - Alt+V smart paste
     scope.add(
-      keyRouter.register((e) => {
+      keyRouter.register((e: KeyboardEvent) => {
         if (e.altKey && !e.ctrlKey && !e.shiftKey && e.key === 'v') {
           e.preventDefault();
           this.smartPaste.smartPaste();
@@ -730,7 +731,7 @@ class ToolbarApp {
 
     // Priority: GLOBAL (0) - Ctrl+Shift+C copy selection
     scope.add(
-      keyRouter.register((e) => {
+      keyRouter.register((e: KeyboardEvent) => {
         if (e.ctrlKey && e.shiftKey && e.key === 'C') {
           e.preventDefault();
           this.terminal.copySelection().then((success) => {
@@ -753,7 +754,7 @@ class ToolbarApp {
 
     // Priority: GLOBAL (0) - Ctrl+Shift+V paste
     scope.add(
-      keyRouter.register((e) => {
+      keyRouter.register((e: KeyboardEvent) => {
         if (e.ctrlKey && e.shiftKey && e.key === 'V') {
           e.preventDefault();
           this.terminal.paste(this.input, this.clipboardHistory);
@@ -765,7 +766,7 @@ class ToolbarApp {
 
     // Priority: GLOBAL (0) - Ctrl+Shift+Q quote modal
     scope.add(
-      keyRouter.register((e) => {
+      keyRouter.register((e: KeyboardEvent) => {
         if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'q') {
           e.preventDefault();
           this.quote.toggle();
@@ -777,7 +778,7 @@ class ToolbarApp {
 
     // Priority: GLOBAL (0) - Escape in toolbar input
     scope.add(
-      keyRouter.register((e) => {
+      keyRouter.register((e: KeyboardEvent) => {
         if (e.isComposing) {
           return false;
         }
